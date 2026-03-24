@@ -2,6 +2,12 @@
 
 Professional surveys and inspections of M/Y Becoming.
 
+## Baseline Survey
+
+**January 2026 Marine Survey** - This comprehensive survey represents "ground zero" for the vessel. It documents the condition of M/Y Becoming at the time of purchase and serves as the baseline reference point for all subsequent improvements, maintenance, and system upgrades.
+
+All changes to the vessel are measured against this initial state.
+
 ## Organization
 
 Surveys are organized by type and date:

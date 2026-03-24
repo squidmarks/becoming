@@ -1,6 +1,19 @@
-# M/Y Becoming - Digital Infrastructure
+# M/Y Becoming - AI-Accessible Vessel
 
 This repository contains all software, configuration, and documentation for the 48' Jefferson motor yacht *Becoming*.
+
+## Mission: AI-Accessible Boat
+
+The primary goal of this project is to create an **AI-accessible vessel** where artificial intelligence can:
+- **Understand** the boat's systems through comprehensive documentation
+- **Monitor** real-time state via standardized data interfaces (NMEA2000, SignalK)
+- **Assist** with operation, maintenance planning, and troubleshooting
+- **Advise** on system optimization and upgrades
+- **Learn** from the boat's history through git-tracked evolution
+
+This repository serves dual purposes:
+1. **Contextual Knowledge Base** - Complete documentation for AI agents to understand the vessel
+2. **Living System Record** - Current state and historical evolution of all systems
 
 ## Philosophy
 
@@ -9,7 +22,7 @@ This monorepo serves as the complete digital record of *Becoming*'s systems, usi
 - System configurations and changes
 - Maintenance activities
 - Voyage records
-- AI-assisted monitoring and operations
+- AI-assisted operations and insights
 
 ## Repository Structure
 
@@ -77,13 +90,48 @@ If the Raspberry Pi needs to be rebuilt from scratch:
 2. Install applications following instructions in each `apps/*/README.md`
 3. Restore SignalK configuration from `apps/signalk/`
 
-## Future Plans
+## AI Integration Architecture
 
-- AI-assisted monitoring and anomaly detection
-- Predictive maintenance scheduling
-- Automated voyage logging
-- Smart energy management
-- Advanced navigation assistance
+### Data Backbone
+- **NMEA2000 (CAN bus)** - Physical layer connecting all marine systems
+- **SignalK Server** - Normalized data hub (vessels.self namespace)
+- **MQTT** - Message bus for custom sensors and actuators
+- **MCP Server** (planned) - AI access layer for real-time boat state
+
+### AI Access Layers
+
+**Layer 1: Repository Context**
+- This repository provides complete system knowledge to AI agents
+- Documentation, schematics, procedures, and history
+- Ground truth established by initial survey (January 2026)
+- Evolution tracked through git commits
+
+**Layer 2: Real-Time Data**
+- SignalK provides normalized marine data in standard format
+- All systems publish to unified namespace (navigation, electrical, propulsion, etc.)
+- RESTful API and WebSocket streaming for real-time access
+- MCP server (future) will expose boat state to AI agents
+
+**Layer 3: Control Interface** (future)
+- Write access to configurable systems (autopilot, inverter, etc.)
+- Safety-bounded control with human oversight
+- Audit logging of all AI-initiated actions
+
+## Current AI Capabilities
+
+- Real-time monitoring of all connected systems
+- Historical analysis via git repository
+- Anomaly detection in electrical system
+- Documentation-assisted troubleshooting
+- Context-aware maintenance recommendations
+
+## Future AI Development
+
+- Predictive maintenance using historical data
+- Automated voyage planning and weather routing
+- Smart energy management and optimization
+- Natural language interface for boat operations
+- Integration with external marine data sources
 
 ---
 
