@@ -1329,7 +1329,9 @@
       }
     });
 
-    const eventSource = new EventSource('/events');
+    // Use base-aware path for SSE when served through nginx at /inverter/
+    const basePath = window.location.pathname.startsWith('/inverter') ? '/inverter' : '';
+    const eventSource = new EventSource(basePath + '/events');
     let lastUpdate = Date.now();
 
     eventSource.onmessage = (event) => {
