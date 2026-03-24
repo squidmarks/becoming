@@ -13,11 +13,17 @@ Nginx serves as the HTTP reverse proxy for all vessel web applications, providin
 
 ```
 Port 80 (nginx) → Routes by path:
-  ├─ /              → Vessel Hub (port 8080)
-  ├─ /signalk/      → SignalK Server (port 3100)
+  ├─ /              → Vessel Hub (static site)
   ├─ /inverter/     → Inverter Monitor (port 3000)
   └─ /ais/          → AIS-catcher (port 8100)
+
+Port 3100 (direct) → SignalK Server
+  └─ Cannot be proxied - requires direct port access
 ```
+
+### Why SignalK is Direct Access
+
+SignalK's web interface hardcodes API paths (e.g., `/v1/api/`, `/admin/`) in its JavaScript and cannot be served under a subpath like `/signalk/`. Attempts to proxy it result in broken functionality. Therefore, SignalK must be accessed directly on port 3100.
 
 ## What nginx Does NOT Route
 
@@ -58,32 +64,27 @@ See `becoming-hub.conf` for the complete nginx configuration.
 ## Port Changes
 
 When nginx is deployed:
-- **SignalK moves**: Port 80 → Port 3100 (internal only, proxied at /signalk/)
-- **Inverter Monitor**: Stays on port 3000 (internal only, proxied at /inverter/)
-- **AIS-catcher**: Stays on port 8100 (internal only, proxied at /ais/)
-- **Vessel Hub**: New on port 8080 (internal only, proxied at /)
+- **SignalK**: Port 80 → Port 3100 (direct access required, not proxied)
+- **Inverter Monitor**: Stays on port 3000 (proxied at /inverter/)
+- **AIS-catcher**: Stays on port 8100 (proxied at /ais/)
+- **Vessel Hub**: Static site served by nginx at /
 
 ## Access URLs
 
 After nginx deployment:
-- **Vessel Hub:** http://becoming-hub/
-- **SignalK:** http://becoming-hub/signalk/
-- **Inverter Monitor:** http://becoming-hub/inverter/
-- **AIS Viewer:** http://becoming-hub/ais/
+- **Vessel Hub:** http://becoming-hub/ (nginx proxied)
+- **SignalK:** http://becoming-hub:3100 (direct port access)
+- **Inverter Monitor:** http://becoming-hub/inverter/ (nginx proxied)
+- **AIS Viewer:** http://becoming-hub/ais/ (nginx proxied)
 
 ### SignalK Webapps
 
-SignalK plugins that provide web interfaces are automatically accessible through the `/signalk/` path:
-- **Freeboard-SK:** http://becoming-hub/signalk/@signalk/freeboard-sk/
-- **KIP Dashboard:** http://becoming-hub/signalk/@signalk/kip/
-- **SailGauge:** http://becoming-hub/signalk/@signalk/sailgauge/
+SignalK plugins that provide web interfaces must also be accessed via direct port:
+- **Freeboard-SK:** http://becoming-hub:3100/@signalk/freeboard-sk/
+- **KIP Dashboard:** http://becoming-hub:3100/@signalk/kip/
+- **SailGauge:** http://becoming-hub:3100/@signalk/sailgauge/
 
-These work because nginx's `sub_filter` directive rewrites HTML asset paths to preserve the `/signalk/` prefix.
-
-Direct port access still works for debugging:
-- http://becoming-hub:3100 (SignalK)
-- http://becoming-hub:3000 (Inverter)
-- http://becoming-hub:8100 (AIS)
+**Note:** Install plugins via SignalK Admin → Appstore before accessing them.
 
 ## Troubleshooting
 
