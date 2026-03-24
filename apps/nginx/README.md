@@ -81,10 +81,10 @@ After nginx deployment:
 
 SignalK plugins that provide web interfaces must also be accessed via direct port:
 - **Freeboard-SK:** http://becoming-hub:3100/@signalk/freeboard-sk/
-- **KIP Dashboard:** http://becoming-hub:3100/@signalk/kip/
+- **KIP Dashboard:** http://becoming-hub:3100/@mxtommy/kip/#/
 - **SailGauge:** http://becoming-hub:3100/@signalk/sailgauge/
 
-**Note:** Install plugins via SignalK Admin → Appstore before accessing them.
+**Note:** Install plugins via SignalK Admin → Appstore before accessing them. Package names vary by plugin.
 
 ## Troubleshooting
 
