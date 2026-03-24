@@ -71,6 +71,15 @@ After nginx deployment:
 - **Inverter Monitor:** http://becoming-hub/inverter/
 - **AIS Viewer:** http://becoming-hub/ais/
 
+### SignalK Webapps
+
+SignalK plugins that provide web interfaces are automatically accessible through the `/signalk/` path:
+- **Freeboard-SK:** http://becoming-hub/signalk/@signalk/freeboard-sk/
+- **KIP Dashboard:** http://becoming-hub/signalk/@signalk/kip/
+- **SailGauge:** http://becoming-hub/signalk/@signalk/sailgauge/
+
+These work because nginx's `sub_filter` directive rewrites HTML asset paths to preserve the `/signalk/` prefix.
+
 Direct port access still works for debugging:
 - http://becoming-hub:3100 (SignalK)
 - http://becoming-hub:3000 (Inverter)

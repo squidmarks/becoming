@@ -15,7 +15,17 @@ The central landing page and unified dashboard for M/Y Becoming, providing an at
 - Future: API endpoint for MCP server (AI access layer)
 - Aggregates data from SignalK, inverter, AIS for unified AI context
 
-## Architecture
+## Current Status
+
+**Static Landing Page (Phase 0)** - Currently deployed as a static HTML page providing:
+- Links to primary systems (SignalK, Inverter, AIS)
+- Links to SignalK webapps (Freeboard-SK, KIP, SailGauge)
+- Beautiful, responsive design
+- Served directly by nginx (no backend yet)
+
+Location: `/var/www/vessel-hub/index.html`
+
+## Future Architecture
 
 ```
 Vessel Hub (Port 8080, internal only)
@@ -65,9 +75,18 @@ Vessel Hub (Port 8080, internal only)
   - Uptime
 
 ### Quick Links
+
+**Primary Systems:**
 - **SignalK** → /signalk/ (Full marine data interface)
 - **Inverter** → /inverter/ (Detailed power monitoring)
 - **AIS** → /ais/ (Vessel tracking map)
+
+**Navigation & Monitoring (SignalK webapps):**
+- **Freeboard-SK** → /signalk/@signalk/freeboard-sk/ (Chart plotter)
+- **KIP Dashboard** → /signalk/@signalk/kip/ (Customizable displays)
+- **SailGauge** → /signalk/@signalk/sailgauge/ (Analog instruments)
+
+*Note: SignalK webapps require their respective plugins to be installed in SignalK. They work automatically through the nginx proxy once installed.*
 
 ## Technology Stack
 
@@ -85,10 +104,17 @@ Vessel Hub (Port 8080, internal only)
   - Inverter: `http://localhost:3000/api/data`
   - AIS: `http://localhost:8100/` (or SignalK vessels)
 
-## Installation
+## Deployment
 
-[To be added when implemented]
+**Current (Static Page):**
+```bash
+# Update static landing page
+cd ~/becoming
+git pull
+sudo cp apps/vessel-hub/index.html /var/www/vessel-hub/index.html
+```
 
+**Future (Full App):**
 ```bash
 cd /home/geoff/becoming/apps/vessel-hub
 npm install
