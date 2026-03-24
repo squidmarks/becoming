@@ -19,12 +19,22 @@ becoming/
 │   ├── inverter-monitor/   # Sungold 6.5kW inverter monitoring & control
 │   ├── ais-receiver/       # AIS reception via RTL-SDR
 │   └── signalk/            # SignalK plugins and extensions
-├── docs/              # Technical documentation
-│   ├── boat/               # Vessel specifications and systems
-│   ├── setup/              # Installation and recovery procedures
-│   └── maintenance/        # Maintenance logs and procedures
-└── logs/              # Ship's log
-    └── voyages/            # Voyage records and significant events
+├── systems/           # Living technical documentation (current state)
+│   ├── electrical/         # Power systems, inverter, batteries
+│   ├── propulsion/         # Engines, fuel, transmissions
+│   ├── navigation/         # Electronics, instruments, networks
+│   ├── plumbing/           # Water, waste, AC, heating
+│   ├── mechanical/         # Steering, anchoring, windlass
+│   └── hvac/               # Climate control
+├── docs/              # Reference documentation
+│   ├── manuals/            # Equipment manuals and PDFs
+│   ├── procedures/         # Operating procedures and checklists
+│   ├── setup/              # Infrastructure setup guides
+│   └── vessel-specs.md     # Vessel specifications
+└── logs/              # Ship's log (chronological events)
+    ├── voyages/            # Voyage records
+    ├── maintenance/        # Maintenance activities
+    └── upgrades/           # System upgrades and modifications
 ```
 
 ## Vessel Information
