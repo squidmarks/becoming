@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sungold Inverter Monitor - M/Y Jefferson 48</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --navy: #2a2a2a;
+      --dark-navy: #1a1a1a;
+      --blue: #1a4e9c;
+      --light-blue: #3c7dce;
+      --accent: #3c7dce;
+      --green: #22c55e;
+      --yellow: #fbbf24;
+      --orange: #f97316;
+      --red: #ef4444;
+      --white: #ffffff;
+      --light-gray: #b0b0b0;
+      --gray: #808080;
+      --border: #606060;
+      
+      --bg-gradient-start: #1a1a1a;
+      --bg-gradient-end: #2a2a2a;
+      --card-bg: #505050;
+      --card-border: #707070;
+      --text-primary: #ffffff;
+      --text-secondary: #e5e5e5;
+      --text-muted: #b0b0b0;
+      --footer-bg: rgba(26, 26, 26, 0.95);
+      --tab-bg: rgba(80, 80, 80, 0.5);
+    }
+
+    body.light-mode {
+      --navy: #fafafa;
+      --dark-navy: #f5f5f5;
+      --blue: #1a4e9c;
+      --light-blue: #3c7dce;
+      --accent: #1a4e9c;
+      --border: #8a8a8a;
+      
+      --bg-gradient-start: #ffffff;
+      --bg-gradient-end: #fafafa;
+      --card-bg: #f0f0f0;
+      --card-border: #d0d0d0;
+      --text-primary: #0e2f63;
+      --text-secondary: #1a4e9c;
+      --text-muted: #5e5e5e;
+      --footer-bg: rgba(250, 250, 250, 0.95);
+      --tab-bg: rgba(245, 245, 245, 0.8);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding-bottom: 50px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      padding: 8px 15px;
+      background: var(--footer-bg);
+      backdrop-filter: blur(10px);
+      border-top: 2px solid var(--blue);
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+    }
+
+    .footer-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .footer-check {
+      font-size: 1.2rem;
+      font-weight: bold;
+      min-width: 20px;
+    }
+
+    .footer-check.ok {
+      color: var(--green);
+    }
+
+    .footer-check.alert {
+      color: var(--red);
+    }
+
+    .footer-text {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .theme-switch {
+      cursor: pointer;
+    }
+
+    .switch {
+      position: relative;
+      width: 64px;
+      height: 32px;
+      background: #3a4557;
+      border-radius: 20px;
+      transition: all 0.3s ease;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .switch-slider {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 24px;
+      height: 24px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .switch-slider svg {
+      width: 14px;
+      height: 14px;
+      fill: #2d3748;
+      stroke: #2d3748;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    body.light-mode .switch {
+      background: #e8eaed;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    body.light-mode .switch-slider {
+      transform: translateX(32px);
+      background: #1f2937;
+    }
+
+    body.light-mode .switch-slider svg {
+      fill: #ffffff;
+      stroke: #ffffff;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .timestamp {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    .activity-indicator {
+      position: relative;
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+    }
+
+    .activity-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      opacity: 0.6;
+      transition: opacity 0.3s;
+    }
+
+    .activity-pulse {
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      border-radius: 50%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: 0;
+    }
+
+    .activity-indicator.active .activity-pulse {
+      animation: pulse-ring 0.8s ease-out;
+    }
+
+    .activity-indicator.active .activity-dot {
+      opacity: 1;
+    }
+
+    .activity-indicator.inactive .activity-dot {
+      opacity: 0.2;
+      background: var(--gray);
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        transform: scale(0.8);
+        opacity: 0.8;
+      }
+      100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    .status-dot + .status-dot {
+      margin-left: 8px;
+    }
+
+    .status-dot.connected {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .status-dot.error {
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .connection-lost-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .connection-lost-overlay.visible {
+      display: flex;
+    }
+
+    .connection-lost-text {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--red);
+      text-align: center;
+    }
+
+    .connection-lost-text.reconnecting-text {
+      color: var(--green);
+    }
+
+    .connection-lost-subtitle {
+      font-size: 1rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .tabs {
+      display: flex;
+      overflow-x: auto;
+      background: var(--tab-bg);
+      border-bottom: 2px solid var(--border);
+      -webkit-overflow-scrolling: touch;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .tab {
+      flex: 1;
+      min-width: 100px;
+      padding: 15px 10px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .tab:hover {
+      color: var(--light-blue);
+      background: rgba(60, 125, 206, 0.1);
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: rgba(60, 125, 206, 0.1);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 15px 15px 20px 15px;
+      animation: fadeIn 0.3s;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .alert-panel {
+      background: rgba(244, 67, 54, 0.15);
+      border: 2px solid var(--red);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .alert-icon {
+      font-size: 2rem;
+      color: var(--red);
+      flex-shrink: 0;
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+
+    .alert-message {
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+
+    .status-text {
+      font-size: 0.95rem !important;
+      font-weight: 500;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 15px;
+      backdrop-filter: blur(10px);
+      transition: background 0.3s, border 0.3s;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .hero-metric {
+      text-align: center;
+      padding: 25px 15px;
+      background: rgba(30, 136, 229, 0.1);
+      border-radius: 10px;
+      margin-bottom: 15px;
+      border: 1px solid var(--card-border);
+      transition: background 0.3s, border 0.3s;
+    }
+
+    .hero-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .hero-value {
+      font-size: 3rem;
+      font-weight: 300;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .hero-unit {
+      font-size: 1.5rem;
+      color: var(--text-muted);
+      margin-left: 5px;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .metric-row:last-child {
+      border-bottom: none;
+    }
+
+    .metric-label {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .metric-value {
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .metric-value.good {
+      color: var(--green);
+    }
+
+    .metric-value.warning {
+      color: var(--yellow);
+    }
+
+    .metric-value.critical {
+      color: var(--red);
+    }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .phase-box {
+      background: rgba(30, 136, 229, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      transition: background 0.3s, border 0.3s;
+    }
+
+    .phase-title {
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .phase-metric {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 0.9rem;
+    }
+
+    .unit {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+
+    .state-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .state-inverting {
+      background: var(--green);
+      color: var(--dark-navy);
+    }
+
+    .state-bypass {
+      background: var(--blue);
+      color: var(--white);
+    }
+
+    .state-standby {
+      background: var(--gray);
+      color: var(--dark-navy);
+    }
+
+    .state-fault {
+      background: var(--red);
+      color: var(--white);
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .settings-category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 12px 15px;
+      background: var(--card-bg);
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+
+    .settings-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .sub-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .sub-tab {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    .sub-tab:hover {
+      color: var(--light-blue);
+    }
+
+    .sub-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .settings-tab-content {
+      display: none;
+      flex-direction: column;
+      height: calc(100vh - 200px);
+      min-height: 400px;
+    }
+
+    .settings-tab-content.active {
+      display: flex;
+    }
+
+    .settings-tab-content .card {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 0;
+    }
+
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+
+    .setting-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .setting-name {
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .setting-description {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    .setting-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .setting-input {
+      width: 100px;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+
+    select.setting-input {
+      width: auto;
+      min-width: 180px;
+      cursor: pointer;
+    }
+
+    body.light-mode .setting-input {
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .setting-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .setting-input:disabled,
+    .btn-set:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary, .btn-set {
+      padding: 8px 16px;
+      background: var(--accent);
+      color: var(--white);
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-set {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+    }
+
+    .btn-primary:hover, .btn-set:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .setting-readonly {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .btn-primary:active, .btn-set:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled, .btn-set:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding-bottom: 50px;
+      }
+
+      .status-bar {
+        gap: 12px;
+        padding: 8px 10px;
+      }
+
+      .sub-tabs {
+        gap: 4px;
+      }
+
+      .sub-tab {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+      }
+
+      .settings-category-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .setting-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .setting-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .setting-input {
+        flex: 1;
+      }
+
+      .timestamp {
+        font-size: 0.75rem;
+      }
+
+      .tab {
+        font-size: 0.75rem;
+        padding: 12px 8px;
+        min-width: 80px;
+      }
+
+      .hero-value {
+        font-size: 2.5rem;
+      }
+
+      .metric-value {
+        font-size: 1.2rem;
+      }
+
+      .card {
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="connection-lost-overlay" id="connection-lost-overlay">
+    <div class="connection-lost-text">⚠️ CONNECTION LOST</div>
+    <div class="connection-lost-subtitle">Cannot reach inverter - data may be stale</div>
+  </div>
+
+  <div class="connection-lost-overlay" id="backend-lost-overlay">
+    <div class="connection-lost-text reconnecting-text">🔄 RECONNECTING...</div>
+    <div class="connection-lost-subtitle">Establishing connection to monitoring service</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="footer-status">
+      <span id="footer-status-icon" class="footer-check">✓</span>
+      <span id="footer-status-text" class="footer-text">STANDBY</span>
+    </div>
+    <div class="theme-switch" onclick="toggleTheme()">
+      <div class="switch" id="theme-toggle">
+        <div class="switch-slider" id="theme-slider">
+          <svg id="theme-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div id="activity-indicator" class="activity-indicator" title="Data Activity">
+        <div class="activity-pulse"></div>
+        <div class="activity-dot"></div>
+      </div>
+      <div class="timestamp" id="timestamp">--</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('summary')">Overview</button>
+    <button class="tab" onclick="showTab('battery')">Battery</button>
+    <button class="tab" onclick="showTab('solar')">Solar</button>
+    <button class="tab" onclick="showTab('power')">AC Power</button>
+    <button class="tab" onclick="showTab('settings')">Settings</button>
+  </div>
+
+  <div id="summary" class="tab-content active">
+    <div class="alert-panel" id="alert-panel" style="display: none;">
+      <div class="alert-icon">⚠</div>
+      <div class="alert-content">
+        <div class="alert-title">INVERTER ALERT</div>
+        <div class="alert-message" id="alert-message"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Current Status</div>
+      <div class="metric-row">
+        <span class="metric-label">Inverter Connection</span>
+        <span class="metric-value status-text" id="inverter-status">Connected</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">MQTT Connection</span>
+        <span class="metric-value status-text" id="mqtt-status">Connected</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Total Load</span>
+        <span class="metric-value" id="summary-load">--<span class="unit">W</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Battery SoC</span>
+        <span class="metric-value" id="summary-soc">--<span class="unit">%</span></span>
+      </div>
+      <div class="metric-row" id="battery-projection-row" style="display: none;">
+        <span class="metric-label" id="battery-projection-label">--</span>
+        <span class="metric-value" id="battery-projection-value" style="font-size: 1.1rem;">--</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Solar Power</span>
+        <span class="metric-value" id="summary-pv">--<span class="unit">W</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Energy & Runtime</div>
+      <div class="metric-row">
+        <span class="metric-label">Load Consumed Today</span>
+        <span class="metric-value" id="summary-energy-load">--<span class="unit">kWh</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Solar Generated Today</span>
+        <span class="metric-value" id="summary-energy-pv">--<span class="unit">kWh</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Operating Days</span>
+        <span class="metric-value" id="summary-runtime-days">--<span class="unit">days</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Total Runtime</span>
+        <span class="metric-value" id="summary-runtime-total">--<span class="unit">hrs</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="battery" class="tab-content">
+    <div class="card">
+      <div class="card-title">Battery Status</div>
+      <div class="metric-row">
+        <span class="metric-label">State of Charge</span>
+        <span class="metric-value" id="bat-soc">--%</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Voltage</span>
+        <span class="metric-value" id="bat-voltage">--<span class="unit">V</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Current</span>
+        <span class="metric-value" id="bat-current">--<span class="unit">A</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Temperature</span>
+        <span class="metric-value" id="bat-temp">--<span class="unit">°C</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Charge State</span>
+        <span class="metric-value" id="bat-charge-state">--</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Charge Power</span>
+        <span class="metric-value" id="bat-charge-power">--<span class="unit">W</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">BMS Data</div>
+      <div class="metric-row">
+        <span class="metric-label">BMS Voltage</span>
+        <span class="metric-value" id="bms-voltage">--<span class="unit">V</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">BMS Current</span>
+        <span class="metric-value" id="bms-current">--<span class="unit">A</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">BMS SOC</span>
+        <span class="metric-value" id="bms-soc">--<span class="unit">%</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">BMS Temperature</span>
+        <span class="metric-value" id="bms-temp">--<span class="unit">°C</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="solar" class="tab-content">
+    <div class="card">
+      <div class="card-title">Solar PV Overview</div>
+      <div class="metric-row">
+        <span class="metric-label">Total Power</span>
+        <span class="metric-value" id="pv-total">--<span class="unit">W</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">PV Strings</div>
+      <div class="phase-grid">
+        <div class="phase-box">
+          <div class="phase-title">String 1</div>
+          <div class="phase-metric">
+            <span>Voltage:</span>
+            <span id="pv1-voltage">--<span class="unit">V</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="pv1-current">--<span class="unit">A</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Power:</span>
+            <span id="pv1-power">--<span class="unit">W</span></span>
+          </div>
+        </div>
+        <div class="phase-box">
+          <div class="phase-title">String 2</div>
+          <div class="phase-metric">
+            <span>Voltage:</span>
+            <span id="pv2-voltage">--<span class="unit">V</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="pv2-current">--<span class="unit">A</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Power:</span>
+            <span id="pv2-power">--<span class="unit">W</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Solar Energy</div>
+      <div class="metric-row">
+        <span class="metric-label">Generated Today</span>
+        <span class="metric-value" id="solar-energy-today">--<span class="unit">kWh</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Lifetime Total</span>
+        <span class="metric-value" id="solar-energy-total">--<span class="unit">kWh</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="power" class="tab-content">
+    <div class="card">
+      <div class="card-title">Total Load</div>
+      <div class="metric-row">
+        <span class="metric-label">Total Power</span>
+        <span class="metric-value" id="load-total">--<span class="unit">W</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Load by Phase</div>
+      <div class="phase-grid">
+        <div class="phase-box">
+          <div class="phase-title">L1</div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="load-l1-current">--<span class="unit">A</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Power:</span>
+            <span id="load-l1-power">--<span class="unit">W</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Apparent:</span>
+            <span id="load-l1-apparent">--<span class="unit">VA</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Load:</span>
+            <span id="load-l1-ratio">--<span class="unit">%</span></span>
+          </div>
+        </div>
+        <div class="phase-box">
+          <div class="phase-title">L2</div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="load-l2-current">--<span class="unit">A</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Power:</span>
+            <span id="load-l2-power">--<span class="unit">W</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Apparent:</span>
+            <span id="load-l2-apparent">--<span class="unit">VA</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Load:</span>
+            <span id="load-l2-ratio">--<span class="unit">%</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">AC Input (Shore/Generator)</div>
+      <div class="metric-row">
+        <span class="metric-label">Frequency</span>
+        <span class="metric-value" id="grid-freq">--<span class="unit">Hz</span></span>
+      </div>
+      <div class="phase-grid">
+        <div class="phase-box">
+          <div class="phase-title">L1</div>
+          <div class="phase-metric">
+            <span>Voltage:</span>
+            <span id="grid-l1-voltage">--<span class="unit">V</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="grid-l1-current">--<span class="unit">A</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Power:</span>
+            <span id="grid-l1-power">--<span class="unit">W</span></span>
+          </div>
+        </div>
+        <div class="phase-box">
+          <div class="phase-title">L2</div>
+          <div class="phase-metric">
+            <span>Voltage:</span>
+            <span id="grid-l2-voltage">--<span class="unit">V</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="grid-l2-current">--<span class="unit">A</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Power:</span>
+            <span id="grid-l2-power">--<span class="unit">W</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Inverter Output</div>
+      <div class="metric-row">
+        <span class="metric-label">Frequency</span>
+        <span class="metric-value" id="inv-freq">--<span class="unit">Hz</span></span>
+      </div>
+      <div class="phase-grid">
+        <div class="phase-box">
+          <div class="phase-title">L1</div>
+          <div class="phase-metric">
+            <span>Voltage:</span>
+            <span id="inv-l1-voltage">--<span class="unit">V</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="inv-l1-current">--<span class="unit">A</span></span>
+          </div>
+        </div>
+        <div class="phase-box">
+          <div class="phase-title">L2</div>
+          <div class="phase-metric">
+            <span>Voltage:</span>
+            <span id="inv-l2-voltage">--<span class="unit">V</span></span>
+          </div>
+          <div class="phase-metric">
+            <span>Current:</span>
+            <span id="inv-l2-current">--<span class="unit">A</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Temperatures</div>
+      <div class="metric-row">
+        <span class="metric-label">DC-DC Heatsink</span>
+        <span class="metric-value" id="temp-dcdc">--<span class="unit">°C</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">DC-AC Heatsink</span>
+        <span class="metric-value" id="temp-dcac">--<span class="unit">°C</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Transformer</span>
+        <span class="metric-value" id="temp-transformer">--<span class="unit">°C</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Ambient</span>
+        <span class="metric-value" id="temp-ambient">--<span class="unit">°C</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings" class="tab-content">
+    <div class="sub-tabs">
+      <button class="sub-tab active" onclick="showSettingsTab('basic')">Basic</button>
+      <button class="sub-tab" onclick="showSettingsTab('battery')">Battery</button>
+      <button class="sub-tab" onclick="showSettingsTab('charging')">Charging</button>
+      <button class="sub-tab" onclick="showSettingsTab('solar')">Solar</button>
+      <button class="sub-tab" onclick="showSettingsTab('sbu_mode')">SBU Mode</button>
+      <button class="sub-tab" onclick="showSettingsTab('timing_charge')">Sched. Charge</button>
+      <button class="sub-tab" onclick="showSettingsTab('timing_discharge')">Sched. Discharge</button>
+      <button class="sub-tab" onclick="showSettingsTab('grid')">Grid</button>
+      <button class="sub-tab" onclick="showSettingsTab('generator')">Generator</button>
+    </div>
+
+    <div id="basic-settings-tab" class="settings-tab-content active">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('BASIC')">Refresh Basic Settings</button>
+        <div id="basic-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="basic-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="battery-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('BATTERY')">Refresh Battery Settings</button>
+        <div id="battery-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="battery-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="charging-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('CHARGING')">Refresh Charging Settings</button>
+        <div id="charging-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="charging-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="solar-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('SOLAR')">Refresh Solar Settings</button>
+        <div id="solar-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="solar-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="sbu_mode-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('SBU_MODE')">Refresh SBU Mode Settings</button>
+        <div id="sbu_mode-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="sbu_mode-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="timing_charge-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('TIMING_CHARGE')">Refresh Scheduled Charge Settings</button>
+        <div id="timing_charge-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="timing_charge-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="timing_discharge-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('TIMING_DISCHARGE')">Refresh Scheduled Discharge Settings</button>
+        <div id="timing_discharge-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="timing_discharge-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="grid-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('GRID')">Refresh Grid Settings</button>
+        <div id="grid-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="grid-settings" class="settings-group"></div>
+      </div>
+    </div>
+
+    <div id="generator-settings-tab" class="settings-tab-content">
+      <div class="settings-category-header">
+        <button class="btn-primary" onclick="refreshSettingsCategory('GENERATOR')">Refresh Generator Settings</button>
+        <div id="generator-status" class="settings-status"></div>
+      </div>
+      <div class="card">
+        <div id="generator-settings" class="settings-group"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showTab(tabName) {
+      const tabs = document.querySelectorAll('.tab');
+      const contents = document.querySelectorAll('.tab-content');
+      
+      tabs.forEach(tab => tab.classList.remove('active'));
+      contents.forEach(content => content.classList.remove('active'));
+      
+      const activeTab = Array.from(tabs).find(tab => 
+        tab.getAttribute('onclick').includes(`'${tabName}'`)
+      );
+      if (activeTab) activeTab.classList.add('active');
+      
+      document.getElementById(tabName).classList.add('active');
+      localStorage.setItem('activeTab', tabName);
+    }
+
+    function showSettingsTab(category) {
+      const subTabs = document.querySelectorAll('.sub-tab');
+      const subContents = document.querySelectorAll('.settings-tab-content');
+      
+      subTabs.forEach(tab => tab.classList.remove('active'));
+      subContents.forEach(content => content.classList.remove('active'));
+      
+      const activeTab = Array.from(subTabs).find(tab => 
+        tab.getAttribute('onclick').includes(`'${category}'`)
+      );
+      if (activeTab) activeTab.classList.add('active');
+      
+      const contentId = `${category}-settings-tab`;
+      const content = document.getElementById(contentId);
+      if (content) content.classList.add('active');
+      
+      localStorage.setItem('activeSettingsTab', category);
+    }
+
+    function toggleTheme() {
+      const body = document.body;
+      const toggle = document.getElementById('theme-toggle');
+      const icon = document.getElementById('theme-icon');
+      
+      body.classList.toggle('light-mode');
+      toggle.classList.toggle('active');
+      
+      const isLight = body.classList.contains('light-mode');
+      // Sun for light mode, Moon for dark mode
+      icon.innerHTML = isLight 
+        ? '<circle cx="12" cy="12" r="5" fill="none"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+        : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+      
+    }
+
+    window.addEventListener('load', () => {
+      const savedTab = localStorage.getItem('activeTab') || 'summary';
+      showTab(savedTab);
+      
+      const savedSettingsTab = localStorage.getItem('activeSettingsTab') || 'output';
+      showSettingsTab(savedSettingsTab);
+      
+      const savedTheme = localStorage.getItem('theme');
+      const icon = document.getElementById('theme-icon');
+      
+      if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+        document.getElementById('theme-toggle').classList.add('active');
+        // Sun icon for light mode
+        icon.innerHTML = '<circle cx="12" cy="12" r="5" fill="none"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+      }
+    });
+
+    const eventSource = new EventSource('/events');
+    let lastUpdate = Date.now();
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.status === 'connected') {
+          return;
+        }
+        
+        // Trigger activity indicator animation
+        const activityIndicator = document.getElementById('activity-indicator');
+        activityIndicator.classList.remove('active');
+        activityIndicator.classList.remove('inactive');
+        void activityIndicator.offsetWidth; // Force reflow
+        activityIndicator.classList.add('active');
+        
+        // Update status indicators in Current Status panel
+        const inverterStatus = document.getElementById('inverter-status');
+        const mqttStatus = document.getElementById('mqtt-status');
+        
+        if (data.inverterConnected !== undefined) {
+          inverterStatus.textContent = data.inverterConnected ? 'Connected' : 'Disconnected';
+          inverterStatus.style.color = data.inverterConnected ? 'var(--green)' : 'var(--red)';
+          
+          const overlay = document.getElementById('connection-lost-overlay');
+          if (!data.inverterConnected) {
+            overlay.classList.add('visible');
+          } else {
+            overlay.classList.remove('visible');
+          }
+        }
+        
+        if (data.mqttConnected !== undefined) {
+          mqttStatus.textContent = data.mqttConnected ? 'Connected' : 'Disconnected';
+          mqttStatus.style.color = data.mqttConnected ? 'var(--green)' : 'var(--red)';
+        }
+        
+        // Update alert panel
+        if (data.systemStatus) {
+          const alertPanel = document.getElementById('alert-panel');
+          const alertMessage = document.getElementById('alert-message');
+          const hasFaults = data.systemStatus.faults && data.systemStatus.faults.length > 0;
+          
+          if (hasFaults) {
+            const faultMessages = data.systemStatus.faults.map(f => `${f.text} (Code ${f.code})`).join(' • ');
+            alertMessage.textContent = faultMessages;
+            alertPanel.style.display = 'flex';
+          } else {
+            alertPanel.style.display = 'none';
+          }
+        }
+        
+        // Update footer with state and alerts
+        if (data.systemStatus) {
+          const footerIcon = document.getElementById('footer-status-icon');
+          const footerText = document.getElementById('footer-status-text');
+          
+          const hasFaults = data.systemStatus.faults && data.systemStatus.faults.length > 0;
+          
+          if (hasFaults) {
+            footerIcon.textContent = '⚠';
+            footerIcon.className = 'footer-check alert';
+            const faultMessages = data.systemStatus.faults.map(f => `${f.text} (${f.code})`).join(' • ');
+            footerText.textContent = faultMessages;
+          } else {
+            footerIcon.textContent = '✓';
+            footerIcon.className = 'footer-check ok';
+            let stateText = (data.systemStatus.stateText || 'Unknown').toUpperCase();
+            if (stateText.includes('AC POWER')) stateText = 'BYPASS';
+            else if (stateText.includes('INVERTER OPERATION')) stateText = 'INVERTING';
+            footerText.textContent = stateText;
+          }
+        }
+        
+        if (data.systemStatus || data.battery || data.ac) {
+          updateDashboard(data);
+        }
+        
+        lastUpdate = Date.now();
+      } catch (error) {
+        console.error('Error parsing SSE data:', error);
+      }
+    };
+
+    eventSource.onerror = () => {
+      const activityIndicator = document.getElementById('activity-indicator');
+      activityIndicator.classList.remove('active');
+      activityIndicator.classList.add('inactive');
+      
+      // Show backend disconnected overlay
+      const backendOverlay = document.getElementById('backend-lost-overlay');
+      backendOverlay.classList.add('visible');
+    };
+
+    eventSource.onopen = () => {
+      console.log('SSE connection established');
+      const activityIndicator = document.getElementById('activity-indicator');
+      activityIndicator.classList.remove('inactive');
+      
+      // Hide backend disconnected overlay
+      const backendOverlay = document.getElementById('backend-lost-overlay');
+      backendOverlay.classList.remove('visible');
+    };
+
+    // Check for stale data - if no updates received, show backend disconnected overlay
+    setInterval(() => {
+      const elapsed = Date.now() - lastUpdate;
+      const backendOverlay = document.getElementById('backend-lost-overlay');
+      
+      if (elapsed > 10000) {
+        // No data for 10 seconds - backend likely disconnected
+        const activityIndicator = document.getElementById('activity-indicator');
+        activityIndicator.classList.remove('active');
+        activityIndicator.classList.add('inactive');
+        backendOverlay.classList.add('visible');
+      } else if (elapsed <= 5000) {
+        // Data is flowing normally - ensure overlay is hidden
+        backendOverlay.classList.remove('visible');
+      }
+    }, 3000);
+
+    function updateDashboard(data) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      document.getElementById('timestamp').textContent = timeStr;
+
+      if (data.battery) {
+        const b = data.battery;
+        
+        updateElement('bat-soc', b.soc, 0, '%');
+        updateElement('summary-soc', b.soc, 0, '%');
+        updateElement('bat-voltage', b.voltage, 1, 'V');
+        
+        const current = Math.abs(b.current || 0);
+        const direction = b.current > 0 ? '(Discharging) ' : b.current < 0 ? '(Charging) ' : '';
+        document.getElementById('bat-current').innerHTML = `<span class="unit">${direction}</span>${current.toFixed(1)}<span class="unit">A</span>`;
+        
+        // Update battery projections
+        const projectionRow = document.getElementById('battery-projection-row');
+        const projectionLabel = document.getElementById('battery-projection-label');
+        const projectionValue = document.getElementById('battery-projection-value');
+        
+        if (b.projections) {
+          if (b.projections.timeToFull !== null) {
+            const hours = Math.floor(b.projections.timeToFull);
+            const minutes = Math.round((b.projections.timeToFull - hours) * 60);
+            projectionLabel.textContent = 'Time to Full';
+            projectionValue.textContent = `${hours}h ${minutes}m`;
+            projectionRow.style.display = 'flex';
+          } else if (b.projections.timeRemaining !== null) {
+            const hours = Math.floor(b.projections.timeRemaining);
+            const minutes = Math.round((b.projections.timeRemaining - hours) * 60);
+            projectionLabel.textContent = 'Time Remaining';
+            projectionValue.textContent = `${hours}h ${minutes}m`;
+            projectionRow.style.display = 'flex';
+          } else {
+            projectionRow.style.display = 'none';
+          }
+        } else {
+          projectionRow.style.display = 'none';
+        }
+        
+        updateElement('bat-temp', b.temperature, 1, '°C');
+        updateElement('bat-charge-power', b.chargePower, 0, 'W');
+        document.getElementById('bat-charge-state').textContent = b.chargeStateText || '--';
+
+        if (b.pv1) {
+          updateElement('pv1-voltage', b.pv1.voltage, 1, 'V');
+          updateElement('pv1-current', b.pv1.current, 1, 'A');
+          updateElement('pv1-power', b.pv1.power, 0, 'W');
+        }
+
+        if (b.pv2) {
+          updateElement('pv2-voltage', b.pv2.voltage, 1, 'V');
+          updateElement('pv2-current', b.pv2.current, 1, 'A');
+          updateElement('pv2-power', b.pv2.power, 0, 'W');
+        }
+
+        updateElement('pv-total', b.pvTotalPower, 0, 'W');
+        updateElement('summary-pv', b.pvTotalPower, 0, 'W');
+
+        if (b.bms) {
+          updateElement('bms-voltage', b.bms.voltage, 1, 'V');
+          updateElement('bms-current', b.bms.current, 1, 'A');
+          updateElement('bms-soc', b.bms.soc, 0, '%');
+          updateElement('bms-temp', b.bms.temperature, 1, '°C');
+        }
+      }
+
+      if (data.ac) {
+        updateElement('grid-freq', data.ac.grid?.frequency, 2, 'Hz');
+        
+        if (data.ac.grid?.l1) {
+          updateElement('grid-l1-voltage', data.ac.grid.l1.voltage, 1, 'V');
+          updateElement('grid-l1-current', data.ac.grid.l1.current, 1, 'A');
+          updateElement('grid-l1-power', data.ac.grid.l1.activePower, 0, 'W');
+        }
+
+        if (data.ac.grid?.l2) {
+          updateElement('grid-l2-voltage', data.ac.grid.l2.voltage, 1, 'V');
+          updateElement('grid-l2-current', data.ac.grid.l2.current, 1, 'A');
+          updateElement('grid-l2-power', data.ac.grid.l2.activePower, 0, 'W');
+        }
+
+        updateElement('inv-freq', data.ac.inverter?.frequency, 2, 'Hz');
+        
+        if (data.ac.inverter?.l1) {
+          updateElement('inv-l1-voltage', data.ac.inverter.l1.voltage, 1, 'V');
+          updateElement('inv-l1-current', data.ac.inverter.l1.current, 1, 'A');
+        }
+
+        if (data.ac.inverter?.l2) {
+          updateElement('inv-l2-voltage', data.ac.inverter.l2.voltage, 1, 'V');
+          updateElement('inv-l2-current', data.ac.inverter.l2.current, 1, 'A');
+        }
+
+        if (data.ac.load?.l1) {
+          updateElement('load-l1-current', data.ac.load.l1.current, 1, 'A');
+          updateElement('load-l1-power', data.ac.load.l1.activePower, 0, 'W');
+          updateElement('load-l1-apparent', data.ac.load.l1.apparentPower, 0, 'VA');
+          updateElement('load-l1-ratio', data.ac.load.l1.ratio, 0, '%');
+        }
+
+        if (data.ac.load?.l2) {
+          updateElement('load-l2-current', data.ac.load.l2.current, 1, 'A');
+          updateElement('load-l2-power', data.ac.load.l2.activePower, 0, 'W');
+          updateElement('load-l2-apparent', data.ac.load.l2.apparentPower, 0, 'VA');
+          updateElement('load-l2-ratio', data.ac.load.l2.ratio, 0, '%');
+        }
+
+        const totalLoad = (data.ac.load?.l1?.activePower || 0) + (data.ac.load?.l2?.activePower || 0);
+        updateElement('load-total', totalLoad, 0, 'W');
+        updateElement('summary-load', totalLoad, 0, 'W');
+
+        if (data.ac.temperatures) {
+          updateElement('temp-dcdc', data.ac.temperatures.dcDc, 1, '°C');
+          updateElement('temp-dcac', data.ac.temperatures.dcAc, 1, '°C');
+          updateElement('temp-transformer', data.ac.temperatures.transformer, 1, '°C');
+          updateElement('temp-ambient', data.ac.temperatures.ambient, 1, '°C');
+        }
+      }
+
+      if (data.energy?.today) {
+        updateElement('solar-energy-today', data.energy.today.pvGeneration, 1, 'kWh');
+        updateElement('summary-energy-pv', data.energy.today.pvGeneration, 1, 'kWh');
+        updateElement('summary-energy-load', data.energy.today.loadConsumption, 1, 'kWh');
+      }
+
+      if (data.energy?.total) {
+        updateElement('solar-energy-total', data.energy.total.pvGeneration, 1, 'kWh');
+        updateElement('summary-runtime-days', data.energy.total.workDays, 0, 'days');
+        
+        const runtime = (data.energy.total.invWorkTime || 0) + (data.energy.total.lineWorkTime || 0);
+        updateElement('summary-runtime-total', runtime, 0, 'hrs');
+      }
+    }
+
+    function updateElement(id, value, decimals, unit) {
+      const element = document.getElementById(id);
+      if (!element) return;
+      
+      if (value === null || value === undefined || isNaN(value)) {
+        element.innerHTML = `--<span class="unit">${unit}</span>`;
+        return;
+      }
+
+      const formatted = typeof value === 'number' ? value.toFixed(decimals) : value;
+      element.innerHTML = `${formatted}<span class="unit">${unit}</span>`;
+      
+      if (id.includes('temp') && typeof value === 'number') {
+        if (value > 70) element.classList.add('critical');
+        else if (value > 60) element.classList.add('warning');
+        else element.className = 'metric-value';
+      }
+    }
+
+    fetch('/api/data')
+      .then(r => r.json())
+      .then(data => {
+        if (data && Object.keys(data).length > 0) {
+          updateDashboard(data);
+        }
+      })
+      .catch(console.error);
+
+    // Configuration registers definition (must match backend registers.js)
+    const CONFIG_REGISTERS = {
+      BASIC: [
+        { id: '01', address: 0xE204, name: 'AC Output Mode', key: 'outputPriority', scale: 1, unit: '', min: 0, max: 3, description: 'Output priority mode',
+          options: [
+            { value: 0, label: 'UTI (Utility First)' },
+            { value: 1, label: 'SBU (Solar-Battery-Utility)' },
+            { value: 2, label: 'SOL (Solar First)' },
+            { value: 3, label: 'SUB (Solar-Utility-Battery)' }
+          ]
+        },
+        { id: '38', address: 0xE208, name: 'AC Output Voltage', key: 'outputVolt', scale: 0.1, unit: 'V', min: 100, max: 127, description: 'AC output voltage',
+          options: [
+            { value: 1000, label: '100 VAC' },
+            { value: 1050, label: '105 VAC' },
+            { value: 1100, label: '110 VAC' },
+            { value: 1200, label: '120 VAC' },
+            { value: 1270, label: '127 VAC' }
+          ]
+        },
+        { id: '02', address: 0xE209, name: 'AC Input Frequency', key: 'outputFreq', scale: 0.01, unit: 'Hz', min: 50, max: 60, description: '50Hz or 60Hz',
+          options: [
+            { value: 5000, label: '50.0 Hz' },
+            { value: 6000, label: '60.0 Hz' }
+          ]
+        },
+        { id: '03', address: 0xE20B, name: 'AC Input Voltage Range', key: 'acVoltRange', scale: 1, unit: '', min: 0, max: 1, description: 'Input voltage range',
+          options: [
+            { value: 0, label: 'APL (Wide: 85-140V)' },
+            { value: 1, label: 'UPS (Narrow: 90-140V)' }
+          ]
+        },
+        { id: '22', address: 0xE20C, name: 'Energy-Saving Mode', key: 'powerSaving', scale: 1, unit: '', min: 0, max: 1, description: 'Auto-off below 50W',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '25', address: 0xE210, name: 'Buzzer Alarm', key: 'alarmEn', scale: 1, unit: '', min: 0, max: 1, description: 'Audible alerts',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '26', address: 0xE211, name: 'Mode Switch Prompt', key: 'alarmSrcLoss', scale: 1, unit: '', min: 0, max: 1, description: 'Beep on source change',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '27', address: 0xE212, name: 'Bypass on Overload', key: 'bypOnOL', scale: 1, unit: '', min: 0, max: 1, description: 'Auto-switch to bypass',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '23', address: 0xE20D, name: 'Overload Auto Restart', key: 'autoRestartOL', scale: 1, unit: '', min: 0, max: 1, description: 'Auto-recover after 3min',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '24', address: 0xE20E, name: 'Over-temp Auto Restart', key: 'autoRestartOT', scale: 1, unit: '', min: 0, max: 1, description: 'Auto-recover from over-temp',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '—', address: 0xE213, name: 'Record Fault History', key: 'recordFaults', scale: 1, unit: '', min: 0, max: 1, description: 'Log fault events',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '—', address: 0x020C, name: 'Inverter Clock', key: 'systemClock', scale: 1, unit: '', type: 'clock', description: 'RTC date/time', readOnly: false, special: true },
+      ],
+      BATTERY: [
+        { id: '—', address: 0xE002, name: 'Battery Capacity', key: 'batCap', scale: 1, unit: 'Ah', min: 0, max: 400, description: 'From BMS', readOnly: true },
+        { id: '—', address: 0xE003, name: 'System Voltage', key: 'batVoltage', scale: 1, unit: 'V', min: 12, max: 96, description: 'System voltage', readOnly: true,
+          options: [
+            { value: 12, label: '12V' },
+            { value: 24, label: '24V' },
+            { value: 36, label: '36V' },
+            { value: 48, label: '48V' }
+          ]
+        },
+        { id: '08', address: 0xE004, name: 'Battery Type', key: 'batType', scale: 1, unit: '', min: 0, max: 14, description: 'Battery chemistry',
+          options: [
+            { value: 0, label: 'USER (User-defined)' },
+            { value: 1, label: 'SLD (Sealed Lead-Acid)' },
+            { value: 2, label: 'FLD (Flooded Lead-Acid)' },
+            { value: 3, label: 'GEL (Gel Lead-Acid)' },
+            { value: 4, label: 'L14 (LFP 14S)' },
+            { value: 5, label: 'L15 (LFP 15S)' },
+            { value: 6, label: 'L16 (LFP 16S)' },
+            { value: 13, label: 'N13 (Ternary 13S)' },
+            { value: 14, label: 'N14 (Ternary 14S)' },
+            { value: 15, label: 'NOb (No Battery)' }
+          ]
+        },
+        { id: '32', address: 0xE215, name: 'BMS Communication', key: 'bmsComm', scale: 1, unit: '', min: 0, max: 2, description: 'BMS protocol type',
+          options: [
+            { value: 0, label: 'DIS (Disabled)' },
+            { value: 1, label: '485 (RS485-BMS)' },
+            { value: 2, label: 'CAN (CAN-BMS)' }
+          ]
+        },
+        { id: '33', address: 0xE21B, name: 'BMS Protocol', key: 'bmsProtocol', scale: 1, unit: '', min: 0, max: 30, description: 'Manufacturer protocol',
+          options: [
+            { value: 0, label: 'SGP (SUNGOLDPOWER)' },
+            { value: 1, label: 'PAC (PACE)' },
+            { value: 2, label: 'RDA (Ruida)' },
+            { value: 3, label: 'AOG (Aoguan)' },
+            { value: 4, label: 'OLT (Oliter)' },
+            { value: 5, label: 'HWD (Sunwoda)' },
+            { value: 6, label: 'DAQ (Daqin)' },
+            { value: 7, label: 'WOW (SNPOWER)' },
+            { value: 8, label: 'PYL (Pylontech)' },
+            { value: 9, label: 'UOL (Vilion)' }
+          ]
+        },
+        { id: '—', address: 0xE214, name: 'Stop on BMS Error', key: 'bmsErrStop', scale: 1, unit: '', min: 0, max: 1, description: 'Halt on BMS fault',
+          options: [
+            { value: 0, label: 'Disabled' },
+            { value: 1, label: 'Enabled' }
+          ]
+        },
+        { id: '—', address: 0xE005, name: 'Over-Voltage Disconnect', key: 'batOverVolt', scale: 0.4, unit: 'V', min: 48, max: 62, description: 'Battery over-voltage protection' },
+        { id: '14', address: 0xE00C, name: 'Under-Voltage Alarm', key: 'underVolt', scale: 0.4, unit: 'V', min: 40, max: 52, description: 'Low voltage alarm threshold' },
+        { id: '12', address: 0xE00D, name: 'Over-Discharge Voltage', key: 'overDischgVolt', scale: 0.4, unit: 'V', min: 40, max: 48, description: 'Delayed load cutoff voltage' },
+        { id: '15', address: 0xE00E, name: 'Discharge Limit Voltage', key: 'dischgLimit', scale: 0.4, unit: 'V', min: 40, max: 52, description: 'Immediate load cutoff voltage' },
+        { id: '35', address: 0xE00B, name: 'Under-Voltage Recovery', key: 'overDischgBack', scale: 0.4, unit: 'V', min: 44, max: 54.4, description: 'Resume load after cutoff' },
+        { id: '59', address: 0xE00F, name: 'Discharge Cutoff SoC', key: 'stopSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Min SoC (BMS only)' },
+        { id: '58', address: 0xE01E, name: 'Low SoC Alarm', key: 'socLowAlarm', scale: 1, unit: '%', min: 0, max: 100, description: 'SoC alarm (BMS only)' },
+        { id: '—', address: 0xE021, name: 'Max Discharge Current', key: 'maxDischgCurr', scale: 1, unit: 'A', min: 0, max: 200, description: 'Peak discharge current' },
+        { id: '13', address: 0xE010, name: 'Over-Discharge Delay', key: 'overDischgDelay', scale: 1, unit: 's', min: 0, max: 120, description: 'Delay before cutoff' },
+      ],
+      CHARGING: [
+        { id: '—', address: 0xE001, name: 'PV Charge Current', key: 'pvChgCurr', scale: 0.1, unit: 'A', min: 0, max: 150, description: 'Max current from solar' },
+        { id: '07', address: 0xE20A, name: 'Battery Charge Current', key: 'maxChgCurr', scale: 0.1, unit: 'A', min: 0, max: 140, description: 'Total max battery charge current' },
+        { id: '28', address: 0xE205, name: 'Grid Charge Current', key: 'acChgLimit', scale: 0.1, unit: 'A', min: 0, max: 80, description: 'Max current from AC/grid' },
+        { id: '06', address: 0xE20F, name: 'Battery Charge Mode', key: 'chgSourcePriority', scale: 1, unit: '', min: 0, max: 3, description: 'Charge source priority',
+          options: [
+            { value: 0, label: 'SNU (PV First, Grid Supplement)' },
+            { value: 1, label: 'OSO (PV Only, No Grid Charge)' }
+          ]
+        },
+        { id: '39', address: 0xE025, name: 'Charge Limit (BMS Mode)', key: 'bmsChgMode', scale: 1, unit: '', min: 0, max: 2, description: 'Charge current limit source',
+          options: [
+            { value: 0, label: 'LCSET (Use Setting #07)' },
+            { value: 1, label: 'LCBMS (Use BMS Max)' },
+            { value: 2, label: 'LCINV (Use Inverter Logic)' }
+          ]
+        },
+        { id: '09', address: 0xE006, name: 'Boost Charge Voltage', key: 'chgCutoffVolt', scale: 0.4, unit: 'V', min: 48, max: 58.4, description: 'Bulk charge voltage' },
+        { id: '17', address: 0xE007, name: 'Equalize Voltage', key: 'equalizVolt', scale: 0.4, unit: 'V', min: 48, max: 58, description: 'Equalization voltage (lead-acid only)' },
+        { id: '11', address: 0xE009, name: 'Float Voltage', key: 'floatVolt', scale: 0.4, unit: 'V', min: 48, max: 58.4, description: 'Float/maintain voltage' },
+        { id: '37', address: 0xE00A, name: 'Recharge Voltage', key: 'boostBackVolt', scale: 0.4, unit: 'V', min: 44, max: 54, description: 'Resume charge when below' },
+        { id: '18', address: 0xE011, name: 'Equalize Duration', key: 'equalizTime', scale: 1, unit: 'min', min: 0, max: 900, description: 'Equalization time' },
+        { id: '10', address: 0xE012, name: 'Boost Charge Duration', key: 'boostTime', scale: 1, unit: 'min', min: 10, max: 900, description: 'Boost charge time' },
+        { id: '20', address: 0xE013, name: 'Equalize Interval', key: 'equalizInterval', scale: 1, unit: 'days', min: 0, max: 30, description: 'Days between equalizations' },
+        { id: '16', address: 0xE206, name: 'Equalize Enable', key: 'equalizEn', scale: 1, unit: '', min: 0, max: 1, description: 'Allow equalization',
+          options: [
+            { value: 0, label: 'DIS (Disabled)' },
+            { value: 1, label: 'ENA (Enabled)' }
+          ]
+        },
+        { id: '57', address: 0xE01C, name: 'Charge Stop Current', key: 'stopChgCurr', scale: 0.1, unit: 'A', min: 0, max: 10, description: 'End charge when below (LiFePO4)' },
+        { id: '60', address: 0xE01D, name: 'Charge Cutoff SoC', key: 'stopChgSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Stop charging at SoC (BMS)' },
+      ],
+      SOLAR: [
+        { id: '—', address: 0xE039, name: 'PV Power Priority', key: 'pvPriority', scale: 1, unit: '', min: 0, max: 2, description: 'PV power usage priority',
+          options: [
+            { value: 0, label: 'Charge Battery First' },
+            { value: 1, label: 'Power Load First' },
+            { value: 2, label: 'Balanced' }
+          ]
+        },
+      ],
+      SBU_MODE: [
+        { id: '04', address: 0xE01B, name: 'Battery to Mains Voltage', key: 'batSwitchDcVolt', scale: 0.4, unit: 'V', min: 40, max: 52, description: 'Switch to AC when battery below' },
+        { id: '05', address: 0xE022, name: 'Mains to Battery Voltage', key: 'batSwitchInvVolt', scale: 0.4, unit: 'V', min: 48, max: 60, description: 'Switch to inverter when battery above' },
+        { id: '61', address: 0xE01F, name: 'Switch to Mains SoC', key: 'socSwToLine', scale: 1, unit: '%', min: 0, max: 100, description: 'Use AC when SoC below (BMS)' },
+        { id: '62', address: 0xE020, name: 'Switch to Inverter SoC', key: 'socSwToBatt', scale: 1, unit: '%', min: 1, max: 100, description: 'Use inverter when SoC above (BMS)' },
+      ],
+      TIMING_CHARGE: [
+        { id: '46', address: 0xE02C, name: 'Enable Timed Charge', key: 'timedChgEn', scale: 1, unit: '', min: 0, max: 1, description: 'Time-based AC charging',
+          options: [
+            { value: 0, label: 'DIS (Disabled)' },
+            { value: 1, label: 'ENA (Enabled)' }
+          ]
+        },
+        { id: '40', address: 0xE026, name: 'Period 1 Start', key: 'chgStart1', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM (e.g. 512=02:00)' },
+        { id: '41', address: 0xE027, name: 'Period 1 End', key: 'chgEnd1', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '—', address: 0xE03B, name: 'Period 1 Stop SoC', key: 'chg1StopSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Stop when SoC reaches' },
+        { id: '—', address: 0xE04A, name: 'Period 1 Max Power', key: 'chg1MaxPwr', scale: 1, unit: 'W', min: 0, max: 12000, description: 'Charge power limit' },
+        { id: '42', address: 0xE028, name: 'Period 2 Start', key: 'chgStart2', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '43', address: 0xE029, name: 'Period 2 End', key: 'chgEnd2', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '—', address: 0xE03C, name: 'Period 2 Stop SoC', key: 'chg2StopSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Stop when SoC reaches' },
+        { id: '—', address: 0xE04B, name: 'Period 2 Max Power', key: 'chg2MaxPwr', scale: 1, unit: 'W', min: 0, max: 12000, description: 'Charge power limit' },
+        { id: '44', address: 0xE02A, name: 'Period 3 Start', key: 'chgStart3', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '45', address: 0xE02B, name: 'Period 3 End', key: 'chgEnd3', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '—', address: 0xE03D, name: 'Period 3 Stop SoC', key: 'chg3StopSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Stop when SoC reaches' },
+        { id: '—', address: 0xE04C, name: 'Period 3 Max Power', key: 'chg3MaxPwr', scale: 1, unit: 'W', min: 0, max: 12000, description: 'Charge power limit' },
+        { id: '—', address: 0xE04D, name: 'Charge Source Bitmap', key: 'timedChgSrc', scale: 1, unit: '', min: 0, max: 7, description: 'Bitmap: AC/Gen per period' },
+      ],
+      TIMING_DISCHARGE: [
+        { id: '53', address: 0xE033, name: 'Enable Timed Discharge', key: 'timedDischgEn', scale: 1, unit: '', min: 0, max: 1, description: 'Time-based battery discharge',
+          options: [
+            { value: 0, label: 'DIS (Disabled)' },
+            { value: 1, label: 'ENA (Enabled)' }
+          ]
+        },
+        { id: '47', address: 0xE02D, name: 'Period 1 Start', key: 'dischgStart1', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '48', address: 0xE02E, name: 'Period 1 End', key: 'dischgEnd1', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '—', address: 0xE03E, name: 'Period 1 Stop SoC', key: 'dischg1StopSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Stop when SoC drops to' },
+        { id: '—', address: 0xE047, name: 'Period 1 Max Power', key: 'dischg1MaxPwr', scale: 1, unit: 'W', min: 0, max: 12000, description: 'Discharge power limit' },
+        { id: '49', address: 0xE02F, name: 'Period 2 Start', key: 'dischgStart2', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '50', address: 0xE030, name: 'Period 2 End', key: 'dischgEnd2', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '—', address: 0xE03F, name: 'Period 2 Stop SoC', key: 'dischg2StopSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Stop when SoC drops to' },
+        { id: '—', address: 0xE048, name: 'Period 2 Max Power', key: 'dischg2MaxPwr', scale: 1, unit: 'W', min: 0, max: 12000, description: 'Discharge power limit' },
+        { id: '51', address: 0xE031, name: 'Period 3 Start', key: 'dischgStart3', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '52', address: 0xE032, name: 'Period 3 End', key: 'dischgEnd3', scale: 1, unit: '', min: 0, max: 5947, description: 'HH*256+MM' },
+        { id: '—', address: 0xE040, name: 'Period 3 Stop SoC', key: 'dischg3StopSoc', scale: 1, unit: '%', min: 0, max: 100, description: 'Stop when SoC drops to' },
+        { id: '—', address: 0xE049, name: 'Period 3 Max Power', key: 'dischg3MaxPwr', scale: 1, unit: 'W', min: 0, max: 12000, description: 'Discharge power limit' },
+      ],
+      GRID: [
+        { id: '34', address: 0xE037, name: 'Limit Power to CT', key: 'gridMode', scale: 1, unit: '', min: 0, max: 2, description: 'Grid-tie operating mode',
+          options: [
+            { value: 0, label: 'DIS (Off-Grid)' },
+            { value: 1, label: 'Home Load (Solar to Home)' }
+          ]
+        },
+        { id: '56', address: 0xE038, name: 'Leakage Current Protection', key: 'leakageDetect', scale: 1, unit: '', min: 0, max: 1, description: 'Ground fault detection',
+          options: [
+            { value: 0, label: 'DIS (Disabled)' },
+            { value: 1, label: 'ENA (Enabled)' }
+          ]
+        },
+        { id: '67', address: 0xE21D, name: 'Power Sales Setting', key: 'maxLinePwr', scale: 1, unit: 'W', min: 0, max: 65535, description: 'Grid export limit' },
+      ],
+      GENERATOR: [
+        { id: '—', address: 0xE21A, name: 'Generator Charging', key: 'genChgDisable', scale: 1, unit: '', min: 0, max: 1, description: 'Allow generator charging',
+          options: [
+            { value: 0, label: 'Enabled' },
+            { value: 1, label: 'Disabled' }
+          ]
+        },
+        { id: '—', address: 0xE21F, name: 'Generator Work Mode', key: 'genWorkMode', scale: 1, unit: '', min: 0, max: 1, description: 'Operation mode' },
+        { id: '73', address: 0xE220, name: 'Max Charge Current by Generator', key: 'genChgCurr', scale: 0.1, unit: 'A', min: 0, max: 100, description: 'Max current from generator' },
+        { id: '74', address: 0xE221, name: 'Generator Input Power', key: 'genRatePwr', scale: 1, unit: 'W', min: 0, max: 65535, description: 'Generator rated capacity' },
+      ]
+    };
+
+    function createSettingRow(setting, category) {
+      const row = document.createElement('div');
+      row.className = 'setting-row';
+      const displayId = setting.id || '—';
+      
+      // Special handling for clock type
+      if (setting.type === 'clock') {
+        row.innerHTML = `
+          <div class="setting-info">
+            <div class="setting-name">${setting.name} <span style="color: var(--text-muted); font-weight: normal; font-size: 0.85em;">(${displayId})</span></div>
+            <div class="setting-description">${setting.description}</div>
+          </div>
+          <div class="setting-controls">
+            <span id="clock-display" style="font-family: 'Courier New', monospace; font-size: 0.95rem; color: var(--text-primary); padding: 8px 12px; background: var(--panel-bg); border-radius: 6px; min-width: 220px; display: inline-block; white-space: nowrap;">--</span>
+            <button class="btn-set" onclick="syncClock('${category}')">Sync Time</button>
+          </div>
+        `;
+        return row;
+      }
+      
+      // Build input control - either dropdown or number input
+      let inputControl = '';
+      const disabledAttr = setting.readOnly ? ' disabled' : '';
+      
+      if (setting.options && setting.options.length > 0) {
+        // Render dropdown for discrete options
+        inputControl = `<select class="setting-input" id="input-${setting.key}"${disabledAttr}>`;
+        setting.options.forEach(opt => {
+          inputControl += `<option value="${opt.value}">${opt.label}</option>`;
+        });
+        inputControl += `</select>`;
+      } else {
+        // Render numeric input for continuous values
+        inputControl = `<input type="number" class="setting-input" id="input-${setting.key}" 
+                 min="${setting.min}" max="${setting.max}" step="${setting.scale}"${disabledAttr}>`;
+      }
+      
+      // Show Set button only for writable settings
+      const setButton = setting.readOnly 
+        ? '<span class="setting-readonly">(Read-Only)</span>' 
+        : `<button class="btn-set" onclick="writeSetting('${setting.key}', ${setting.address}, ${setting.scale}, '${category}')">Set</button>`;
+      
+      row.innerHTML = `
+        <div class="setting-info">
+          <div class="setting-name">${setting.name} <span style="color: var(--text-muted); font-weight: normal; font-size: 0.85em;">(${displayId})</span></div>
+          <div class="setting-description">${setting.description}</div>
+        </div>
+        <div class="setting-controls">
+          ${inputControl}
+          ${setButton}
+        </div>
+      `;
+      return row;
+    }
+
+    function populateSettings() {
+      Object.keys(CONFIG_REGISTERS).forEach(category => {
+        const containerId = category.toLowerCase() + '-settings';
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = '';
+        CONFIG_REGISTERS[category].forEach(setting => {
+          container.appendChild(createSettingRow(setting, category));
+        });
+      });
+    }
+
+    async function refreshSettingsCategory(category) {
+      const statusDiv = document.getElementById(`${category.toLowerCase()}-status`);
+      statusDiv.textContent = 'Loading...';
+      statusDiv.style.color = 'var(--text-muted)';
+      
+      const settings = CONFIG_REGISTERS[category];
+      if (!settings) return;
+      
+      try {
+        // Check if we need to refresh the clock separately
+        const hasClock = settings.some(s => s.type === 'clock');
+        if (hasClock) {
+          await refreshClock();
+        }
+        
+        // Use batch endpoint for much faster reads
+        const response = await fetch(`/api/settings/batch/${category.toLowerCase()}`);
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        let successCount = 0;
+        
+        // Update all settings from batch response
+        for (const setting of settings) {
+          if (setting.type === 'clock') continue; // Skip clock, handled separately
+          
+          const result = data.settings[setting.key];
+          const inputElem = document.getElementById(`input-${setting.key}`);
+          
+          if (result && !result.unavailable) {
+            // Set input/dropdown to current value
+            if (setting.options) {
+              // For dropdown, set to raw register value
+              if (inputElem) {
+                inputElem.value = String(result.value);
+                // Force visual refresh by triggering change event
+                inputElem.dispatchEvent(new Event('change'));
+              }
+            } else {
+              // For numeric input, set to scaled value
+              if (inputElem) {
+                inputElem.value = result.scaled;
+              }
+            }
+            successCount++;
+          } else if (result && result.unavailable) {
+            if (inputElem) {
+              inputElem.disabled = true;
+              const setBtn = inputElem.parentElement.querySelector('.btn-set');
+              if (setBtn) setBtn.disabled = true;
+            }
+          }
+        }
+        
+        statusDiv.textContent = `Loaded ${successCount} settings`;
+        statusDiv.style.color = 'var(--green)';
+        setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+      } catch (error) {
+        console.error(`Failed to read ${category} settings:`, error);
+        statusDiv.textContent = `Error: ${error.message}`;
+        statusDiv.style.color = 'var(--red)';
+        setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+      }
+    }
+
+    async function refreshClock() {
+      try {
+        const response = await fetch('/api/clock');
+        const data = await response.json();
+        
+        if (data.dateTime) {
+          document.getElementById('clock-display').textContent = data.dateTime;
+        }
+      } catch (error) {
+        console.error('Failed to read clock:', error);
+        document.getElementById('clock-display').textContent = 'Error';
+      }
+    }
+
+    async function syncClock(category) {
+      const statusDiv = document.getElementById(`${category.toLowerCase()}-status`);
+      statusDiv.textContent = 'Syncing time...';
+      statusDiv.style.color = 'var(--text-muted)';
+      
+      try {
+        const response = await fetch('/api/clock/sync', { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.success) {
+          document.getElementById('clock-display').textContent = result.dateTime;
+          statusDiv.textContent = 'Clock synchronized';
+          statusDiv.style.color = 'var(--green)';
+          setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+        } else {
+          throw new Error(result.error || 'Sync failed');
+        }
+      } catch (error) {
+        console.error('Failed to sync clock:', error);
+        statusDiv.textContent = `Error: ${error.message}`;
+        statusDiv.style.color = 'var(--red)';
+        setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+      }
+    }
+
+    async function writeSetting(key, address, scale, category) {
+      const inputEl = document.getElementById(`input-${key}`);
+      const statusDiv = document.getElementById(`${category.toLowerCase()}-status`);
+      
+      let registerValue;
+      
+      // Check if this is a dropdown (select) or numeric input
+      if (inputEl.tagName === 'SELECT') {
+        // For dropdowns, the value is already the register value
+        registerValue = parseInt(inputEl.value);
+      } else {
+        // For numeric inputs, apply scaling
+        const inputValue = parseFloat(inputEl.value);
+        if (isNaN(inputValue)) {
+          statusDiv.textContent = 'Invalid value';
+          statusDiv.style.color = 'var(--red)';
+          setTimeout(() => { statusDiv.textContent = ''; }, 3000);
+          return;
+        }
+        // Convert to register value (reverse scaling)
+        registerValue = Math.round(inputValue / scale);
+      }
+      
+      try {
+        statusDiv.textContent = 'Writing...';
+        statusDiv.style.color = 'var(--text-muted)';
+        
+        const response = await fetch(`/api/settings/${address.toString(16)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: registerValue })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          statusDiv.textContent = 'Setting updated successfully';
+          statusDiv.style.color = 'var(--green)';
+          setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+        } else {
+          throw new Error(result.error || 'Write failed');
+        }
+      } catch (error) {
+        statusDiv.textContent = `Error: ${error.message}`;
+        statusDiv.style.color = 'var(--red)';
+        setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+      }
+    }
+
+    // Initialize settings UI
+    populateSettings();
+  </script>
+</body>
+</html>

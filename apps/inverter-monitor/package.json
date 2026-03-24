@@ -1,0 +1,25 @@
+{
+  "name": "sungold-inverter-monitor",
+  "version": "1.0.0",
+  "description": "Node.js application to monitor Sungold inverter via Modbus TCP and publish to MQTT",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "modbus",
+    "inverter",
+    "mqtt",
+    "signalk",
+    "marine"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "modbus-rtu": "^0.2.1",
+    "mqtt": "^5.10.1"
+  }
+}

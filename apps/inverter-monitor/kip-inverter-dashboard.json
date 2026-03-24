@@ -1,0 +1,1115 @@
+{
+  "app": {
+    "configVersion": 12,
+    "autoNightMode": true,
+    "redNightMode": false,
+    "nightModeBrightness": 0.3,
+    "isRemoteControl": false,
+    "instanceName": "Inverter Monitor",
+    "splitShellEnabled": false,
+    "dataSets": [],
+    "unitDefaults": {
+      "Unitless": "unitless",
+      "Speed": "knots",
+      "Temperature": "celsius",
+      "Length": "m",
+      "Volume": "liter",
+      "Current": "A",
+      "Potential": "V",
+      "Charge": "Ah",
+      "Power": "W",
+      "Energy": "kWh",
+      "Pressure": "kPa",
+      "Frequency": "Hz",
+      "Ratio": "ratio"
+    },
+    "notificationConfig": {
+      "disableNotifications": false,
+      "menuGrouping": true,
+      "security": {
+        "disableSecurity": true
+      },
+      "devices": {
+        "disableDevices": false,
+        "showNormalState": false,
+        "showNominalState": false
+      },
+      "sound": {
+        "disableSound": false,
+        "muteNormal": true,
+        "muteNominal": true,
+        "muteWarn": false,
+        "muteAlert": false,
+        "muteAlarm": false,
+        "muteEmergency": false
+      }
+    }
+  },
+  "theme": {
+    "themeName": ""
+  },
+  "dashboards": [
+    {
+      "id": "inv-overview",
+      "name": "Overview",
+      "icon": "dashboard-dashboard",
+      "collapseSplitShell": false,
+      "configuration": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 4,
+          "id": "inv-state",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-text-generic",
+              "uuid": "inv-state",
+              "config": {
+                "displayName": "Inverter State",
+                "filterSelfPaths": true,
+                "paths": {
+                  "textPath": {
+                    "description": "State Text",
+                    "path": "self.electrical.inverters.0.stateText",
+                    "source": "default",
+                    "pathType": "string",
+                    "isPathConfigurable": true,
+                    "sampleTime": 3000
+                  }
+                },
+                "textColor": "text",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 0,
+          "w": 12,
+          "h": 4,
+          "id": "batt-soc",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "batt-soc",
+              "config": {
+                "displayName": "Battery SoC",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "State of Charge",
+                    "path": "self.electrical.batteries.0.capacity.stateOfCharge",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "%",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 0,
+                "showMiniChart": true,
+                "color": "green",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 4,
+          "id": "batt-volt",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "batt-volt",
+              "config": {
+                "displayName": "Battery Voltage",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Voltage",
+                    "path": "self.electrical.batteries.0.voltage",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "V",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "cyan",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 4,
+          "id": "batt-current",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "batt-current",
+              "config": {
+                "displayName": "Battery Current",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Current",
+                    "path": "self.electrical.batteries.0.current",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "A",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "cyan",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 0,
+          "y": 8,
+          "w": 12,
+          "h": 8,
+          "id": "ac-in-power",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-in-power",
+              "config": {
+                "displayName": "AC Input Power",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Total Power",
+                    "path": "self.electrical.inverters.0.acin.activePowerTotal",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "W",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 0,
+                "showMiniChart": true,
+                "color": "orange",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 8,
+          "w": 12,
+          "h": 8,
+          "id": "ac-out-power",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-out-power",
+              "config": {
+                "displayName": "Load Power",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Total Load",
+                    "path": "self.electrical.inverters.0.acout.loadPowerTotal",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "W",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 0,
+                "showMiniChart": true,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 0,
+          "y": 16,
+          "w": 12,
+          "h": 8,
+          "id": "solar-power",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "solar-power",
+              "config": {
+                "displayName": "Solar Power",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Charging Power",
+                    "path": "self.electrical.solar.0.chargingPower",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "W",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 0,
+                "showMiniChart": true,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-battery",
+      "name": "Battery",
+      "icon": "dashboard-battery",
+      "collapseSplitShell": false,
+      "configuration": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 12,
+          "id": "batt-voltage-gauge",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-gauge-ng-radial",
+              "uuid": "batt-voltage-gauge",
+              "config": {
+                "displayName": "Battery Voltage",
+                "filterSelfPaths": true,
+                "paths": {
+                  "gaugePath": {
+                    "description": "Voltage",
+                    "path": "self.electrical.batteries.0.voltage",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "V",
+                    "sampleTime": 3000
+                  }
+                },
+                "displayScale": {
+                  "lower": 40,
+                  "upper": 60,
+                  "type": "linear"
+                },
+                "gauge": {
+                  "type": "ngRadial",
+                  "subType": "measuring",
+                  "enableTicks": true,
+                  "enableNeedle": true,
+                  "enableProgressbar": true,
+                  "showValueBox": true
+                },
+                "numInt": 2,
+                "numDecimal": 1,
+                "color": "cyan",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 0,
+          "w": 12,
+          "h": 12,
+          "id": "batt-soc-gauge",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-gauge-ng-radial",
+              "uuid": "batt-soc-gauge",
+              "config": {
+                "displayName": "State of Charge",
+                "filterSelfPaths": true,
+                "paths": {
+                  "gaugePath": {
+                    "description": "SoC",
+                    "path": "self.electrical.batteries.0.capacity.stateOfCharge",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "%",
+                    "sampleTime": 3000
+                  }
+                },
+                "displayScale": {
+                  "lower": 0,
+                  "upper": 100,
+                  "type": "linear"
+                },
+                "gauge": {
+                  "type": "ngRadial",
+                  "subType": "measuring",
+                  "enableTicks": true,
+                  "enableNeedle": true,
+                  "enableProgressbar": true,
+                  "showValueBox": true
+                },
+                "numInt": 3,
+                "numDecimal": 0,
+                "color": "green",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 0,
+          "y": 12,
+          "w": 8,
+          "h": 8,
+          "id": "batt-current-num",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "batt-current-num",
+              "config": {
+                "displayName": "Current",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Battery Current",
+                    "path": "self.electrical.batteries.0.current",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "A",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "cyan",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 8,
+          "y": 12,
+          "w": 8,
+          "h": 8,
+          "id": "batt-power",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "batt-power",
+              "config": {
+                "displayName": "Power",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Battery Power",
+                    "path": "self.electrical.batteries.0.chargingPower",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "W",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 0,
+                "showMiniChart": true,
+                "color": "green",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 16,
+          "y": 12,
+          "w": 8,
+          "h": 8,
+          "id": "batt-temp",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "batt-temp",
+              "config": {
+                "displayName": "Temperature",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Battery Temp",
+                    "path": "self.electrical.batteries.0.temperature",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "celsius",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": false,
+                "color": "orange",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-solar",
+      "name": "Solar",
+      "icon": "dashboard-solar",
+      "collapseSplitShell": false,
+      "configuration": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 12,
+          "id": "solar-power-gauge",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-gauge-ng-radial",
+              "uuid": "solar-power-gauge",
+              "config": {
+                "displayName": "Solar Power",
+                "filterSelfPaths": true,
+                "paths": {
+                  "gaugePath": {
+                    "description": "Charging Power",
+                    "path": "self.electrical.solar.0.chargingPower",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "W",
+                    "sampleTime": 3000
+                  }
+                },
+                "displayScale": {
+                  "lower": 0,
+                  "upper": 3000,
+                  "type": "linear"
+                },
+                "gauge": {
+                  "type": "ngRadial",
+                  "subType": "measuring",
+                  "enableTicks": true,
+                  "enableNeedle": true,
+                  "enableProgressbar": true,
+                  "showValueBox": true
+                },
+                "numInt": 4,
+                "numDecimal": 0,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 6,
+          "id": "solar-voltage",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "solar-voltage",
+              "config": {
+                "displayName": "Panel Voltage",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "PV Voltage",
+                    "path": "self.electrical.solar.0.panelVoltage",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "V",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": false,
+                "color": "orange",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 6,
+          "id": "solar-current",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "solar-current",
+              "config": {
+                "displayName": "Panel Current",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "PV Current",
+                    "path": "self.electrical.solar.0.panelCurrent",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "A",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": false,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 6,
+          "w": 6,
+          "h": 6,
+          "id": "solar-charge-current",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "solar-charge-current",
+              "config": {
+                "displayName": "Charging Current",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Charge Current",
+                    "path": "self.electrical.solar.0.chargingCurrent",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "A",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": false,
+                "color": "green",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 18,
+          "y": 6,
+          "w": 6,
+          "h": 6,
+          "id": "solar-energy",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "solar-energy",
+              "config": {
+                "displayName": "Energy Today",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Daily Energy",
+                    "path": "self.electrical.solar.0.yieldToday",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "kWh",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": false,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-ac-power",
+      "name": "AC Power",
+      "icon": "dashboard-power",
+      "collapseSplitShell": false,
+      "configuration": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 8,
+          "h": 8,
+          "id": "ac-in-l1-volt",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-in-l1-volt",
+              "config": {
+                "displayName": "Input L1 Voltage",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Voltage",
+                    "path": "self.electrical.inverters.0.acin.voltageL1",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "V",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "orange",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 8,
+          "y": 0,
+          "w": 8,
+          "h": 8,
+          "id": "ac-in-l2-volt",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-in-l2-volt",
+              "config": {
+                "displayName": "Input L2 Voltage",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Voltage",
+                    "path": "self.electrical.inverters.0.acin.voltageL2",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "V",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "orange",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 16,
+          "y": 0,
+          "w": 8,
+          "h": 8,
+          "id": "ac-in-freq",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-in-freq",
+              "config": {
+                "displayName": "Input Frequency",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Frequency",
+                    "path": "self.electrical.inverters.0.acin.frequency",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "Hz",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 2,
+                "showMiniChart": false,
+                "color": "grey",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 0,
+          "y": 8,
+          "w": 8,
+          "h": 8,
+          "id": "ac-out-l1-volt",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-out-l1-volt",
+              "config": {
+                "displayName": "Output L1 Voltage",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Voltage",
+                    "path": "self.electrical.inverters.0.acout.voltageL1",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "V",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 8,
+          "y": 8,
+          "w": 8,
+          "h": 8,
+          "id": "ac-out-l2-volt",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-out-l2-volt",
+              "config": {
+                "displayName": "Output L2 Voltage",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Voltage",
+                    "path": "self.electrical.inverters.0.acout.voltageL2",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "V",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 16,
+          "y": 8,
+          "w": 8,
+          "h": 8,
+          "id": "ac-out-freq",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "ac-out-freq",
+              "config": {
+                "displayName": "Output Frequency",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Frequency",
+                    "path": "self.electrical.inverters.0.acout.frequency",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "Hz",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 2,
+                "showMiniChart": false,
+                "color": "grey",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 0,
+          "y": 16,
+          "w": 12,
+          "h": 8,
+          "id": "load-l1-power",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "load-l1-power",
+              "config": {
+                "displayName": "Load L1 Power",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Power",
+                    "path": "self.electrical.inverters.0.acout.loadPowerL1",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "W",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 0,
+                "showMiniChart": true,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 16,
+          "w": 12,
+          "h": 8,
+          "id": "load-l2-power",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "load-l2-power",
+              "config": {
+                "displayName": "Load L2 Power",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Power",
+                    "path": "self.electrical.inverters.0.acout.loadPowerL2",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "W",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 0,
+                "showMiniChart": true,
+                "color": "yellow",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-temps",
+      "name": "Temperatures",
+      "icon": "dashboard-temperature",
+      "collapseSplitShell": false,
+      "configuration": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 8,
+          "id": "temp-ambient",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "temp-ambient",
+              "config": {
+                "displayName": "Ambient",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Temperature",
+                    "path": "self.electrical.inverters.0.temperature.ambient",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "celsius",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "orange",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 0,
+          "w": 12,
+          "h": 8,
+          "id": "temp-dcac",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "temp-dcac",
+              "config": {
+                "displayName": "DC-AC Module",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Temperature",
+                    "path": "self.electrical.inverters.0.temperature.dcac",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "celsius",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "red",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 0,
+          "y": 8,
+          "w": 12,
+          "h": 8,
+          "id": "temp-dcdc",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "temp-dcdc",
+              "config": {
+                "displayName": "DC-DC Module",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Temperature",
+                    "path": "self.electrical.inverters.0.temperature.dcdc",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "celsius",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "red",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        },
+        {
+          "x": 12,
+          "y": 8,
+          "w": 12,
+          "h": 8,
+          "id": "temp-transformer",
+          "selector": "widget-host2",
+          "input": {
+            "widgetProperties": {
+              "type": "widget-numeric",
+              "uuid": "temp-transformer",
+              "config": {
+                "displayName": "Transformer",
+                "filterSelfPaths": true,
+                "paths": {
+                  "numericPath": {
+                    "description": "Temperature",
+                    "path": "self.electrical.inverters.0.temperature.transformer",
+                    "source": "default",
+                    "pathType": "number",
+                    "isPathConfigurable": true,
+                    "convertUnitTo": "celsius",
+                    "sampleTime": 3000
+                  }
+                },
+                "numDecimal": 1,
+                "showMiniChart": true,
+                "color": "red",
+                "enableTimeout": false,
+                "dataTimeout": 10
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

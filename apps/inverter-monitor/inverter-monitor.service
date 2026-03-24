@@ -1,0 +1,21 @@
+[Unit]
+Description=Sungold Inverter Monitor
+Documentation=https://github.com/squidmarks/sungold-inverter-monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=geoff
+WorkingDirectory=/home/geoff/sungold-inverter-monitor
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=inverter-monitor
+
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

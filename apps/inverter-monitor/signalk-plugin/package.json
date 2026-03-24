@@ -1,0 +1,11 @@
+{
+  "name": "signalk-inverter-state-text",
+  "version": "1.0.0",
+  "description": "Converts inverter numeric state to text",
+  "main": "index.js",
+  "keywords": [
+    "signalk-node-server-plugin"
+  ],
+  "author": "",
+  "license": "MIT"
+}
