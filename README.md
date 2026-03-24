@@ -67,11 +67,14 @@ becoming/
 - **OS:** Debian Trixie (ARM64)
 - **Network:** Connected to boat's network
 - **IP:** 192.168.1.7 (hostname: `becoming-hub`)
+- **Web Access:** http://becoming-hub (unified interface via nginx)
 
 ### Monitoring & Control Systems
+- **Vessel Hub** - Central dashboard and unified interface (http://becoming-hub/)
 - **Inverter Monitor** - Real-time monitoring and configuration of Sungold SPH6548P 6.5kW solar inverter via Modbus TCP
 - **AIS Receiver** - Local AIS vessel tracking via RTL-SDR and VHF antenna
 - **SignalK Server** - Marine data hub integrating NMEA2000, MQTT, and web interfaces
+- **Nginx** - Reverse proxy providing unified web access to all systems
 
 ### Data Integration
 All systems publish to SignalK for unified marine data access:
