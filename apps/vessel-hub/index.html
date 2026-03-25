@@ -65,7 +65,7 @@
 
   <div class="section-title">Primary Systems</div>
   <div class="links">
-    <a href="http://becoming-hub:3100" class="card" target="_blank">
+    <a href="#" id="signalk-link" class="card" target="_blank">
       <h2>SignalK Server</h2>
       <p>Marine data hub & navigation</p>
       <p style="font-size: 0.8em; opacity: 0.6;">Port 3100 • Admin & plugins</p>
@@ -84,19 +84,32 @@
 
   <div class="section-title">Navigation & Monitoring</div>
   <div class="links">
-    <a href="http://becoming-hub:3100/@signalk/freeboard-sk/" class="card secondary" target="_blank">
+    <a href="#" id="freeboard-link" class="card secondary" target="_blank">
       <h2>Freeboard-SK</h2>
       <p>Chart plotter & navigation</p>
     </a>
-    <a href="http://becoming-hub:3100/@mxtommy/kip/#/" class="card secondary" target="_blank">
+    <a href="#" id="kip-link" class="card secondary" target="_blank">
       <h2>KIP Dashboard</h2>
       <p>Customizable data displays</p>
     </a>
-    <a href="http://becoming-hub:3100/@signalk/sailgauge/" class="card secondary" target="_blank">
+    <a href="#" id="sailgauge-link" class="card secondary" target="_blank">
       <h2>SailGauge</h2>
       <p>Analog instrument displays</p>
     </a>
   </div>
+
+  <script>
+    // Dynamically set SignalK URLs based on current hostname
+    // Makes the hub portable across different deployments
+    const hostname = window.location.hostname || 'localhost';
+    const signalkPort = '3100';
+    const signalkBase = `http://${hostname}:${signalkPort}`;
+    
+    document.getElementById('signalk-link').href = signalkBase;
+    document.getElementById('freeboard-link').href = `${signalkBase}/@signalk/freeboard-sk/`;
+    document.getElementById('kip-link').href = `${signalkBase}/@mxtommy/kip/#/`;
+    document.getElementById('sailgauge-link').href = `${signalkBase}/@signalk/sailgauge/`;
+  </script>
 
   <div style="margin-top: 60px; text-align: center; opacity: 0.5; font-size: 0.8em;">
     <p>AI-Accessible Vessel Project</p>
