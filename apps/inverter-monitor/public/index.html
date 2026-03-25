@@ -1608,7 +1608,7 @@
       }
     }
 
-    fetch('/api/data')
+    fetch(`${basePath}/api/data`)
       .then(r => r.json())
       .then(data => {
         if (data && Object.keys(data).length > 0) {
@@ -1955,7 +1955,7 @@
         }
         
         // Use batch endpoint for much faster reads
-        const response = await fetch(`/api/settings/batch/${category.toLowerCase()}`);
+        const response = await fetch(`${basePath}/api/settings/batch/${category.toLowerCase()}`);
         const data = await response.json();
         
         if (data.error) {
@@ -2009,7 +2009,7 @@
 
     async function refreshClock() {
       try {
-        const response = await fetch('/api/clock');
+        const response = await fetch(`${basePath}/api/clock`);
         const data = await response.json();
         
         if (data.dateTime) {
@@ -2027,7 +2027,7 @@
       statusDiv.style.color = 'var(--text-muted)';
       
       try {
-        const response = await fetch('/api/clock/sync', { method: 'POST' });
+        const response = await fetch(`${basePath}/api/clock/sync`, { method: 'POST' });
         const result = await response.json();
         
         if (result.success) {
@@ -2073,7 +2073,7 @@
         statusDiv.textContent = 'Writing...';
         statusDiv.style.color = 'var(--text-muted)';
         
-        const response = await fetch(`/api/settings/${address.toString(16)}`, {
+        const response = await fetch(`${basePath}/api/settings/${address.toString(16)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: registerValue })
