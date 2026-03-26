@@ -122,35 +122,40 @@ class PowerChart {
     // Draw bars
     this.data.forEach((item, i) => {
       const x = left + (i * barGroupWidth);
+      const centerX = x + barGroupWidth / 2;
+      const singleBarWidth = barGroupWidth * 0.8; // Use most of the space
       
-      // DC Power bar (left) - can be positive (discharge) or negative (charge)
+      // DC Power bar - single bar that goes up (discharge) or down (charge)
       const dcHeight = Math.abs(item.dcPower * yScale);
       const dcY = item.dcPower >= 0 
         ? zeroY - dcHeight  // Positive: bar goes UP from zero
         : zeroY;            // Negative: bar goes DOWN from zero
       
       const dcColor = item.dcPower >= 0 
-        ? this.options.colors.dcPower        // Blue for discharge
-        : '#22c55e';                          // Green for charge
+        ? this.options.colors.dcPower  // Blue for discharge
+        : '#22c55e';                    // Green for charge
       
       this.drawBar(
-        x,
+        centerX - singleBarWidth / 2,
         dcY,
-        barWidth,
+        singleBarWidth,
         dcHeight,
         dcColor,
-        i === this.hoveredBar
+        i === this.hoveredBar,
+        0.5 // 50% opacity for DC
       );
       
-      // AC Power bar (right) - always positive (consumption), always above zero
+      // AC Power bar - overlay on top (semi-transparent)
+      // Always positive, rendered from zero upward
       const acHeight = item.acPower * yScale;
       this.drawBar(
-        x + barWidth,
+        centerX - singleBarWidth / 2,
         zeroY - acHeight,
-        barWidth,
+        singleBarWidth,
         acHeight,
         '#fbbf24', // Yellow for AC load
-        i === this.hoveredBar
+        i === this.hoveredBar,
+        0.7 // 70% opacity for AC (more prominent)
       );
       
       // X-axis labels (show every Nth label to avoid crowding)
@@ -174,10 +179,17 @@ class PowerChart {
     }
   }
 
-  drawBar(x, y, width, height, color, highlighted) {
-    this.ctx.fillStyle = highlighted 
-      ? color 
-      : color + (this.isDarkMode() ? '99' : 'CC');
+  drawBar(x, y, width, height, color, highlighted, opacity = 1) {
+    // Parse hex color and add opacity
+    const hexToRgba = (hex, alpha) => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+    
+    const finalOpacity = highlighted ? Math.min(opacity + 0.2, 1) : opacity;
+    this.ctx.fillStyle = hexToRgba(color, finalOpacity);
     this.ctx.fillRect(x, y, width, height);
     
     if (highlighted) {
@@ -256,28 +268,23 @@ class PowerChart {
   drawLegend(x, y) {
     this.ctx.font = '13px -apple-system, sans-serif';
     this.ctx.textBaseline = 'middle';
+    const textColor = getComputedStyle(document.body)
+      .getPropertyValue('--text-secondary');
     
-    // DC Discharge (positive)
+    // DC Power (can be charging or discharging)
     this.ctx.fillStyle = this.options.colors.dcPower;
     this.ctx.fillRect(x, y, 20, 12);
-    this.ctx.fillStyle = getComputedStyle(document.body)
-      .getPropertyValue('--text-secondary');
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText('DC Discharge', x + 25, y + 6);
-    
-    // DC Charge (negative)
     this.ctx.fillStyle = '#22c55e';
-    this.ctx.fillRect(x + 140, y, 20, 12);
-    this.ctx.fillStyle = getComputedStyle(document.body)
-      .getPropertyValue('--text-secondary');
-    this.ctx.fillText('DC Charge', x + 165, y + 6);
+    this.ctx.fillRect(x + 10, y, 10, 12);
+    this.ctx.fillStyle = textColor;
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText('DC Power (↑discharge ↓charge)', x + 25, y + 6);
     
-    // AC Load
+    // AC Load (overlay)
     this.ctx.fillStyle = '#fbbf24';
-    this.ctx.fillRect(x + 270, y, 20, 12);
-    this.ctx.fillStyle = getComputedStyle(document.body)
-      .getPropertyValue('--text-secondary');
-    this.ctx.fillText('AC Load', x + 295, y + 6);
+    this.ctx.fillRect(x + 240, y, 20, 12);
+    this.ctx.fillStyle = textColor;
+    this.ctx.fillText('AC Load', x + 265, y + 6);
   }
 
   drawLabel(x, y, text, align = 'center') {
