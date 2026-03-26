@@ -51,6 +51,7 @@ class PowerChart {
       timestamp: new Date(s.timestamp),
       dcPower: s.dcPower, // Keep sign: negative=charging, positive=discharging
       acPower: s.acTotalPower,
+      soc: s.soc || 0,
       inverterState: s.inverterState || 0,
       label: this.formatTimestamp(s.timestamp)
     }));
@@ -170,6 +171,9 @@ class PowerChart {
       }
     });
     
+    // Draw SoC line (overlaid on bars)
+    this.drawSocLine(left, top, chartWidth, chartHeight, barGroupWidth);
+    
     // Draw legend
     this.drawLegend(left, top - 25);
     
@@ -265,6 +269,41 @@ class PowerChart {
     this.ctx.stroke();
   }
 
+  drawSocLine(x, y, width, height, barGroupWidth) {
+    if (this.data.length < 2) return;
+    
+    // SoC uses the full chart height (0-100%)
+    const socScale = height / 100;
+    
+    this.ctx.strokeStyle = '#ef4444'; // Red for SoC line
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    
+    this.data.forEach((item, i) => {
+      const pointX = x + (i * barGroupWidth) + barGroupWidth / 2;
+      const pointY = y + height - (item.soc * socScale);
+      
+      if (i === 0) {
+        this.ctx.moveTo(pointX, pointY);
+      } else {
+        this.ctx.lineTo(pointX, pointY);
+      }
+    });
+    
+    this.ctx.stroke();
+    
+    // Draw points
+    this.ctx.fillStyle = '#ef4444';
+    this.data.forEach((item, i) => {
+      const pointX = x + (i * barGroupWidth) + barGroupWidth / 2;
+      const pointY = y + height - (item.soc * socScale);
+      
+      this.ctx.beginPath();
+      this.ctx.arc(pointX, pointY, 4, 0, Math.PI * 2);
+      this.ctx.fill();
+    });
+  }
+
   drawLegend(x, y) {
     this.ctx.font = '13px -apple-system, sans-serif';
     this.ctx.textBaseline = 'middle';
@@ -285,6 +324,16 @@ class PowerChart {
     this.ctx.fillRect(x + 240, y, 20, 12);
     this.ctx.fillStyle = textColor;
     this.ctx.fillText('AC Load', x + 265, y + 6);
+    
+    // SoC Line
+    this.ctx.strokeStyle = '#ef4444';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + 345, y + 6);
+    this.ctx.lineTo(x + 365, y + 6);
+    this.ctx.stroke();
+    this.ctx.fillStyle = textColor;
+    this.ctx.fillText('Battery SoC', x + 370, y + 6);
   }
 
   drawLabel(x, y, text, align = 'center') {
@@ -315,6 +364,7 @@ class PowerChart {
       item.label,
       dcLabel,
       `AC Load: ${Math.round(item.acPower)}W`,
+      `Battery SoC: ${item.soc.toFixed(1)}%`,
     ];
     
     // Add efficiency info when discharging
