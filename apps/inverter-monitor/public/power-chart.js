@@ -142,15 +142,14 @@ class PowerChart {
     
     // Calculate bar dimensions
     const barGroupWidth = chartWidth / this.data.length;
-    const barWidth = (barGroupWidth / 2) * (1 - this.options.barGap);
+    const barGap = 2; // Gap between DC and AC bars
+    const barWidth = (barGroupWidth - barGap) / 2; // Two bars per group
     
     // Draw bars
     this.data.forEach((item, i) => {
       const x = left + (i * barGroupWidth);
-      const centerX = x + barGroupWidth / 2;
-      const singleBarWidth = barGroupWidth * 0.8; // Use most of the space
       
-      // DC Power bar - single bar that goes up (discharge) or down (charge)
+      // DC Power bar (left side) - goes up (discharge) or down (charge)
       const dcHeight = Math.abs(item.dcPower * yScale);
       const dcY = item.dcPower >= 0 
         ? zeroY - dcHeight  // Positive: bar goes UP from zero
@@ -161,26 +160,25 @@ class PowerChart {
         : '#22c55e';                    // Green for charge
       
       this.drawBar(
-        centerX - singleBarWidth / 2,
+        x,
         dcY,
-        singleBarWidth,
+        barWidth,
         dcHeight,
         dcColor,
         i === this.hoveredBar,
-        0.5 // 50% opacity for DC
+        0.8 // Higher opacity now that they don't overlap
       );
       
-      // AC Power bar - overlay on top (semi-transparent)
-      // Always positive, rendered from zero upward
+      // AC Power bar (right side) - always positive, rendered from zero upward
       const acHeight = item.acPower * yScale;
       this.drawBar(
-        centerX - singleBarWidth / 2,
+        x + barWidth + barGap,
         zeroY - acHeight,
-        singleBarWidth,
+        barWidth,
         acHeight,
         '#fbbf24', // Yellow for AC load
         i === this.hoveredBar,
-        0.7 // 70% opacity for AC (more prominent)
+        0.8 // Higher opacity now that they don't overlap
       );
       
       // X-axis labels (show every Nth label to avoid crowding)
