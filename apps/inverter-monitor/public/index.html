@@ -424,6 +424,32 @@
       letter-spacing: 1px;
     }
 
+    .range-btn {
+      padding: 6px 12px;
+      background: var(--tab-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .range-btn:hover {
+      background: var(--card-bg);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+
+    .range-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
     .hero-metric {
       text-align: center;
       padding: 25px 15px;
@@ -879,23 +905,17 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Energy & Runtime</div>
-      <div class="metric-row">
-        <span class="metric-label">Load Consumed Today</span>
-        <span class="metric-value" id="summary-energy-load">--<span class="unit">kWh</span></span>
+    <div class="card" style="position: relative;">
+      <div class="card-title">
+        Power Consumption History
+        <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 8px;">
+          <button class="range-btn active" data-range="hour">Hour</button>
+          <button class="range-btn" data-range="day">Day</button>
+          <button class="range-btn" data-range="week">Week</button>
+        </div>
       </div>
-      <div class="metric-row">
-        <span class="metric-label">Solar Generated Today</span>
-        <span class="metric-value" id="summary-energy-pv">--<span class="unit">kWh</span></span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">Operating Days</span>
-        <span class="metric-value" id="summary-runtime-days">--<span class="unit">days</span></span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">Total Runtime</span>
-        <span class="metric-value" id="summary-runtime-total">--<span class="unit">hrs</span></span>
+      <div style="width: 100%; height: 300px; margin-top: 10px;">
+        <canvas id="power-chart" style="width: 100%; height: 100%;"></canvas>
       </div>
     </div>
   </div>
@@ -1258,6 +1278,7 @@
     </div>
   </div>
 
+  <script src="power-chart.js"></script>
   <script>
     function showTab(tabName) {
       const tabs = document.querySelectorAll('.tab');
@@ -1576,16 +1597,10 @@
 
       if (data.energy?.today) {
         updateElement('solar-energy-today', data.energy.today.pvGeneration, 1, 'kWh');
-        updateElement('summary-energy-pv', data.energy.today.pvGeneration, 1, 'kWh');
-        updateElement('summary-energy-load', data.energy.today.loadConsumption, 1, 'kWh');
       }
 
       if (data.energy?.total) {
         updateElement('solar-energy-total', data.energy.total.pvGeneration, 1, 'kWh');
-        updateElement('summary-runtime-days', data.energy.total.workDays, 0, 'days');
-        
-        const runtime = (data.energy.total.invWorkTime || 0) + (data.energy.total.lineWorkTime || 0);
-        updateElement('summary-runtime-total', runtime, 0, 'hrs');
       }
     }
 
@@ -2097,6 +2112,53 @@
 
     // Initialize settings UI
     populateSettings();
+
+    // ========== Power History Chart ==========
+    let powerChart = null;
+    let currentRange = 'hour';
+
+    function initPowerChart() {
+      powerChart = new PowerChart('power-chart');
+      updatePowerChart(currentRange);
+      
+      // Handle range button clicks
+      document.querySelectorAll('.range-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const range = btn.dataset.range;
+          if (range === currentRange) return;
+          
+          // Update active state
+          document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          currentRange = range;
+          updatePowerChart(range);
+        });
+      });
+      
+      // Refresh chart every 5 minutes (when new data is logged)
+      setInterval(() => updatePowerChart(currentRange), 5 * 60 * 1000);
+    }
+
+    async function updatePowerChart(range) {
+      try {
+        const response = await fetch(`${basePath}/api/power-history?range=${range}`);
+        const data = await response.json();
+        
+        if (data.samples && data.samples.length > 0) {
+          powerChart.setData(data.samples);
+        }
+      } catch (error) {
+        console.error('Error fetching power history:', error);
+      }
+    }
+
+    // Initialize chart when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPowerChart);
+    } else {
+      initPowerChart();
+    }
   </script>
 </body>
 </html>
