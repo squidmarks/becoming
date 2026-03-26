@@ -11,6 +11,7 @@ Node.js application to monitor a Sungold inverter (SPH6548P) via Modbus TCP and 
 - **Battery monitoring** - SoC, voltage, current, temperature, BMS data
 - **Solar PV tracking** - Dual string monitoring with power generation
 - **Energy statistics** - Daily and lifetime energy counters
+- **Power consumption logging** - CSV-based historical tracking with 5-minute aggregation
 - **Light/Dark mode** - User-selectable theme with persistence
 
 ## Hardware Setup
@@ -110,6 +111,52 @@ Features:
 - Responsive design for mobile devices
 - Sticky footer with status indicator
 
+## Power Logging
+
+The inverter monitor automatically logs power consumption data to CSV files for historical analysis.
+
+### How It Works
+
+- **Aggregation**: Every 5 minutes, samples are averaged and written to CSV
+- **Storage**: Logs are stored in `./logs/` directory (created automatically)
+- **Retention**: Keeps last 7 days of data, automatically deletes older logs
+- **Size**: ~200KB for 7 days of data (~288 samples/day)
+
+### Log Format
+
+CSV files named `power-YYYY-MM-DD.csv` with columns:
+
+```csv
+timestamp,dc_voltage_avg,dc_current_avg,dc_power_avg,ac_l1_power_avg,ac_l2_power_avg,ac_total_power_avg,soc_avg,sample_count
+2026-03-20T12:00:00.000Z,52.1,12.3,640.8,300.5,280.2,580.7,85.5,100
+```
+
+### Analyzing Logs
+
+View power consumption over time:
+
+```bash
+# View today's log
+cat logs/power-$(date +%Y-%m-%d).csv
+
+# Calculate total AC consumption for today (kWh)
+awk -F',' 'NR>1 {sum+=$7} END {print sum*5/60/1000 " kWh"}' logs/power-$(date +%Y-%m-%d).csv
+
+# Find peak DC power draw
+awk -F',' 'NR>1 {if($4>max)max=$4} END {print max " W"}' logs/power-*.csv
+```
+
+### Data Fields
+
+- **dc_voltage_avg**: Average battery voltage (V)
+- **dc_current_avg**: Average DC current (A) - positive = discharging
+- **dc_power_avg**: Average DC power (W) - battery to inverter
+- **ac_l1_power_avg**: Average AC L1 load power (W)
+- **ac_l2_power_avg**: Average AC L2 load power (W)
+- **ac_total_power_avg**: Average total AC load (W)
+- **soc_avg**: Average battery state of charge (%)
+- **sample_count**: Number of samples in this 5-minute interval
+
 ## Troubleshooting
 
 ### MQTT Connection Issues
@@ -150,6 +197,7 @@ The codebase is organized into modules:
 - `polling-service.js` - Polling orchestration
 - `mqtt-publisher.js` - SignalK-compliant MQTT publisher
 - `web-server.js` - Express server with SSE support
+- `power-logger.js` - CSV-based power consumption logging
 - `terminal-formatter.js` - Terminal output formatting (legacy)
 - `config.js` - Configuration loader
 

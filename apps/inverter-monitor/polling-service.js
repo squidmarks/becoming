@@ -2,12 +2,13 @@ import { REGISTER_GROUPS } from './registers.js';
 import { InverterDataParser } from './data-parser.js';
 
 export class PollingService {
-  constructor(modbusClient, pollInterval, webServer = null, mqttPublisher = null, config = {}, modbusLock = null) {
+  constructor(modbusClient, pollInterval, webServer = null, mqttPublisher = null, config = {}, modbusLock = null, powerLogger = null) {
     this.modbusClient = modbusClient;
     this.pollInterval = pollInterval;
     this.webServer = webServer;
     this.mqttPublisher = mqttPublisher;
     this.modbusLock = modbusLock;
+    this.powerLogger = powerLogger;
     this.parser = new InverterDataParser(modbusClient);
     this.isRunning = false;
     this.isPolling = false;
@@ -173,6 +174,11 @@ export class PollingService {
 
       if (this.mqttPublisher) {
         this.mqttPublisher.publishInverterData(payload);
+      }
+
+      // Log power data for historical tracking
+      if (this.powerLogger) {
+        this.powerLogger.addSample(payload);
       }
 
     } catch (error) {
