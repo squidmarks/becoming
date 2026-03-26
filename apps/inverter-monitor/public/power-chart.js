@@ -7,8 +7,15 @@ class PowerChart {
   constructor(canvasId, options = {}) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
+    
+    // Responsive padding based on screen size
+    const isMobile = window.innerWidth <= 768;
+    const defaultPadding = isMobile 
+      ? { top: 30, right: 45, bottom: 50, left: 50 }
+      : { top: 40, right: 60, bottom: 60, left: 60 };
+    
     this.options = {
-      padding: { top: 40, right: 60, bottom: 60, left: 60 },
+      padding: defaultPadding,
       barGap: 0.3, // Gap between bars as fraction of bar width
       colors: {
         dcPower: '#3c7dce',
@@ -30,8 +37,14 @@ class PowerChart {
     this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
     this.canvas.addEventListener('mouseout', this.handleMouseOut.bind(this));
     
-    // Resize handling
-    window.addEventListener('resize', () => this.draw());
+    // Resize handling - update padding on resize
+    window.addEventListener('resize', () => {
+      const isMobile = window.innerWidth <= 768;
+      this.options.padding = isMobile 
+        ? { top: 30, right: 45, bottom: 50, left: 50 }
+        : { top: 40, right: 60, bottom: 60, left: 60 };
+      this.draw();
+    });
   }
 
   setupCanvas() {
@@ -210,7 +223,8 @@ class PowerChart {
   drawGrid(x, y, width, height, maxValue, zeroY) {
     this.ctx.strokeStyle = this.options.colors.grid;
     this.ctx.lineWidth = 1;
-    this.ctx.font = '12px -apple-system, sans-serif';
+    const fontSize = window.innerWidth <= 768 ? 10 : 12;
+    this.ctx.font = `${fontSize}px -apple-system, sans-serif`;
     this.ctx.fillStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-muted');
     
@@ -307,7 +321,8 @@ class PowerChart {
     this.ctx.stroke();
     
     // SoC labels (0-100%)
-    this.ctx.font = '12px -apple-system, sans-serif';
+    const fontSize = window.innerWidth <= 768 ? 10 : 12;
+    this.ctx.font = `${fontSize}px -apple-system, sans-serif`;
     this.ctx.fillStyle = '#8b5cf6'; // Purple to match SoC line
     this.ctx.textAlign = 'left';
     this.ctx.textBaseline = 'middle';
@@ -364,39 +379,77 @@ class PowerChart {
   }
 
   drawLegend(x, y) {
-    this.ctx.font = '13px -apple-system, sans-serif';
+    const isMobile = window.innerWidth <= 768;
+    const fontSize = isMobile ? 11 : 13;
+    this.ctx.font = `${fontSize}px -apple-system, sans-serif`;
     this.ctx.textBaseline = 'middle';
     const textColor = getComputedStyle(document.body)
       .getPropertyValue('--text-secondary');
     
-    // DC Power (can be charging or discharging)
-    this.ctx.fillStyle = this.options.colors.dcPower;
-    this.ctx.fillRect(x, y, 20, 12);
-    this.ctx.fillStyle = '#22c55e';
-    this.ctx.fillRect(x + 10, y, 10, 12);
-    this.ctx.fillStyle = textColor;
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText('DC Power (↑discharge ↓charge)', x + 25, y + 6);
-    
-    // AC Load (overlay)
-    this.ctx.fillStyle = '#fbbf24';
-    this.ctx.fillRect(x + 240, y, 20, 12);
-    this.ctx.fillStyle = textColor;
-    this.ctx.fillText('AC Load', x + 265, y + 6);
-    
-    // SoC Line
-    this.ctx.strokeStyle = '#8b5cf6';
-    this.ctx.lineWidth = 3;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x + 345, y + 6);
-    this.ctx.lineTo(x + 365, y + 6);
-    this.ctx.stroke();
-    this.ctx.fillStyle = textColor;
-    this.ctx.fillText('Battery SoC', x + 370, y + 6);
+    if (isMobile) {
+      // Stacked vertical layout for mobile
+      let currentY = y;
+      
+      // DC Power
+      this.ctx.fillStyle = this.options.colors.dcPower;
+      this.ctx.fillRect(x, currentY, 16, 10);
+      this.ctx.fillStyle = '#22c55e';
+      this.ctx.fillRect(x + 8, currentY, 8, 10);
+      this.ctx.fillStyle = textColor;
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('DC (↑discharge ↓charge)', x + 20, currentY + 5);
+      
+      currentY += 18;
+      
+      // AC Load
+      this.ctx.fillStyle = '#fbbf24';
+      this.ctx.fillRect(x, currentY, 16, 10);
+      this.ctx.fillStyle = textColor;
+      this.ctx.fillText('AC Load', x + 20, currentY + 5);
+      
+      currentY += 18;
+      
+      // SoC Line
+      this.ctx.strokeStyle = '#8b5cf6';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, currentY + 5);
+      this.ctx.lineTo(x + 16, currentY + 5);
+      this.ctx.stroke();
+      this.ctx.fillStyle = textColor;
+      this.ctx.fillText('Battery SoC', x + 20, currentY + 5);
+    } else {
+      // Horizontal layout for desktop
+      // DC Power (can be charging or discharging)
+      this.ctx.fillStyle = this.options.colors.dcPower;
+      this.ctx.fillRect(x, y, 20, 12);
+      this.ctx.fillStyle = '#22c55e';
+      this.ctx.fillRect(x + 10, y, 10, 12);
+      this.ctx.fillStyle = textColor;
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('DC Power (↑discharge ↓charge)', x + 25, y + 6);
+      
+      // AC Load (overlay)
+      this.ctx.fillStyle = '#fbbf24';
+      this.ctx.fillRect(x + 240, y, 20, 12);
+      this.ctx.fillStyle = textColor;
+      this.ctx.fillText('AC Load', x + 265, y + 6);
+      
+      // SoC Line
+      this.ctx.strokeStyle = '#8b5cf6';
+      this.ctx.lineWidth = 3;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + 345, y + 6);
+      this.ctx.lineTo(x + 365, y + 6);
+      this.ctx.stroke();
+      this.ctx.fillStyle = textColor;
+      this.ctx.fillText('Battery SoC', x + 370, y + 6);
+    }
   }
 
   drawLabel(x, y, text, align = 'center') {
-    this.ctx.font = '11px -apple-system, sans-serif';
+    const fontSize = window.innerWidth <= 768 ? 9 : 11;
+    this.ctx.font = `${fontSize}px -apple-system, sans-serif`;
     this.ctx.fillStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-muted');
     this.ctx.textAlign = align;
@@ -440,10 +493,12 @@ class PowerChart {
     }
     
     // Measure text
-    this.ctx.font = '12px -apple-system, sans-serif';
+    const isMobile = window.innerWidth <= 768;
+    const fontSize = isMobile ? 11 : 12;
+    this.ctx.font = `${fontSize}px -apple-system, sans-serif`;
     const maxWidth = Math.max(...lines.map(l => this.ctx.measureText(l).width));
-    const padding = 8;
-    const lineHeight = 16;
+    const padding = isMobile ? 6 : 8;
+    const lineHeight = isMobile ? 14 : 16;
     const tooltipWidth = maxWidth + padding * 2;
     const tooltipHeight = lines.length * lineHeight + padding * 2;
     
