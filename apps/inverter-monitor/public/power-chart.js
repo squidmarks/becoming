@@ -142,12 +142,14 @@ class PowerChart {
     
     // Calculate bar dimensions
     const barGroupWidth = chartWidth / this.data.length;
-    const barGap = 2; // Gap between DC and AC bars
-    const barWidth = (barGroupWidth - barGap) / 2; // Two bars per group
+    const pairWidth = barGroupWidth * 0.6; // Bar pair takes 60% of space, leaving 40% for gaps
+    const barGap = 1; // Minimal gap between DC and AC bars
+    const barWidth = (pairWidth - barGap) / 2; // Two bars per group
+    const pairOffset = (barGroupWidth - pairWidth) / 2; // Center the pair in its space
     
     // Draw bars
     this.data.forEach((item, i) => {
-      const x = left + (i * barGroupWidth);
+      const x = left + (i * barGroupWidth) + pairOffset;
       
       // DC Power bar (left side) - goes up (discharge) or down (charge)
       const dcHeight = Math.abs(item.dcPower * yScale);
@@ -166,7 +168,7 @@ class PowerChart {
         dcHeight,
         dcColor,
         i === this.hoveredBar,
-        0.8 // Higher opacity now that they don't overlap
+        0.9 // Higher opacity for thinner bars
       );
       
       // AC Power bar (right side) - always positive, rendered from zero upward
@@ -178,7 +180,7 @@ class PowerChart {
         acHeight,
         '#fbbf24', // Yellow for AC load
         i === this.hoveredBar,
-        0.8 // Higher opacity now that they don't overlap
+        0.9 // Higher opacity for thinner bars
       );
       
       // X-axis labels (show every Nth label to avoid crowding)
