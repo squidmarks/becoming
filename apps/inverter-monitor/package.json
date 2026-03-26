@@ -20,6 +20,7 @@
   "dependencies": {
     "express": "^4.21.2",
     "modbus-rtu": "^0.2.1",
+    "mongodb": "^6.11.0",
     "mqtt": "^5.10.1"
   }
 }

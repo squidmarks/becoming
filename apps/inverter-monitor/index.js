@@ -7,7 +7,7 @@ import { WebServer } from './web-server.js';
 import { MqttPublisher } from './mqtt-publisher.js';
 import { ModbusLock } from './modbus-lock.js';
 import { PowerLogger } from './power-logger.js';
-import { createStorage } from './storage/index.js';
+import { StorageManager } from './storage/index.js';
 
 async function main() {
   const config = loadConfig();
@@ -44,8 +44,10 @@ async function main() {
   const modbusLock = new ModbusLock();
 
   // Initialize power storage and logger first (needed by webServer)
-  const powerStorage = createStorage('csv', {
-    logDir: './logs',
+  // StorageManager will auto-select MongoDB or CSV based on MONGO_URI in .env
+  const powerStorage = await StorageManager.initialize({
+    mongoUri: config.MONGO_URI,
+    csvLogDir: './logs',
     retentionDays: 7
   });
   const powerLogger = new PowerLogger(powerStorage, 5); // 5-minute intervals

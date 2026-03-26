@@ -6,8 +6,8 @@
  */
 
 import { CsvStorage } from './csv-storage.js';
+import { MongoStorage } from './mongo-storage.js';
 // Future imports:
-// import { MongoStorage } from './mongo-storage.js';
 // import { InfluxStorage } from './influx-storage.js';
 
 /**
@@ -24,10 +24,18 @@ export function createStorage(type = 'csv', config = {}) {
         config.retentionDays || 7
       );
     
+    case 'mongo':
+    case 'mongodb':
+      if (!config.connectionString) {
+        throw new Error('MongoDB requires connectionString in config');
+      }
+      return new MongoStorage(
+        config.connectionString, 
+        config.database || 'becoming',
+        config.collection || 'power'
+      );
+    
     // Future implementations:
-    // case 'mongo':
-    //   return new MongoStorage(config.connectionString, config.database);
-    // 
     // case 'influx':
     //   return new InfluxStorage(config.url, config.token, config.org, config.bucket);
     
@@ -38,3 +46,5 @@ export function createStorage(type = 'csv', config = {}) {
 
 export { StorageInterface } from './storage-interface.js';
 export { CsvStorage } from './csv-storage.js';
+export { MongoStorage } from './mongo-storage.js';
+export { StorageManager } from './storage-manager.js';

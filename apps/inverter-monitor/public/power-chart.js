@@ -64,18 +64,19 @@ class PowerChart {
     const isToday = date.toDateString() === now.toDateString();
     
     if (isToday) {
-      // Just show time for today
+      // Just show time for today (12-hour format with AM/PM)
       return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
+        hour: 'numeric', 
         minute: '2-digit',
-        hour12: false 
+        hour12: true 
       });
     } else {
       // Show date + time for other days
       return date.toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric',
-        hour: '2-digit'
+        hour: 'numeric',
+        hour12: true
       });
     }
   }
@@ -213,14 +214,17 @@ class PowerChart {
     this.ctx.fillStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-muted');
     
-    // Horizontal grid lines (5 above zero, 5 below zero)
-    const steps = 5;
+    // Convert max value to kW and find nice interval
+    const maxKw = maxValue / 1000;
+    const interval = this.getNiceInterval(maxKw);
+    const steps = Math.ceil(maxKw / interval);
+    
     const halfHeight = height / 2;
     
     // Positive (discharge) grid lines
     for (let i = 0; i <= steps; i++) {
-      const yPos = y + (halfHeight / steps) * i;
-      const value = maxValue * (1 - i / steps);
+      const valueKw = interval * (steps - i);
+      const yPos = y + (halfHeight * i / steps);
       
       this.ctx.beginPath();
       this.ctx.moveTo(x, yPos);
@@ -229,13 +233,13 @@ class PowerChart {
       
       this.ctx.textAlign = 'right';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(Math.round(value) + 'W', x - 10, yPos);
+      this.ctx.fillText(valueKw.toFixed(1) + 'kW', x - 10, yPos);
     }
     
     // Negative (charging) grid lines
     for (let i = 1; i <= steps; i++) {
-      const yPos = zeroY + (halfHeight / steps) * i;
-      const value = -maxValue * (i / steps);
+      const valueKw = -interval * i;
+      const yPos = zeroY + (halfHeight * i / steps);
       
       this.ctx.beginPath();
       this.ctx.moveTo(x, yPos);
@@ -244,7 +248,7 @@ class PowerChart {
       
       this.ctx.textAlign = 'right';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(Math.round(value) + 'W', x - 10, yPos);
+      this.ctx.fillText(valueKw.toFixed(1) + 'kW', x - 10, yPos);
     }
     
     // Zero baseline (emphasized)
@@ -272,6 +276,25 @@ class PowerChart {
     this.ctx.stroke();
   }
 
+  getNiceInterval(maxValue) {
+    // Find a nice round interval for the scale
+    // Prefer 0.2, 0.5, 1, 2, 5, 10, etc.
+    const niceIntervals = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20];
+    
+    // Target 4-6 grid lines
+    const targetSteps = 5;
+    const roughInterval = maxValue / targetSteps;
+    
+    // Find the closest nice interval
+    for (let interval of niceIntervals) {
+      if (interval >= roughInterval) {
+        return interval;
+      }
+    }
+    
+    return Math.ceil(roughInterval);
+  }
+
   drawSocAxis(x, y, height) {
     this.ctx.strokeStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-muted');
@@ -285,7 +308,7 @@ class PowerChart {
     
     // SoC labels (0-100%)
     this.ctx.font = '12px -apple-system, sans-serif';
-    this.ctx.fillStyle = '#ef4444'; // Red to match SoC line
+    this.ctx.fillStyle = '#8b5cf6'; // Purple to match SoC line
     this.ctx.textAlign = 'left';
     this.ctx.textBaseline = 'middle';
     
@@ -311,7 +334,7 @@ class PowerChart {
     // SoC uses the full chart height (0-100%)
     const socScale = height / 100;
     
-    this.ctx.strokeStyle = '#ef4444'; // Red for SoC line
+    this.ctx.strokeStyle = '#8b5cf6'; // Purple for SoC line
     this.ctx.lineWidth = 3;
     this.ctx.beginPath();
     
@@ -329,7 +352,7 @@ class PowerChart {
     this.ctx.stroke();
     
     // Draw points
-    this.ctx.fillStyle = '#ef4444';
+    this.ctx.fillStyle = '#8b5cf6';
     this.data.forEach((item, i) => {
       const pointX = x + (i * barGroupWidth) + barGroupWidth / 2;
       const pointY = y + height - (item.soc * socScale);
@@ -362,7 +385,7 @@ class PowerChart {
     this.ctx.fillText('AC Load', x + 265, y + 6);
     
     // SoC Line
-    this.ctx.strokeStyle = '#ef4444';
+    this.ctx.strokeStyle = '#8b5cf6';
     this.ctx.lineWidth = 3;
     this.ctx.beginPath();
     this.ctx.moveTo(x + 345, y + 6);
@@ -391,15 +414,22 @@ class PowerChart {
     const x = left + (index * barGroupWidth) + barGroupWidth / 2;
     const y = top + 10;
     
+    // Format power values in kW
+    const formatPower = (watts) => {
+      return watts >= 1000 || watts <= -1000
+        ? (watts / 1000).toFixed(2) + 'kW'
+        : Math.round(watts) + 'W';
+    };
+    
     // Tooltip content
     const dcLabel = item.dcPower >= 0 
-      ? `DC Discharge: ${Math.round(item.dcPower)}W`
-      : `DC Charge: ${Math.round(Math.abs(item.dcPower))}W`;
+      ? `DC Discharge: ${formatPower(item.dcPower)}`
+      : `DC Charge: ${formatPower(Math.abs(item.dcPower))}`;
     
     const lines = [
       item.label,
       dcLabel,
-      `AC Load: ${Math.round(item.acPower)}W`,
+      `AC Load: ${formatPower(item.acPower)}`,
       `Battery SoC: ${item.soc.toFixed(1)}%`,
     ];
     

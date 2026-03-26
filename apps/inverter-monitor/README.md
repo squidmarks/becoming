@@ -50,7 +50,21 @@ MQTT_PORT=1883                       # MQTT broker port
 MQTT_BASE_TOPIC=vessels/self         # SignalK base topic
 POLL_INTERVAL_MS=3000                # Polling interval (3 seconds recommended)
 WEB_PORT=3000                        # Web dashboard port
+BATTERY_CAPACITY_AH=200              # Total battery capacity
+MIN_BATTERY_SOC=20                   # Minimum safe SoC
+
+# Optional: MongoDB for cloud power data storage
+# MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/becoming?retryWrites=true&w=majority
 ```
+
+**Optional MongoDB Cloud Setup**:
+
+1. Create a free MongoDB Atlas cluster at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+2. Get your connection string (Database → Connect → Drivers)
+3. Add to `.env`: `MONGO_URI=mongodb+srv://...`
+4. Restart the app - it will auto-migrate any existing CSV data to MongoDB
+
+📖 **See [MONGODB_MIGRATION.md](./MONGODB_MIGRATION.md) for detailed setup guide and migration details**
 
 ## Running
 
@@ -113,22 +127,56 @@ Features:
 
 ## Power Logging
 
-The inverter monitor automatically logs power consumption data to CSV files for historical analysis.
+The inverter monitor automatically logs power consumption data with intelligent storage selection.
+
+### Smart Hybrid Storage
+
+The system automatically chooses the best storage backend on startup:
+
+1. **MongoDB** (Cloud/Production):
+   - If `MONGO_URI` is configured in `.env` and network reachable
+   - Time-series optimized for efficient querying
+   - Unlimited retention, efficient compression
+   - **Auto-migration**: Existing CSV data is transferred to MongoDB and local files deleted
+
+2. **CSV** (Local Fallback):
+   - Used when MongoDB is unavailable or not configured
+   - Resilient for intermittent connectivity scenarios
+   - Stored in `./logs/` directory (created automatically)
+   - 7-day retention, ~200KB storage
 
 ### How It Works
 
-- **Aggregation**: Every 5 minutes, samples are averaged and written to CSV
-- **Storage**: Logs are stored in `./logs/` directory (created automatically)
-- **Retention**: Keeps last 7 days of data, automatically deletes older logs
-- **Size**: ~200KB for 7 days of data (~288 samples/day)
+- **Aggregation**: Every 5 minutes, samples are averaged and written to storage
+- **Selection**: Checked once on application startup only
+- **Migration**: CSV → MongoDB transfer happens automatically when cloud becomes available
+- **Fallback**: Seamless fallback to CSV if cloud is unreachable
 
 ### Log Format
 
-CSV files named `power-YYYY-MM-DD.csv` with columns:
+**CSV Format** - Files named `power-YYYY-MM-DD.csv`:
 
 ```csv
-timestamp,dc_voltage_avg,dc_current_avg,dc_power_avg,ac_l1_power_avg,ac_l2_power_avg,ac_total_power_avg,soc_avg,sample_count
-2026-03-20T12:00:00.000Z,52.1,12.3,640.8,300.5,280.2,580.7,85.5,100
+timestamp,dc_voltage_avg,dc_current_avg,dc_power_avg,ac_l1_power_avg,ac_l2_power_avg,ac_total_power_avg,soc_avg,inverter_state,sample_count
+2026-03-20T12:00:00.000Z,52.1,-5.2,-270.9,0.0,0.0,0.0,85.5,0,100
+2026-03-20T12:05:00.000Z,51.8,12.3,637.1,300.5,280.2,580.7,83.2,2,100
+```
+
+**MongoDB Format** - Documents in `becoming.power` collection:
+
+```json
+{
+  "timestamp": ISODate("2026-03-20T12:00:00.000Z"),
+  "dcVoltage": 52.1,
+  "dcCurrent": -5.2,
+  "dcPower": -270.9,
+  "acL1Power": 0.0,
+  "acL2Power": 0.0,
+  "acTotalPower": 0.0,
+  "soc": 85.5,
+  "inverterState": 0,
+  "sampleCount": 100
+}
 ```
 
 ### Analyzing Logs
@@ -148,14 +196,24 @@ awk -F',' 'NR>1 {if($4>max)max=$4} END {print max " W"}' logs/power-*.csv
 
 ### Data Fields
 
-- **dc_voltage_avg**: Average battery voltage (V)
-- **dc_current_avg**: Average DC current (A) - positive = discharging
-- **dc_power_avg**: Average DC power (W) - battery to inverter
-- **ac_l1_power_avg**: Average AC L1 load power (W)
-- **ac_l2_power_avg**: Average AC L2 load power (W)
-- **ac_total_power_avg**: Average total AC load (W)
-- **soc_avg**: Average battery state of charge (%)
-- **sample_count**: Number of samples in this 5-minute interval
+- **dc_voltage_avg** / **dcVoltage**: Average battery voltage (V) - actual measured voltage
+- **dc_current_avg** / **dcCurrent**: Average DC current (A)
+  - Positive = discharging (battery → inverter)
+  - Negative = charging (solar/shore → battery)
+- **dc_power_avg** / **dcPower**: Average DC power (W)
+  - Positive = discharging (battery → inverter)
+  - Negative = charging (solar/shore → battery)
+  - Calculated as `voltage × current` (preserves sign)
+- **ac_l1_power_avg** / **acL1Power**: Average AC L1 load power (W)
+- **ac_l2_power_avg** / **acL2Power**: Average AC L2 load power (W)
+- **ac_total_power_avg** / **acTotalPower**: Average total AC load (W)
+- **soc_avg** / **soc**: Average battery state of charge (0-100%)
+- **inverter_state** / **inverterState**: Inverter operating mode
+  - 0 = Standby
+  - 1 = Grid-connected
+  - 2 = Inverting (off-grid)
+  - 3 = Fault
+- **sample_count** / **sampleCount**: Number of raw samples in this 5-minute interval
 
 ## Troubleshooting
 
@@ -197,7 +255,12 @@ The codebase is organized into modules:
 - `polling-service.js` - Polling orchestration
 - `mqtt-publisher.js` - SignalK-compliant MQTT publisher
 - `web-server.js` - Express server with SSE support
-- `power-logger.js` - CSV-based power consumption logging
+- `power-logger.js` - Power consumption logger with storage abstraction
+- `storage/` - Pluggable storage implementations
+  - `storage-interface.js` - Base interface for all storage backends
+  - `storage-manager.js` - Smart selection and CSV→MongoDB migration
+  - `csv-storage.js` - Local CSV file storage
+  - `mongo-storage.js` - MongoDB cloud storage with time-series optimization
 - `terminal-formatter.js` - Terminal output formatting (legacy)
 - `config.js` - Configuration loader
 
