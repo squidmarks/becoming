@@ -8,7 +8,7 @@ class PowerChart {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
     this.options = {
-      padding: { top: 40, right: 20, bottom: 60, left: 60 },
+      padding: { top: 40, right: 60, bottom: 60, left: 60 },
       barGap: 0.3, // Gap between bars as fraction of bar width
       colors: {
         dcPower: '#3c7dce',
@@ -115,6 +115,9 @@ class PowerChart {
     
     // Draw grid and axes (with zero baseline)
     this.drawGrid(left, top, chartWidth, chartHeight, maxValue, zeroY);
+    
+    // Draw right Y-axis for SoC
+    this.drawSocAxis(left + chartWidth, top, chartHeight);
     
     // Calculate bar dimensions
     const barGroupWidth = chartWidth / this.data.length;
@@ -267,6 +270,39 @@ class PowerChart {
     this.ctx.moveTo(x, y + height);
     this.ctx.lineTo(x + width, y + height);
     this.ctx.stroke();
+  }
+
+  drawSocAxis(x, y, height) {
+    this.ctx.strokeStyle = getComputedStyle(document.body)
+      .getPropertyValue('--text-muted');
+    this.ctx.lineWidth = 2;
+    
+    // Right Y-axis line
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y);
+    this.ctx.lineTo(x, y + height);
+    this.ctx.stroke();
+    
+    // SoC labels (0-100%)
+    this.ctx.font = '12px -apple-system, sans-serif';
+    this.ctx.fillStyle = '#ef4444'; // Red to match SoC line
+    this.ctx.textAlign = 'left';
+    this.ctx.textBaseline = 'middle';
+    
+    const steps = 5;
+    for (let i = 0; i <= steps; i++) {
+      const yPos = y + (height / steps) * i;
+      const value = 100 * (1 - i / steps);
+      
+      // Tick mark
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, yPos);
+      this.ctx.lineTo(x + 5, yPos);
+      this.ctx.stroke();
+      
+      // Label
+      this.ctx.fillText(Math.round(value) + '%', x + 10, yPos);
+    }
   }
 
   drawSocLine(x, y, width, height, barGroupWidth) {
