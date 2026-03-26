@@ -785,6 +785,10 @@
         padding: 8px 10px;
       }
 
+      .tab-content {
+        padding: 10px 8px 15px 8px;
+      }
+
       .sub-tabs {
         gap: 4px;
       }
@@ -834,7 +838,7 @@
       }
 
       .card {
-        padding: 15px;
+        padding: 12px 8px;
       }
 
       .chart-container {
@@ -849,6 +853,36 @@
 
       .card-title {
         font-size: 0.95rem;
+      }
+    }
+
+    /* Landscape mobile - maximize chart width */
+    @media (max-width: 768px) and (orientation: landscape) {
+      .tab-content {
+        padding: 8px 4px 12px 4px;
+      }
+
+      .card {
+        padding: 10px 4px;
+      }
+
+      .chart-container {
+        height: 200px;
+      }
+
+      .card-title {
+        font-size: 0.9rem;
+        margin-bottom: 6px;
+      }
+
+      .chart-range-selector {
+        margin-top: 6px;
+        gap: 4px;
+      }
+
+      .range-btn {
+        font-size: 0.7rem;
+        padding: 4px 6px;
       }
     }
   </style>

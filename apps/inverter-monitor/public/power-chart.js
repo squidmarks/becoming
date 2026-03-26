@@ -8,14 +8,8 @@ class PowerChart {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
     
-    // Responsive padding based on screen size
-    const isMobile = window.innerWidth <= 768;
-    const defaultPadding = isMobile 
-      ? { top: 30, right: 45, bottom: 50, left: 50 }
-      : { top: 40, right: 60, bottom: 60, left: 60 };
-    
     this.options = {
-      padding: defaultPadding,
+      padding: this.getResponsivePadding(),
       barGap: 0.3, // Gap between bars as fraction of bar width
       colors: {
         dcPower: '#3c7dce',
@@ -39,12 +33,25 @@ class PowerChart {
     
     // Resize handling - update padding on resize
     window.addEventListener('resize', () => {
-      const isMobile = window.innerWidth <= 768;
-      this.options.padding = isMobile 
-        ? { top: 30, right: 45, bottom: 50, left: 50 }
-        : { top: 40, right: 60, bottom: 60, left: 60 };
+      this.options.padding = this.getResponsivePadding();
       this.draw();
     });
+  }
+
+  getResponsivePadding() {
+    const isMobile = window.innerWidth <= 768;
+    const isLandscape = window.innerHeight < window.innerWidth;
+    
+    if (isMobile && isLandscape) {
+      // Mobile landscape - minimize all padding
+      return { top: 25, right: 40, bottom: 40, left: 45 };
+    } else if (isMobile) {
+      // Mobile portrait
+      return { top: 30, right: 45, bottom: 50, left: 50 };
+    } else {
+      // Desktop
+      return { top: 40, right: 60, bottom: 60, left: 60 };
+    }
   }
 
   setupCanvas() {
@@ -397,7 +404,7 @@ class PowerChart {
       this.ctx.fillRect(x + 8, currentY, 8, 10);
       this.ctx.fillStyle = textColor;
       this.ctx.textAlign = 'left';
-      this.ctx.fillText('DC (↑discharge ↓charge)', x + 20, currentY + 5);
+      this.ctx.fillText('DC Power', x + 20, currentY + 5);
       
       currentY += 18;
       
@@ -427,23 +434,23 @@ class PowerChart {
       this.ctx.fillRect(x + 10, y, 10, 12);
       this.ctx.fillStyle = textColor;
       this.ctx.textAlign = 'left';
-      this.ctx.fillText('DC Power (↑discharge ↓charge)', x + 25, y + 6);
+      this.ctx.fillText('DC Power', x + 25, y + 6);
       
       // AC Load (overlay)
       this.ctx.fillStyle = '#fbbf24';
-      this.ctx.fillRect(x + 240, y, 20, 12);
+      this.ctx.fillRect(x + 180, y, 20, 12);
       this.ctx.fillStyle = textColor;
-      this.ctx.fillText('AC Load', x + 265, y + 6);
+      this.ctx.fillText('AC Load', x + 205, y + 6);
       
       // SoC Line
       this.ctx.strokeStyle = '#8b5cf6';
       this.ctx.lineWidth = 3;
       this.ctx.beginPath();
-      this.ctx.moveTo(x + 345, y + 6);
-      this.ctx.lineTo(x + 365, y + 6);
+      this.ctx.moveTo(x + 280, y + 6);
+      this.ctx.lineTo(x + 300, y + 6);
       this.ctx.stroke();
       this.ctx.fillStyle = textColor;
-      this.ctx.fillText('Battery SoC', x + 370, y + 6);
+      this.ctx.fillText('Battery SoC', x + 305, y + 6);
     }
   }
 
