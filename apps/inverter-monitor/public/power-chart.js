@@ -158,8 +158,8 @@ class PowerChart {
         : zeroY;            // Negative: bar goes DOWN from zero
       
       const dcColor = item.dcPower >= 0 
-        ? this.options.colors.dcPower  // Blue for discharge
-        : '#22c55e';                    // Green for charge
+        ? '#ef4444'  // Red for discharge
+        : '#22c55e'; // Green for charge
       
       this.drawBar(
         x,
@@ -398,9 +398,9 @@ class PowerChart {
       let currentY = y;
       
       // DC Power
-      this.ctx.fillStyle = this.options.colors.dcPower;
+      this.ctx.fillStyle = '#ef4444'; // Red for discharge
       this.ctx.fillRect(x, currentY, 16, 10);
-      this.ctx.fillStyle = '#22c55e';
+      this.ctx.fillStyle = '#22c55e'; // Green for charge
       this.ctx.fillRect(x + 8, currentY, 8, 10);
       this.ctx.fillStyle = textColor;
       this.ctx.textAlign = 'left';
@@ -428,9 +428,9 @@ class PowerChart {
     } else {
       // Horizontal layout for desktop
       // DC Power (can be charging or discharging)
-      this.ctx.fillStyle = this.options.colors.dcPower;
+      this.ctx.fillStyle = '#ef4444'; // Red for discharge
       this.ctx.fillRect(x, y, 20, 12);
-      this.ctx.fillStyle = '#22c55e';
+      this.ctx.fillStyle = '#22c55e'; // Green for charge
       this.ctx.fillRect(x + 10, y, 10, 12);
       this.ctx.fillStyle = textColor;
       this.ctx.textAlign = 'left';
