@@ -5,10 +5,10 @@
  * Automatically rotates logs to keep last 7 days.
  */
 
-const fs = require('fs').promises;
-const path = require('path');
+import { promises as fs } from 'fs';
+import path from 'path';
 
-class PowerLogger {
+export class PowerLogger {
   constructor(logDir = './logs', intervalMinutes = 5, retentionDays = 7) {
     this.logDir = logDir;
     this.intervalMs = intervalMinutes * 60 * 1000;
@@ -255,5 +255,3 @@ class PowerLogger {
     console.log('Power logger stopped');
   }
 }
-
-module.exports = PowerLogger;

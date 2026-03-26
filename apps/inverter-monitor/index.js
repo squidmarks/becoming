@@ -6,7 +6,7 @@ import { PollingService } from './polling-service.js';
 import { WebServer } from './web-server.js';
 import { MqttPublisher } from './mqtt-publisher.js';
 import { ModbusLock } from './modbus-lock.js';
-import PowerLogger from './power-logger.js';
+import { PowerLogger } from './power-logger.js';
 
 async function main() {
   const config = loadConfig();
