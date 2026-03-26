@@ -54,9 +54,11 @@ export class PowerLogger {
     if (!this.initialized) return;
     
     try {
-      const { battery, ac } = data;
+      const { battery, ac, systemStatus } = data;
       
-      // Calculate DC power (V * A)
+      // Calculate DC power (V * A) - KEEP THE SIGN!
+      // Negative = charging (current flowing TO battery)
+      // Positive = discharging (current flowing FROM battery)
       const dcPower = (battery?.voltage || 0) * (battery?.current || 0);
       
       // Get AC power (sum of both phases)
@@ -68,11 +70,12 @@ export class PowerLogger {
         timestamp: Date.now(),
         dcVoltage: battery?.voltage || 0,
         dcCurrent: battery?.current || 0,
-        dcPower,
+        dcPower, // Keep sign: negative=charging, positive=discharging
         acL1Power,
         acL2Power,
         acTotalPower,
         soc: battery?.soc || 0,
+        inverterState: systemStatus?.state || 0,
       });
       
     } catch (error) {
@@ -98,11 +101,12 @@ export class PowerLogger {
         timestamp: aggregated.timestamp,
         dcVoltage: aggregated.dcVoltage,
         dcCurrent: aggregated.dcCurrent,
-        dcPower: aggregated.dcPower,
+        dcPower: aggregated.dcPower, // Preserves sign
         acL1Power: aggregated.acL1Power,
         acL2Power: aggregated.acL2Power,
         acTotalPower: aggregated.acTotalPower,
         soc: aggregated.soc,
+        inverterState: aggregated.inverterState,
         sampleCount: aggregated.count,
       });
       
@@ -126,11 +130,12 @@ export class PowerLogger {
     const sum = samples.reduce((acc, s) => {
       acc.dcVoltage += s.dcVoltage;
       acc.dcCurrent += s.dcCurrent;
-      acc.dcPower += s.dcPower;
+      acc.dcPower += s.dcPower; // Sum includes sign
       acc.acL1Power += s.acL1Power;
       acc.acL2Power += s.acL2Power;
       acc.acTotalPower += s.acTotalPower;
       acc.soc += s.soc;
+      acc.inverterStateSum += s.inverterState;
       return acc;
     }, {
       dcVoltage: 0,
@@ -140,17 +145,19 @@ export class PowerLogger {
       acL2Power: 0,
       acTotalPower: 0,
       soc: 0,
+      inverterStateSum: 0,
     });
     
     return {
       timestamp: new Date(this.currentInterval.startTime).toISOString(),
       dcVoltage: sum.dcVoltage / count,
       dcCurrent: sum.dcCurrent / count,
-      dcPower: sum.dcPower / count,
+      dcPower: sum.dcPower / count, // Average preserves sign
       acL1Power: sum.acL1Power / count,
       acL2Power: sum.acL2Power / count,
       acTotalPower: sum.acTotalPower / count,
       soc: sum.soc / count,
+      inverterState: Math.round(sum.inverterStateSum / count), // Most common state
       count,
     };
   }

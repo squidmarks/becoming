@@ -52,7 +52,7 @@ export class CsvStorage extends StorageInterface {
       
       // Write header if new file
       if (needsHeader) {
-        const header = 'timestamp,dc_voltage_avg,dc_current_avg,dc_power_avg,ac_l1_power_avg,ac_l2_power_avg,ac_total_power_avg,soc_avg,sample_count\n';
+        const header = 'timestamp,dc_voltage_avg,dc_current_avg,dc_power_avg,ac_l1_power_avg,ac_l2_power_avg,ac_total_power_avg,soc_avg,inverter_state,sample_count\n';
         await fs.writeFile(filepath, header, 'utf8');
       }
       
@@ -212,6 +212,7 @@ export class CsvStorage extends StorageInterface {
       sample.acL2Power.toFixed(1),
       sample.acTotalPower.toFixed(1),
       sample.soc.toFixed(1),
+      sample.inverterState || 0,
       sample.sampleCount,
     ].join(',');
   }
@@ -251,7 +252,8 @@ export class CsvStorage extends StorageInterface {
             acL2Power: parseFloat(parts[5]),
             acTotalPower: parseFloat(parts[6]),
             soc: parseFloat(parts[7]),
-            sampleCount: parseInt(parts[8], 10),
+            inverterState: parts.length >= 10 ? parseInt(parts[8], 10) : 0,
+            sampleCount: parseInt(parts[parts.length - 1], 10),
           });
         }
       }
@@ -311,27 +313,31 @@ export class CsvStorage extends StorageInterface {
         acL2Power: 0,
         acTotalPower: 0,
         soc: 0,
+        inverterState: 0,
         sampleCount: bucketSamples.length,
       };
       
+      let inverterStateSum = 0;
       for (const s of bucketSamples) {
         avg.dcVoltage += s.dcVoltage;
         avg.dcCurrent += s.dcCurrent;
-        avg.dcPower += s.dcPower;
+        avg.dcPower += s.dcPower; // Sum preserves sign
         avg.acL1Power += s.acL1Power;
         avg.acL2Power += s.acL2Power;
         avg.acTotalPower += s.acTotalPower;
         avg.soc += s.soc;
+        inverterStateSum += s.inverterState || 0;
       }
       
       const count = bucketSamples.length;
       avg.dcVoltage /= count;
       avg.dcCurrent /= count;
-      avg.dcPower /= count;
+      avg.dcPower /= count; // Average preserves sign
       avg.acL1Power /= count;
       avg.acL2Power /= count;
       avg.acTotalPower /= count;
       avg.soc /= count;
+      avg.inverterState = Math.round(inverterStateSum / count);
       
       aggregated.push(avg);
     }

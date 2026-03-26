@@ -49,8 +49,9 @@ class PowerChart {
   setData(samples) {
     this.data = samples.map(s => ({
       timestamp: new Date(s.timestamp),
-      dcPower: Math.abs(s.dcPower), // Show absolute value
+      dcPower: s.dcPower, // Keep sign: negative=charging, positive=discharging
       acPower: s.acTotalPower,
+      inverterState: s.inverterState || 0,
       label: this.formatTimestamp(s.timestamp)
     }));
     this.draw();
@@ -96,15 +97,23 @@ class PowerChart {
     const chartWidth = width - left - right;
     const chartHeight = height - top - bottom;
     
-    // Find max value for scaling
-    const maxValue = Math.max(
-      ...this.data.map(d => Math.max(d.dcPower, d.acPower)),
+    // Find max absolute value for scaling (need to handle negative values)
+    const maxPositive = Math.max(
+      ...this.data.map(d => Math.max(d.dcPower, d.acPower, 0)),
       100 // Minimum scale
     );
-    const yScale = chartHeight / maxValue;
+    const maxNegative = Math.abs(Math.min(
+      ...this.data.map(d => Math.min(d.dcPower, 0)),
+      0
+    ));
+    const maxValue = Math.max(maxPositive, maxNegative, 100);
     
-    // Draw grid and axes
-    this.drawGrid(left, top, chartWidth, chartHeight, maxValue);
+    // Split chart: top half for positive (discharge), bottom half for negative (charge)
+    const zeroY = top + chartHeight / 2;
+    const yScale = (chartHeight / 2) / maxValue;
+    
+    // Draw grid and axes (with zero baseline)
+    this.drawGrid(left, top, chartWidth, chartHeight, maxValue, zeroY);
     
     // Calculate bar dimensions
     const barGroupWidth = chartWidth / this.data.length;
@@ -114,25 +123,33 @@ class PowerChart {
     this.data.forEach((item, i) => {
       const x = left + (i * barGroupWidth);
       
-      // DC Power bar (left)
-      const dcHeight = item.dcPower * yScale;
+      // DC Power bar (left) - can be positive (discharge) or negative (charge)
+      const dcHeight = Math.abs(item.dcPower * yScale);
+      const dcY = item.dcPower >= 0 
+        ? zeroY - dcHeight  // Positive: bar goes UP from zero
+        : zeroY;            // Negative: bar goes DOWN from zero
+      
+      const dcColor = item.dcPower >= 0 
+        ? this.options.colors.dcPower        // Blue for discharge
+        : '#22c55e';                          // Green for charge
+      
       this.drawBar(
         x,
-        top + chartHeight - dcHeight,
+        dcY,
         barWidth,
         dcHeight,
-        this.options.colors.dcPower,
+        dcColor,
         i === this.hoveredBar
       );
       
-      // AC Power bar (right)
+      // AC Power bar (right) - always positive (consumption), always above zero
       const acHeight = item.acPower * yScale;
       this.drawBar(
         x + barWidth,
-        top + chartHeight - acHeight,
+        zeroY - acHeight,
         barWidth,
         acHeight,
-        this.options.colors.acPower,
+        '#fbbf24', // Yellow for AC load
         i === this.hoveredBar
       );
       
@@ -170,38 +187,68 @@ class PowerChart {
     }
   }
 
-  drawGrid(x, y, width, height, maxValue) {
+  drawGrid(x, y, width, height, maxValue, zeroY) {
     this.ctx.strokeStyle = this.options.colors.grid;
     this.ctx.lineWidth = 1;
     this.ctx.font = '12px -apple-system, sans-serif';
     this.ctx.fillStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-muted');
     
-    // Horizontal grid lines
+    // Horizontal grid lines (5 above zero, 5 below zero)
     const steps = 5;
+    const halfHeight = height / 2;
+    
+    // Positive (discharge) grid lines
     for (let i = 0; i <= steps; i++) {
-      const yPos = y + (height / steps) * i;
+      const yPos = y + (halfHeight / steps) * i;
       const value = maxValue * (1 - i / steps);
       
-      // Grid line
       this.ctx.beginPath();
       this.ctx.moveTo(x, yPos);
       this.ctx.lineTo(x + width, yPos);
       this.ctx.stroke();
       
-      // Y-axis label
       this.ctx.textAlign = 'right';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(Math.round(value) + 'W', x - 10, yPos);
     }
     
-    // Axes
+    // Negative (charging) grid lines
+    for (let i = 1; i <= steps; i++) {
+      const yPos = zeroY + (halfHeight / steps) * i;
+      const value = -maxValue * (i / steps);
+      
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, yPos);
+      this.ctx.lineTo(x + width, yPos);
+      this.ctx.stroke();
+      
+      this.ctx.textAlign = 'right';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(Math.round(value) + 'W', x - 10, yPos);
+    }
+    
+    // Zero baseline (emphasized)
+    this.ctx.strokeStyle = getComputedStyle(document.body)
+      .getPropertyValue('--text-primary');
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, zeroY);
+    this.ctx.lineTo(x + width, zeroY);
+    this.ctx.stroke();
+    
+    // Y-axis
     this.ctx.strokeStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-muted');
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
     this.ctx.moveTo(x, y);
     this.ctx.lineTo(x, y + height);
+    this.ctx.stroke();
+    
+    // X-axis at bottom
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y + height);
     this.ctx.lineTo(x + width, y + height);
     this.ctx.stroke();
   }
@@ -210,20 +257,27 @@ class PowerChart {
     this.ctx.font = '13px -apple-system, sans-serif';
     this.ctx.textBaseline = 'middle';
     
-    // DC Power
+    // DC Discharge (positive)
     this.ctx.fillStyle = this.options.colors.dcPower;
     this.ctx.fillRect(x, y, 20, 12);
     this.ctx.fillStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-secondary');
     this.ctx.textAlign = 'left';
-    this.ctx.fillText('DC Power', x + 25, y + 6);
+    this.ctx.fillText('DC Discharge', x + 25, y + 6);
     
-    // AC Power
-    this.ctx.fillStyle = this.options.colors.acPower;
-    this.ctx.fillRect(x + 120, y, 20, 12);
+    // DC Charge (negative)
+    this.ctx.fillStyle = '#22c55e';
+    this.ctx.fillRect(x + 140, y, 20, 12);
     this.ctx.fillStyle = getComputedStyle(document.body)
       .getPropertyValue('--text-secondary');
-    this.ctx.fillText('AC Power', x + 145, y + 6);
+    this.ctx.fillText('DC Charge', x + 165, y + 6);
+    
+    // AC Load
+    this.ctx.fillStyle = '#fbbf24';
+    this.ctx.fillRect(x + 270, y, 20, 12);
+    this.ctx.fillStyle = getComputedStyle(document.body)
+      .getPropertyValue('--text-secondary');
+    this.ctx.fillText('AC Load', x + 295, y + 6);
   }
 
   drawLabel(x, y, text, align = 'center') {
@@ -246,12 +300,21 @@ class PowerChart {
     const y = top + 10;
     
     // Tooltip content
+    const dcLabel = item.dcPower >= 0 
+      ? `DC Discharge: ${Math.round(item.dcPower)}W`
+      : `DC Charge: ${Math.round(Math.abs(item.dcPower))}W`;
+    
     const lines = [
       item.label,
-      `DC: ${Math.round(item.dcPower)}W`,
-      `AC: ${Math.round(item.acPower)}W`,
-      `Δ: ${Math.round(item.dcPower - item.acPower)}W`
+      dcLabel,
+      `AC Load: ${Math.round(item.acPower)}W`,
     ];
+    
+    // Add efficiency info when discharging
+    if (item.dcPower > 0 && item.acPower > 0) {
+      const efficiency = (item.acPower / item.dcPower * 100).toFixed(1);
+      lines.push(`Efficiency: ${efficiency}%`);
+    }
     
     // Measure text
     this.ctx.font = '12px -apple-system, sans-serif';

@@ -19,11 +19,12 @@ export class StorageInterface {
    * @param {string} sample.timestamp - ISO timestamp
    * @param {number} sample.dcVoltage - DC voltage (V)
    * @param {number} sample.dcCurrent - DC current (A)
-   * @param {number} sample.dcPower - DC power (W)
+   * @param {number} sample.dcPower - DC power (W) - negative=charging, positive=discharging
    * @param {number} sample.acL1Power - AC L1 power (W)
    * @param {number} sample.acL2Power - AC L2 power (W)
    * @param {number} sample.acTotalPower - Total AC power (W)
    * @param {number} sample.soc - State of charge (%)
+   * @param {number} sample.inverterState - Inverter state code (0-5)
    * @param {number} sample.sampleCount - Number of raw samples aggregated
    */
   async writeSample(sample) {
