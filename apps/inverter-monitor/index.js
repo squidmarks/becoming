@@ -7,6 +7,7 @@ import { WebServer } from './web-server.js';
 import { MqttPublisher } from './mqtt-publisher.js';
 import { ModbusLock } from './modbus-lock.js';
 import { PowerLogger } from './power-logger.js';
+import { createStorage } from './storage/index.js';
 
 async function main() {
   const config = loadConfig();
@@ -42,7 +43,15 @@ async function main() {
   // Shared lock to coordinate settings reads and polling
   const modbusLock = new ModbusLock();
 
-  const webServer = new WebServer(config.WEB_PORT, config, modbusClient, modbusLock);
+  // Initialize power storage and logger first (needed by webServer)
+  const powerStorage = createStorage('csv', {
+    logDir: './logs',
+    retentionDays: 7
+  });
+  const powerLogger = new PowerLogger(powerStorage, 5); // 5-minute intervals
+  await powerLogger.init();
+
+  const webServer = new WebServer(config.WEB_PORT, config, modbusClient, modbusLock, powerLogger);
   await webServer.start();
 
   const mqttPublisher = new MqttPublisher(config.MQTT_HOST, config.MQTT_PORT, {
@@ -56,16 +65,12 @@ async function main() {
     console.log('  Continuing without MQTT publishing...\n');
   }
 
-  // Initialize power logger (5-minute intervals, 7-day retention)
-  const powerLogger = new PowerLogger('./logs', 5, 7);
-  await powerLogger.init();
-
   const pollingService = new PollingService(modbusClient, config.POLL_INTERVAL_MS, webServer, mqttPublisher, config, modbusLock, powerLogger);
 
   process.on('SIGINT', async () => {
     console.log('\n\nShutting down...');
     pollingService.stop();
-    powerLogger.stop();
+    await powerLogger.stop();
     webServer.stop();
     await mqttPublisher.disconnect();
     await modbusClient.disconnect();
@@ -75,7 +80,7 @@ async function main() {
   process.on('SIGTERM', async () => {
     console.log('\n\nShutting down...');
     pollingService.stop();
-    powerLogger.stop();
+    await powerLogger.stop();
     webServer.stop();
     await mqttPublisher.disconnect();
     await modbusClient.disconnect();

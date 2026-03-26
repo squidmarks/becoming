@@ -1,18 +1,14 @@
 /**
- * Power Logger - CSV-based power consumption tracking
+ * Power Logger - Aggregates power data and writes to storage
  * 
- * Aggregates power data over 5-minute intervals and writes to CSV.
- * Automatically rotates logs to keep last 7 days.
+ * Aggregates power data over configurable intervals and writes to storage backend.
+ * Storage backend is pluggable (CSV, MongoDB, InfluxDB, etc.)
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
-
 export class PowerLogger {
-  constructor(logDir = './logs', intervalMinutes = 5, retentionDays = 7) {
-    this.logDir = logDir;
+  constructor(storage, intervalMinutes = 5) {
+    this.storage = storage;
     this.intervalMs = intervalMinutes * 60 * 1000;
-    this.retentionDays = retentionDays;
     
     // Aggregation buffers for current interval
     this.currentInterval = {
@@ -25,18 +21,15 @@ export class PowerLogger {
   }
 
   async init() {
-    // Create logs directory if it doesn't exist
     try {
-      await fs.mkdir(this.logDir, { recursive: true });
-      console.log(`✓ Power logger initialized: ${this.logDir}`);
+      // Initialize storage backend
+      await this.storage.init();
+      
+      console.log(`✓ Power logger initialized`);
       console.log(`  Interval: ${this.intervalMs / 60000} minutes`);
-      console.log(`  Retention: ${this.retentionDays} days`);
       
       this.initialized = true;
       this.startInterval();
-      
-      // Clean old logs on startup
-      await this.cleanOldLogs();
       
     } catch (error) {
       console.error('Failed to initialize power logger:', error);
@@ -88,7 +81,7 @@ export class PowerLogger {
   }
 
   /**
-   * Write aggregated interval data to CSV
+   * Write aggregated interval data to storage
    */
   async writeInterval() {
     if (this.currentInterval.samples.length === 0) {
@@ -99,28 +92,19 @@ export class PowerLogger {
 
     try {
       const aggregated = this.aggregateSamples(this.currentInterval.samples);
-      const csvRow = this.formatCsvRow(aggregated);
       
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const filename = `power-${today}.csv`;
-      const filepath = path.join(this.logDir, filename);
-      
-      // Check if file exists to determine if we need header
-      let needsHeader = false;
-      try {
-        await fs.access(filepath);
-      } catch {
-        needsHeader = true;
-      }
-      
-      // Write header if new file
-      if (needsHeader) {
-        const header = 'timestamp,dc_voltage_avg,dc_current_avg,dc_power_avg,ac_l1_power_avg,ac_l2_power_avg,ac_total_power_avg,soc_avg,sample_count\n';
-        await fs.writeFile(filepath, header, 'utf8');
-      }
-      
-      // Append data
-      await fs.appendFile(filepath, csvRow + '\n', 'utf8');
+      // Write to storage backend
+      await this.storage.writeSample({
+        timestamp: aggregated.timestamp,
+        dcVoltage: aggregated.dcVoltage,
+        dcCurrent: aggregated.dcCurrent,
+        dcPower: aggregated.dcPower,
+        acL1Power: aggregated.acL1Power,
+        acL2Power: aggregated.acL2Power,
+        acTotalPower: aggregated.acTotalPower,
+        soc: aggregated.soc,
+        sampleCount: aggregated.count,
+      });
       
       console.log(`📊 Power logged: DC ${aggregated.dcPower.toFixed(0)}W, AC ${aggregated.acTotalPower.toFixed(0)}W, SOC ${aggregated.soc.toFixed(1)}%`);
       
@@ -172,76 +156,30 @@ export class PowerLogger {
   }
 
   /**
-   * Format aggregated data as CSV row
+   * Query power data (delegates to storage)
    */
-  formatCsvRow(data) {
-    return [
-      data.timestamp,
-      data.dcVoltage.toFixed(1),
-      data.dcCurrent.toFixed(2),
-      data.dcPower.toFixed(1),
-      data.acL1Power.toFixed(1),
-      data.acL2Power.toFixed(1),
-      data.acTotalPower.toFixed(1),
-      data.soc.toFixed(1),
-      data.count,
-    ].join(',');
+  async query(startTime, endTime, aggregation = 'raw') {
+    return await this.storage.querySamples(startTime, endTime, aggregation);
   }
 
   /**
-   * Clean log files older than retention period
+   * Get available date range
    */
-  async cleanOldLogs() {
-    try {
-      const files = await fs.readdir(this.logDir);
-      const powerLogFiles = files.filter(f => f.startsWith('power-') && f.endsWith('.csv'));
-      
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - this.retentionDays);
-      const cutoffStr = cutoffDate.toISOString().split('T')[0];
-      
-      let deletedCount = 0;
-      
-      for (const file of powerLogFiles) {
-        // Extract date from filename: power-YYYY-MM-DD.csv
-        const match = file.match(/power-(\d{4}-\d{2}-\d{2})\.csv/);
-        if (match) {
-          const fileDate = match[1];
-          if (fileDate < cutoffStr) {
-            await fs.unlink(path.join(this.logDir, file));
-            deletedCount++;
-          }
-        }
-      }
-      
-      if (deletedCount > 0) {
-        console.log(`🗑️  Cleaned ${deletedCount} old power log(s)`);
-      }
-      
-    } catch (error) {
-      console.error('Error cleaning old logs:', error);
-    }
+  async getDateRange() {
+    return await this.storage.getDateRange();
   }
 
   /**
-   * Get summary stats for a date range
+   * Get storage statistics
    */
-  async getSummary(startDate, endDate = null) {
-    // Future: implement summary stats from CSV files
-    // For now, just return file list
-    try {
-      const files = await fs.readdir(this.logDir);
-      return files.filter(f => f.startsWith('power-') && f.endsWith('.csv'));
-    } catch (error) {
-      console.error('Error getting summary:', error);
-      return [];
-    }
+  async getStats() {
+    return await this.storage.getStats();
   }
 
   /**
    * Stop logging and clean up
    */
-  stop() {
+  async stop() {
     if (this.intervalTimer) {
       clearInterval(this.intervalTimer);
       this.intervalTimer = null;
@@ -249,8 +187,11 @@ export class PowerLogger {
     
     // Write any remaining samples
     if (this.currentInterval.samples.length > 0) {
-      this.writeInterval();
+      await this.writeInterval();
     }
+    
+    // Close storage connection
+    await this.storage.close();
     
     console.log('Power logger stopped');
   }

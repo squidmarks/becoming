@@ -5,11 +5,12 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class WebServer {
-  constructor(port = 3000, config = {}, modbusClient = null, modbusLock = null) {
+  constructor(port = 3000, config = {}, modbusClient = null, modbusLock = null, powerLogger = null) {
     this.port = port;
     this.config = config;
     this.modbusClient = modbusClient;
     this.modbusLock = modbusLock;
+    this.powerLogger = powerLogger;
     this.app = express();
     this.clients = new Set();
     this.latestData = null;
@@ -259,6 +260,60 @@ export class WebServer {
           }
         }
       } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Power history endpoint
+    this.app.get('/api/power-history', async (req, res) => {
+      try {
+        if (!this.powerLogger) {
+          return res.status(503).json({ error: 'Power logger not available' });
+        }
+
+        // Parse query parameters
+        const range = req.query.range || 'day'; // hour, day, week, month
+        const endTime = req.query.end ? new Date(req.query.end) : new Date();
+        
+        // Calculate start time based on range
+        let startTime = new Date(endTime);
+        let aggregation = 'raw';
+        
+        switch (range) {
+          case 'hour':
+            startTime.setHours(startTime.getHours() - 1);
+            aggregation = 'raw'; // 5-minute samples
+            break;
+          case 'day':
+            startTime.setDate(startTime.getDate() - 1);
+            aggregation = 'hour'; // Hourly aggregation
+            break;
+          case 'week':
+            startTime.setDate(startTime.getDate() - 7);
+            aggregation = 'day'; // Daily aggregation
+            break;
+          case 'month':
+            startTime.setDate(startTime.getDate() - 30);
+            aggregation = 'day'; // Daily aggregation
+            break;
+          default:
+            return res.status(400).json({ error: 'Invalid range. Use: hour, day, week, month' });
+        }
+
+        // Query data from storage
+        const samples = await this.powerLogger.query(startTime, endTime, aggregation);
+        
+        res.json({
+          range,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          aggregation,
+          sampleCount: samples.length,
+          samples
+        });
+
+      } catch (error) {
+        console.error('Error fetching power history:', error);
         res.status(500).json({ error: error.message });
       }
     });
