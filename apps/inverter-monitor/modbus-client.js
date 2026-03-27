@@ -286,7 +286,7 @@ export class InverterModbusClient {
         this.socket.removeListener('data', dataHandler);
         console.error(`Modbus write timed out at address 0x${address.toString(16)}`);
         reject(new Error('Timed out waiting for write response'));
-      }, 10000);
+      }, 15000);
 
       const dataHandler = (data) => {
         responseBuffer = Buffer.concat([responseBuffer, data]);
