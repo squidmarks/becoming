@@ -989,10 +989,12 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <div class="card-title" style="margin: 0;">Power Consumption History</div>
         <select id="chart-range-select" class="range-select">
-          <option value="hour">Last Hour</option>
-          <option value="day">Last 24 Hours</option>
-          <option value="week">Last 7 Days</option>
-          <option value="month">Last 30 Days</option>
+          <option value="last-hour">Last Hour</option>
+          <option value="last-24h">Last 24 Hours</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="last-7d">Last 7 Days</option>
+          <option value="last-30d">Last 30 Days</option>
         </select>
       </div>
       
@@ -2201,7 +2203,7 @@
 
     // ========== Power History Chart ==========
     let powerChart = null;
-    let currentRange = 'hour';
+    let currentRange = 'last-hour';
 
     function initPowerChart() {
       powerChart = new PowerChart('power-chart');
@@ -2219,42 +2221,100 @@
       setInterval(() => updatePowerChart(currentRange), 5 * 60 * 1000);
     }
 
+    function calculateTimeRange(rangeOption) {
+      const now = new Date();
+      let startTime, endTime, aggregation;
+      
+      switch(rangeOption) {
+        case 'last-hour':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'raw'; // 5-minute samples
+          break;
+          
+        case 'last-24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'hour'; // 1-hour buckets
+          break;
+          
+        case 'today':
+          startTime = new Date(now);
+          startTime.setHours(0, 0, 0, 0);
+          endTime = now;
+          aggregation = 'hour'; // 1-hour buckets
+          break;
+          
+        case 'yesterday':
+          startTime = new Date(now);
+          startTime.setDate(startTime.getDate() - 1);
+          startTime.setHours(0, 0, 0, 0);
+          endTime = new Date(startTime);
+          endTime.setHours(23, 59, 59, 999);
+          aggregation = 'hour'; // 1-hour buckets
+          break;
+          
+        case 'last-7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'day'; // 1-day buckets
+          break;
+          
+        case 'last-30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'day'; // 1-day buckets
+          break;
+          
+        default:
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'raw';
+      }
+      
+      return { startTime, endTime, aggregation };
+    }
+
     async function updatePowerChart(range) {
       try {
-        const response = await fetch(`${basePath}/api/power-history?range=${range}`);
+        const { startTime, endTime, aggregation } = calculateTimeRange(range);
+        
+        const params = new URLSearchParams({
+          start: startTime.toISOString(),
+          end: endTime.toISOString(),
+          aggregation: aggregation
+        });
+        
+        const response = await fetch(`${basePath}/api/power-history?${params}`);
         const data = await response.json();
         
         if (data.samples && data.samples.length > 0) {
           powerChart.setData(data.samples);
-          updatePowerSummary(data.samples, range);
+          updatePowerSummary(data.samples, aggregation);
         }
       } catch (error) {
         console.error('Error fetching power history:', error);
       }
     }
 
-    function updatePowerSummary(samples, range) {
+    function updatePowerSummary(samples, aggregation) {
       if (!samples || samples.length === 0) {
         document.getElementById('summary-ac-energy').textContent = '--';
         document.getElementById('summary-dc-energy').textContent = '--';
         return;
       }
 
-      // Determine time interval per sample based on range
-      // Backend aggregates samples differently for each range
+      // Determine time interval per sample based on aggregation level
       let intervalHours;
-      switch(range) {
-        case 'hour':
+      switch(aggregation) {
+        case 'raw':
           intervalHours = 5 / 60; // 5-minute raw samples
           break;
+        case 'hour':
+          intervalHours = 1; // 1-hour buckets
+          break;
         case 'day':
-          intervalHours = 1; // Aggregated to 1-hour buckets
-          break;
-        case 'week':
-          intervalHours = 24; // Aggregated to 1-day buckets (backend uses 'day' aggregation)
-          break;
-        case 'month':
-          intervalHours = 24; // Aggregated to 1-day buckets
+          intervalHours = 24; // 1-day buckets
           break;
         default:
           intervalHours = 5 / 60;

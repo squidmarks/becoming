@@ -271,40 +271,29 @@ export class WebServer {
           return res.status(503).json({ error: 'Power logger not available' });
         }
 
-        // Parse query parameters
-        const range = req.query.range || 'day'; // hour, day, week, month
+        // Parse query parameters - frontend specifies all parameters
+        const startTime = req.query.start ? new Date(req.query.start) : null;
         const endTime = req.query.end ? new Date(req.query.end) : new Date();
+        const aggregation = req.query.aggregation || 'raw';
         
-        // Calculate start time based on range
-        let startTime = new Date(endTime);
-        let aggregation = 'raw';
-        
-        switch (range) {
-          case 'hour':
-            startTime.setHours(startTime.getHours() - 1);
-            aggregation = 'raw'; // 5-minute samples
-            break;
-          case 'day':
-            startTime.setDate(startTime.getDate() - 1);
-            aggregation = 'hour'; // Hourly aggregation
-            break;
-          case 'week':
-            startTime.setDate(startTime.getDate() - 7);
-            aggregation = 'day'; // Daily aggregation
-            break;
-          case 'month':
-            startTime.setDate(startTime.getDate() - 30);
-            aggregation = 'day'; // Daily aggregation
-            break;
-          default:
-            return res.status(400).json({ error: 'Invalid range. Use: hour, day, week, month' });
+        if (!startTime) {
+          return res.status(400).json({ 
+            error: 'Missing required parameter: start (ISO date string)' 
+          });
+        }
+
+        // Validate aggregation
+        const validAggregations = ['raw', 'hour', 'day'];
+        if (!validAggregations.includes(aggregation)) {
+          return res.status(400).json({ 
+            error: `Invalid aggregation. Use: ${validAggregations.join(', ')}` 
+          });
         }
 
         // Query data from storage
         const samples = await this.powerLogger.query(startTime, endTime, aggregation);
         
         res.json({
-          range,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
           aggregation,
