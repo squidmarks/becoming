@@ -2274,33 +2274,57 @@
         return;
       }
 
-      // Calculate total energy (kWh) - sum of average power * time interval
-      // Each sample represents a 5-minute interval
-      const intervalHours = 5 / 60; // 5 minutes in hours
+      // Determine time interval per sample based on range
+      // Backend aggregates samples differently for each range
+      let intervalHours;
+      switch(range) {
+        case 'hour':
+          intervalHours = 5 / 60; // 5-minute raw samples
+          break;
+        case 'day':
+          intervalHours = 1; // Aggregated to 1-hour buckets
+          break;
+        case 'week':
+          intervalHours = 6; // Aggregated to 6-hour buckets
+          break;
+        case 'month':
+          intervalHours = 24; // Aggregated to 1-day buckets
+          break;
+        default:
+          intervalHours = 5 / 60;
+      }
       
-      let totalAcEnergyDuringDischarge = 0;
-      let totalDcDischarge = 0;
+      let totalAcEnergy = 0;
+      let totalDcEnergy = 0; // Net DC (includes charging as negative)
+      let totalDcDischarge = 0; // Only discharge for battery sizing
+      let totalAcDuringDischarge = 0; // For efficiency calculation
       
       samples.forEach(s => {
-        // Only count energy when inverter is discharging (dcPower > 0)
+        // AC Energy - always sum (total consumption regardless of source)
+        totalAcEnergy += s.acTotalPower * intervalHours / 1000; // Convert W to kWh
+        
+        // DC Energy - sum ALL (charging is negative, discharging is positive)
+        totalDcEnergy += s.dcPower * intervalHours / 1000; // Convert W to kWh
+        
+        // Track discharge separately for battery sizing and efficiency
         if (s.dcPower > 0) {
-          totalDcDischarge += s.dcPower * intervalHours / 1000; // Convert W to kWh
-          totalAcEnergyDuringDischarge += s.acTotalPower * intervalHours / 1000; // Convert W to kWh
+          totalDcDischarge += s.dcPower * intervalHours / 1000;
+          totalAcDuringDischarge += s.acTotalPower * intervalHours / 1000;
         }
       });
       
-      // Calculate efficiency as ratio of total energies (not average of individual efficiencies)
+      // Calculate efficiency as ratio of total energies during discharge
       const avgEfficiency = totalDcDischarge > 0 
-        ? (totalAcEnergyDuringDischarge / totalDcDischarge) * 100 
+        ? (totalAcDuringDischarge / totalDcDischarge) * 100 
         : 0;
       
-      // Calculate battery capacity needed (Ah at 48V nominal)
+      // Calculate battery capacity needed based on discharge energy
       // Battery Ah = (Wh / Voltage)
       const batteryAh = totalDcDischarge > 0 ? (totalDcDischarge * 1000 / 48).toFixed(1) : 0;
       
       // Display results
-      document.getElementById('summary-ac-energy').textContent = totalAcEnergyDuringDischarge.toFixed(2) + ' kWh';
-      document.getElementById('summary-dc-energy').textContent = totalDcDischarge.toFixed(2) + ' kWh';
+      document.getElementById('summary-ac-energy').textContent = totalAcEnergy.toFixed(2) + ' kWh';
+      document.getElementById('summary-dc-energy').textContent = totalDcEnergy.toFixed(2) + ' kWh';
       document.getElementById('summary-battery-needed').textContent = batteryAh + ' Ah';
       document.getElementById('summary-efficiency').textContent = avgEfficiency > 0 ? avgEfficiency.toFixed(1) + '%' : '--';
     }
