@@ -76,7 +76,7 @@ export class PollingService {
   async readDischargeCutoffSoc() {
     try {
       // Read register 0xE00F (Discharge Cutoff SoC)
-      const result = await this.modbusClient.readHoldingRegisters(0xE00F, 1);
+      const result = await this.modbusClient.readRegisters(0xE00F, 1);
       if (result && result.length > 0) {
         this.dischargeCutoffSoc = result[0]; // Value is already in %
         console.log(`✓ Read Discharge Cutoff SoC from inverter: ${this.dischargeCutoffSoc}%`);
