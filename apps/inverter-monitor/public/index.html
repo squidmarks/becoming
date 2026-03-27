@@ -2278,32 +2278,28 @@
       // Each sample represents a 5-minute interval
       const intervalHours = 5 / 60; // 5 minutes in hours
       
-      let totalAcEnergy = 0;
+      let totalAcEnergyDuringDischarge = 0;
       let totalDcDischarge = 0;
-      let dischargeSamples = 0;
-      let totalEfficiency = 0;
       
       samples.forEach(s => {
-        totalAcEnergy += s.acTotalPower * intervalHours / 1000; // Convert W to kWh
-        
-        if (s.dcPower > 0) { // Only count discharge
+        // Only count energy when inverter is discharging (dcPower > 0)
+        if (s.dcPower > 0) {
           totalDcDischarge += s.dcPower * intervalHours / 1000; // Convert W to kWh
-          dischargeSamples++;
-          
-          if (s.acTotalPower > 0) {
-            totalEfficiency += (s.acTotalPower / s.dcPower) * 100;
-          }
+          totalAcEnergyDuringDischarge += s.acTotalPower * intervalHours / 1000; // Convert W to kWh
         }
       });
       
-      const avgEfficiency = dischargeSamples > 0 ? totalEfficiency / dischargeSamples : 0;
+      // Calculate efficiency as ratio of total energies (not average of individual efficiencies)
+      const avgEfficiency = totalDcDischarge > 0 
+        ? (totalAcEnergyDuringDischarge / totalDcDischarge) * 100 
+        : 0;
       
       // Calculate battery capacity needed (Ah at 48V nominal)
       // Battery Ah = (Wh / Voltage)
       const batteryAh = totalDcDischarge > 0 ? (totalDcDischarge * 1000 / 48).toFixed(1) : 0;
       
       // Display results
-      document.getElementById('summary-ac-energy').textContent = totalAcEnergy.toFixed(2) + ' kWh';
+      document.getElementById('summary-ac-energy').textContent = totalAcEnergyDuringDischarge.toFixed(2) + ' kWh';
       document.getElementById('summary-dc-energy').textContent = totalDcDischarge.toFixed(2) + ' kWh';
       document.getElementById('summary-battery-needed').textContent = batteryAh + ' Ah';
       document.getElementById('summary-efficiency').textContent = avgEfficiency > 0 ? avgEfficiency.toFixed(1) + '%' : '--';
