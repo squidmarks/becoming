@@ -16,7 +16,10 @@ export class PollingService {
     
     // Battery projection config
     this.batteryCapacityAh = config.BATTERY_CAPACITY_AH || 200;
-    this.minBatterySoc = config.MIN_BATTERY_SOC || 20;
+    this.minBatterySoc = config.MIN_BATTERY_SOC || 20; // Fallback value
+    this.dischargeCutoffSoc = null; // Will be read from inverter register 0xE00F
+    this.lastCutoffRead = 0; // Timestamp of last cutoff read
+    this.cutoffReadInterval = 60000; // Re-read every 60 seconds
     
     // Historical data for discharge current moving average (5 minutes = 100 samples at 3s interval)
     this.dischargeCurrentHistory = [];
@@ -70,6 +73,27 @@ export class PollingService {
     }
   }
 
+  async readDischargeCutoffSoc() {
+    try {
+      // Read register 0xE00F (Discharge Cutoff SoC)
+      const result = await this.modbusClient.readHoldingRegisters(0xE00F, 1);
+      if (result && result.length > 0) {
+        this.dischargeCutoffSoc = result[0]; // Value is already in %
+        console.log(`✓ Read Discharge Cutoff SoC from inverter: ${this.dischargeCutoffSoc}%`);
+        return this.dischargeCutoffSoc;
+      }
+    } catch (error) {
+      console.warn(`⚠ Failed to read Discharge Cutoff SoC register: ${error.message}`);
+      // Keep using fallback value
+    }
+    return null;
+  }
+
+  getEffectiveCutoffSoc() {
+    // Use actual configured value from inverter if available, otherwise fallback to config
+    return this.dischargeCutoffSoc !== null ? this.dischargeCutoffSoc : this.minBatterySoc;
+  }
+
   calculateBatteryProjections(soc, current) {
     const projections = {
       timeToFull: null,
@@ -89,9 +113,10 @@ export class PollingService {
       projections.timeToFull = hoursToFull; // in hours
     }
     
-    // Discharging projection - time remaining to MIN_BATTERY_SOC
+    // Discharging projection - time remaining to configured cutoff SoC
     // Positive current = discharging
-    if (current > 1 && soc > this.minBatterySoc) {
+    const effectiveCutoff = this.getEffectiveCutoffSoc();
+    if (current > 1 && soc > effectiveCutoff) {
       // Track discharge current for moving average
       this.dischargeCurrentHistory.push(current);
       if (this.dischargeCurrentHistory.length > this.maxDischargeHistory) {
@@ -102,7 +127,7 @@ export class PollingService {
       const avgDischargeCurrent = this.dischargeCurrentHistory.reduce((sum, val) => sum + val, 0) 
         / this.dischargeCurrentHistory.length;
       
-      const socRemaining = soc - this.minBatterySoc;
+      const socRemaining = soc - effectiveCutoff;
       const hoursRemaining = (socRemaining / 100) * this.batteryCapacityAh / avgDischargeCurrent;
       projections.timeRemaining = hoursRemaining; // in hours
     }
@@ -130,6 +155,13 @@ export class PollingService {
     }
     
     try {
+      // Periodically read the discharge cutoff SoC setting from inverter
+      const now = Date.now();
+      if (now - this.lastCutoffRead > this.cutoffReadInterval || this.dischargeCutoffSoc === null) {
+        await this.readDischargeCutoffSoc();
+        this.lastCutoffRead = now;
+      }
+
       const systemStatusGroups = REGISTER_GROUPS.SYSTEM_STATUS;
       const batteryGroups = REGISTER_GROUPS.BATTERY;
       const acGroups = REGISTER_GROUPS.AC_GRID_INV_LOAD;
@@ -162,7 +194,8 @@ export class PollingService {
         systemStatus,
         battery: {
           ...battery,
-          projections
+          projections,
+          dischargeCutoffSoc: this.getEffectiveCutoffSoc() // Include configured cutoff for frontend
         },
         ac,
         energy
