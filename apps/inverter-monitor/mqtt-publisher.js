@@ -130,6 +130,11 @@ export class MqttPublisher {
       this.publish('electrical.inverters.0.modeText', data.systemStatus.stateText);
       this.publish('electrical.inverters.0.state', data.systemStatus.state);
       
+      // Publish state duration (time in current state)
+      if (data.systemStatus.stateElapsed) {
+        this.publish('electrical.inverters.0.stateDuration', data.systemStatus.stateElapsed.totalMinutes * 60); // Convert to seconds for SignalK
+      }
+      
       if (data.systemStatus.faultCodes && data.systemStatus.faultCodes.length > 0) {
         data.systemStatus.faultCodes.forEach((code, index) => {
           this.publish(`electrical.inverters.0.faultCode${index}`, code);
