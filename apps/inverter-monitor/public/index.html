@@ -430,37 +430,49 @@
       margin-top: 10px;
     }
 
-    .chart-range-selector {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .range-btn {
+    .range-select {
       padding: 6px 12px;
-      background: var(--tab-bg);
+      background: var(--card-bg);
       border: 1px solid var(--border);
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 0.9rem;
       border-radius: 4px;
       cursor: pointer;
-      transition: all 0.2s;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      flex: 1;
+      min-width: 150px;
     }
 
-    .range-btn:hover {
-      background: var(--card-bg);
+    .range-select:focus {
+      outline: none;
       border-color: var(--accent);
+    }
+
+    .power-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      padding: 12px;
+      background: var(--tab-bg);
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .summary-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .summary-value {
+      font-size: 0.95rem;
       color: var(--text-primary);
-    }
-
-    .range-btn.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
+      font-weight: 600;
     }
 
     .hero-metric {
@@ -845,14 +857,28 @@
         height: 250px;
       }
 
-      .range-btn {
-        font-size: 0.75rem;
-        padding: 6px 8px;
-        letter-spacing: 0.3px;
+      .range-select {
+        font-size: 0.85rem;
+        min-width: 120px;
+        padding: 5px 8px;
       }
 
       .card-title {
         font-size: 0.95rem;
+      }
+
+      .power-summary {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .summary-label {
+        font-size: 0.75rem;
+      }
+
+      .summary-value {
+        font-size: 0.85rem;
       }
     }
 
@@ -872,17 +898,27 @@
 
       .card-title {
         font-size: 0.9rem;
-        margin-bottom: 6px;
       }
 
-      .chart-range-selector {
-        margin-top: 6px;
-        gap: 4px;
-      }
-
-      .range-btn {
-        font-size: 0.7rem;
+      .range-select {
+        font-size: 0.8rem;
+        min-width: 110px;
         padding: 4px 6px;
+      }
+
+      .power-summary {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 8px;
+        margin-bottom: 8px;
+      }
+
+      .summary-label {
+        font-size: 0.7rem;
+      }
+
+      .summary-value {
+        font-size: 0.8rem;
       }
     }
   </style>
@@ -966,15 +1002,36 @@
       </div>
     </div>
 
-    <div class="card" style="position: relative;">
-      <div class="card-title" style="margin-bottom: 10px;">
-        Power Consumption History
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div class="card-title" style="margin: 0;">Power Consumption History</div>
+        <select id="chart-range-select" class="range-select">
+          <option value="hour">Last Hour</option>
+          <option value="day">Last 24 Hours</option>
+          <option value="week">Last 7 Days</option>
+          <option value="month">Last 30 Days</option>
+        </select>
       </div>
-      <div class="chart-range-selector">
-        <button class="range-btn active" data-range="hour">Hour</button>
-        <button class="range-btn" data-range="day">Day</button>
-        <button class="range-btn" data-range="week">Week</button>
+      
+      <div class="power-summary" id="power-summary">
+        <div class="summary-item">
+          <span class="summary-label">AC Energy:</span>
+          <span class="summary-value" id="summary-ac-energy">--</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">DC Energy:</span>
+          <span class="summary-value" id="summary-dc-energy">--</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Battery Needed:</span>
+          <span class="summary-value" id="summary-battery-needed">--</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Avg Efficiency:</span>
+          <span class="summary-value" id="summary-efficiency">--</span>
+        </div>
       </div>
+      
       <div class="chart-container">
         <canvas id="power-chart" style="width: 100%; height: 100%;"></canvas>
       </div>
@@ -2182,19 +2239,12 @@
       powerChart = new PowerChart('power-chart');
       updatePowerChart(currentRange);
       
-      // Handle range button clicks
-      document.querySelectorAll('.range-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const range = btn.dataset.range;
-          if (range === currentRange) return;
-          
-          // Update active state
-          document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          
-          currentRange = range;
-          updatePowerChart(range);
-        });
+      // Handle range dropdown change
+      const rangeSelect = document.getElementById('chart-range-select');
+      rangeSelect.value = currentRange;
+      rangeSelect.addEventListener('change', (e) => {
+        currentRange = e.target.value;
+        updatePowerChart(currentRange);
       });
       
       // Refresh chart every 5 minutes (when new data is logged)
@@ -2208,10 +2258,55 @@
         
         if (data.samples && data.samples.length > 0) {
           powerChart.setData(data.samples);
+          updatePowerSummary(data.samples, range);
         }
       } catch (error) {
         console.error('Error fetching power history:', error);
       }
+    }
+
+    function updatePowerSummary(samples, range) {
+      if (!samples || samples.length === 0) {
+        document.getElementById('summary-ac-energy').textContent = '--';
+        document.getElementById('summary-dc-energy').textContent = '--';
+        document.getElementById('summary-battery-needed').textContent = '--';
+        document.getElementById('summary-efficiency').textContent = '--';
+        return;
+      }
+
+      // Calculate total energy (kWh) - sum of average power * time interval
+      // Each sample represents a 5-minute interval
+      const intervalHours = 5 / 60; // 5 minutes in hours
+      
+      let totalAcEnergy = 0;
+      let totalDcDischarge = 0;
+      let dischargeSamples = 0;
+      let totalEfficiency = 0;
+      
+      samples.forEach(s => {
+        totalAcEnergy += s.acTotalPower * intervalHours / 1000; // Convert W to kWh
+        
+        if (s.dcPower > 0) { // Only count discharge
+          totalDcDischarge += s.dcPower * intervalHours / 1000; // Convert W to kWh
+          dischargeSamples++;
+          
+          if (s.acTotalPower > 0) {
+            totalEfficiency += (s.acTotalPower / s.dcPower) * 100;
+          }
+        }
+      });
+      
+      const avgEfficiency = dischargeSamples > 0 ? totalEfficiency / dischargeSamples : 0;
+      
+      // Calculate battery capacity needed (Ah at 48V nominal)
+      // Battery Ah = (Wh / Voltage)
+      const batteryAh = totalDcDischarge > 0 ? (totalDcDischarge * 1000 / 48).toFixed(1) : 0;
+      
+      // Display results
+      document.getElementById('summary-ac-energy').textContent = totalAcEnergy.toFixed(2) + ' kWh';
+      document.getElementById('summary-dc-energy').textContent = totalDcDischarge.toFixed(2) + ' kWh';
+      document.getElementById('summary-battery-needed').textContent = batteryAh + ' Ah';
+      document.getElementById('summary-efficiency').textContent = avgEfficiency > 0 ? avgEfficiency.toFixed(1) + '%' : '--';
     }
 
     // Initialize chart when page loads
