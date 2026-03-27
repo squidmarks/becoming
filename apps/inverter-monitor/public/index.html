@@ -990,6 +990,9 @@
         <div class="card-title" style="margin: 0;">Power Consumption History</div>
         <select id="chart-range-select" class="range-select">
           <option value="last-hour">Last Hour</option>
+          <option value="last-4h">Last 4 Hours</option>
+          <option value="last-6h">Last 6 Hours</option>
+          <option value="last-12h">Last 12 Hours</option>
           <option value="last-24h">Last 24 Hours</option>
           <option value="today">Today</option>
           <option value="yesterday">Yesterday</option>
@@ -2230,6 +2233,24 @@
           startTime = new Date(now.getTime() - 60 * 60 * 1000);
           endTime = now;
           aggregation = 'raw'; // 5-minute samples
+          break;
+          
+        case 'last-4h':
+          startTime = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'raw'; // 5-minute samples
+          break;
+          
+        case 'last-6h':
+          startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'raw'; // 5-minute samples
+          break;
+          
+        case 'last-12h':
+          startTime = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+          endTime = now;
+          aggregation = 'hour'; // 1-hour buckets
           break;
           
         case 'last-24h':
