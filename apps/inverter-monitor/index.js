@@ -7,6 +7,7 @@ import { WebServer } from './web-server.js';
 import { MqttPublisher } from './mqtt-publisher.js';
 import { ModbusLock } from './modbus-lock.js';
 import { PowerLogger } from './power-logger.js';
+import { EventLogger } from './event-logger.js';
 import { StorageManager } from './storage/index.js';
 
 async function main() {
@@ -53,6 +54,10 @@ async function main() {
   const powerLogger = new PowerLogger(powerStorage, 5); // 5-minute intervals
   await powerLogger.init();
 
+  // Initialize event logger for tracking state changes and discrete events
+  const eventLogger = new EventLogger({ logDir: './logs/events' });
+  await eventLogger.init();
+
   const webServer = new WebServer(config.WEB_PORT, config, modbusClient, modbusLock, powerLogger);
   await webServer.start();
 
@@ -67,7 +72,7 @@ async function main() {
     console.log('  Continuing without MQTT publishing...\n');
   }
 
-  const pollingService = new PollingService(modbusClient, config.POLL_INTERVAL_MS, webServer, mqttPublisher, config, modbusLock, powerLogger);
+  const pollingService = new PollingService(modbusClient, config.POLL_INTERVAL_MS, webServer, mqttPublisher, config, modbusLock, powerLogger, eventLogger);
 
   process.on('SIGINT', async () => {
     console.log('\n\nShutting down...');

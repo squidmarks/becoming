@@ -1514,6 +1514,13 @@
             let stateText = (data.systemStatus.stateText || 'Unknown').toUpperCase();
             if (stateText.includes('AC POWER')) stateText = 'BYPASS';
             else if (stateText.includes('INVERTER OPERATION')) stateText = 'INVERTING';
+            
+            // Add elapsed time for current state if available
+            if (data.systemStatus.stateElapsed) {
+              const { hours, minutes } = data.systemStatus.stateElapsed;
+              stateText += ` (${hours}h ${minutes}m)`;
+            }
+            
             footerText.textContent = stateText;
           }
         }

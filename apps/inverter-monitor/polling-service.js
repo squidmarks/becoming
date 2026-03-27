@@ -2,13 +2,14 @@ import { REGISTER_GROUPS } from './registers.js';
 import { InverterDataParser } from './data-parser.js';
 
 export class PollingService {
-  constructor(modbusClient, pollInterval, webServer = null, mqttPublisher = null, config = {}, modbusLock = null, powerLogger = null) {
+  constructor(modbusClient, pollInterval, webServer = null, mqttPublisher = null, config = {}, modbusLock = null, powerLogger = null, eventLogger = null) {
     this.modbusClient = modbusClient;
     this.pollInterval = pollInterval;
     this.webServer = webServer;
     this.mqttPublisher = mqttPublisher;
     this.modbusLock = modbusLock;
     this.powerLogger = powerLogger;
+    this.eventLogger = eventLogger;
     this.parser = new InverterDataParser(modbusClient);
     this.isRunning = false;
     this.isPolling = false;
@@ -24,6 +25,11 @@ export class PollingService {
     // Historical data for discharge current moving average (5 minutes = 100 samples at 3s interval)
     this.dischargeCurrentHistory = [];
     this.maxDischargeHistory = 100;
+    
+    // Track current state start time (for any state)
+    this.currentStateStartTime = null;
+    this.currentState = null;
+    this.lastInverterState = null;
   }
 
   async start() {
@@ -35,6 +41,9 @@ export class PollingService {
     this.isRunning = true;
     console.log(`Starting polling service (interval: ${this.pollInterval}ms)...\n`);
     
+    // Restore inverting session if service restarted during inverting
+    await this.restoreInvertingSession();
+    
     await this.poll();
     
     this.pollTimer = setInterval(async () => {
@@ -44,6 +53,24 @@ export class PollingService {
         console.warn('⚠ Skipping poll - previous cycle still in progress');
       }
     }, this.pollInterval);
+  }
+
+  async restoreInvertingSession() {
+    if (!this.eventLogger) return;
+    
+    try {
+      // Look for most recent state_change event to restore current state timing
+      const lastStateChange = await this.eventLogger.getLastEvent('state_change', 7);
+      
+      if (lastStateChange) {
+        this.currentStateStartTime = lastStateChange.timestamp.getTime();
+        this.currentState = lastStateChange.details.toState;
+        const elapsed = Math.floor((Date.now() - this.currentStateStartTime) / 1000 / 60);
+        console.log(`✓ Restored state session: ${lastStateChange.details.toStateText} from ${lastStateChange.timestamp.toISOString()} (${elapsed} min ago)`);
+      }
+    } catch (error) {
+      console.warn('Could not restore state session:', error.message);
+    }
   }
 
   stop() {
@@ -92,6 +119,72 @@ export class PollingService {
   getEffectiveCutoffSoc() {
     // Use actual configured value from inverter if available, otherwise fallback to config
     return this.dischargeCutoffSoc !== null ? this.dischargeCutoffSoc : this.minBatterySoc;
+  }
+
+  async trackInverterState(currentState, currentStateText) {
+    const INVERTER_OPERATION = 3;
+    
+    // Check if state changed
+    if (this.lastInverterState !== null && currentState !== this.lastInverterState) {
+      // Calculate duration in previous state
+      let previousDuration = null;
+      if (this.currentStateStartTime) {
+        const duration = Date.now() - this.currentStateStartTime;
+        previousDuration = Math.floor(duration / 1000 / 60);
+      }
+      
+      // Log state change with duration
+      if (this.eventLogger) {
+        await this.eventLogger.logEvent('state_change', {
+          fromState: this.lastInverterState,
+          toState: currentState,
+          toStateText: currentStateText,
+          durationMinutes: previousDuration
+        });
+      }
+      
+      // Start timing the new state
+      this.currentStateStartTime = Date.now();
+      this.currentState = currentState;
+      console.log(`✓ State changed to: ${currentStateText}`);
+      
+      // Log specific inverter start/stop events for backwards compatibility
+      if (currentState === INVERTER_OPERATION) {
+        if (this.eventLogger) {
+          await this.eventLogger.logEvent('inverter_start', {
+            state: currentState,
+            stateText: currentStateText
+          });
+        }
+      } else if (this.lastInverterState === INVERTER_OPERATION) {
+        if (this.eventLogger && previousDuration !== null) {
+          await this.eventLogger.logEvent('inverter_stop', {
+            state: currentState,
+            stateText: currentStateText,
+            durationMinutes: previousDuration
+          });
+        }
+      }
+    } else if (this.currentStateStartTime === null) {
+      // First poll after startup - initialize state tracking
+      this.currentStateStartTime = Date.now();
+      this.currentState = currentState;
+    }
+    
+    this.lastInverterState = currentState;
+  }
+
+  getStateElapsedTime() {
+    if (!this.currentStateStartTime) {
+      return null;
+    }
+    
+    const elapsedMs = Date.now() - this.currentStateStartTime;
+    const elapsedMinutes = Math.floor(elapsedMs / 1000 / 60);
+    const hours = Math.floor(elapsedMinutes / 60);
+    const minutes = elapsedMinutes % 60;
+    
+    return { hours, minutes, totalMinutes: elapsedMinutes };
   }
 
   calculateBatteryProjections(soc, current) {
@@ -184,6 +277,10 @@ export class PollingService {
       const ac = this.parser.parseACData(acData);
       const energy = this.parser.parseEnergyData(energyData);
 
+      // Track inverter state changes and calculate elapsed time
+      await this.trackInverterState(systemStatus.state, systemStatus.stateText);
+      const stateElapsed = this.getStateElapsedTime();
+
       // Calculate battery projections
       const projections = this.calculateBatteryProjections(battery.soc, battery.current);
 
@@ -191,7 +288,10 @@ export class PollingService {
         timestamp: new Date().toISOString(),
         inverterConnected: true,
         mqttConnected: this.mqttPublisher ? this.mqttPublisher.connected : false,
-        systemStatus,
+        systemStatus: {
+          ...systemStatus,
+          stateElapsed // Add elapsed time for current state
+        },
         battery: {
           ...battery,
           projections,
