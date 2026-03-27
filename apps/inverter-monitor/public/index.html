@@ -2251,7 +2251,7 @@
           intervalHours = 1; // Aggregated to 1-hour buckets
           break;
         case 'week':
-          intervalHours = 6; // Aggregated to 6-hour buckets
+          intervalHours = 24; // Aggregated to 1-day buckets (backend uses 'day' aggregation)
           break;
         case 'month':
           intervalHours = 24; // Aggregated to 1-day buckets
