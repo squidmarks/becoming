@@ -446,32 +446,30 @@
       border-color: var(--accent);
     }
 
-    .power-summary {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
-      padding: 12px;
-      background: var(--tab-bg);
+    .energy-overlay {
+      position: absolute;
+      bottom: 45px;
+      right: 65px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 12px;
       border-radius: 4px;
-      margin-bottom: 12px;
+      font-size: 11px;
+      color: #e5e5e5;
+      pointer-events: none;
+      line-height: 1.6;
     }
 
-    .summary-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
+    body.light-mode .energy-overlay {
+      background: rgba(255, 255, 255, 0.85);
+      color: #1a4e9c;
+      border: 1px solid rgba(0, 0, 0, 0.1);
     }
 
-    .summary-label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      font-weight: 500;
+    .energy-item {
+      white-space: nowrap;
     }
 
-    .summary-value {
-      font-size: 0.95rem;
-      color: var(--text-primary);
+    .energy-item span {
       font-weight: 600;
     }
 
@@ -867,18 +865,11 @@
         font-size: 0.95rem;
       }
 
-      .power-summary {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        padding: 10px;
-      }
-
-      .summary-label {
-        font-size: 0.75rem;
-      }
-
-      .summary-value {
-        font-size: 0.85rem;
+      .energy-overlay {
+        bottom: 35px;
+        right: 50px;
+        font-size: 10px;
+        padding: 6px 10px;
       }
     }
 
@@ -906,19 +897,11 @@
         padding: 4px 6px;
       }
 
-      .power-summary {
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-        padding: 8px;
-        margin-bottom: 8px;
-      }
-
-      .summary-label {
-        font-size: 0.7rem;
-      }
-
-      .summary-value {
-        font-size: 0.8rem;
+      .energy-overlay {
+        bottom: 30px;
+        right: 45px;
+        font-size: 9px;
+        padding: 5px 8px;
       }
     }
   </style>
@@ -1013,27 +996,12 @@
         </select>
       </div>
       
-      <div class="power-summary" id="power-summary">
-        <div class="summary-item">
-          <span class="summary-label">AC Energy:</span>
-          <span class="summary-value" id="summary-ac-energy">--</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">DC Energy:</span>
-          <span class="summary-value" id="summary-dc-energy">--</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">Battery Needed:</span>
-          <span class="summary-value" id="summary-battery-needed">--</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">Avg Efficiency:</span>
-          <span class="summary-value" id="summary-efficiency">--</span>
-        </div>
-      </div>
-      
-      <div class="chart-container">
+      <div class="chart-container" style="position: relative;">
         <canvas id="power-chart" style="width: 100%; height: 100%;"></canvas>
+        <div class="energy-overlay">
+          <div class="energy-item">AC: <span id="summary-ac-energy">--</span></div>
+          <div class="energy-item">DC: <span id="summary-dc-energy">--</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -2269,8 +2237,6 @@
       if (!samples || samples.length === 0) {
         document.getElementById('summary-ac-energy').textContent = '--';
         document.getElementById('summary-dc-energy').textContent = '--';
-        document.getElementById('summary-battery-needed').textContent = '--';
-        document.getElementById('summary-efficiency').textContent = '--';
         return;
       }
 
@@ -2296,37 +2262,19 @@
       
       let totalAcEnergy = 0;
       let totalDcEnergy = 0; // Net DC (includes charging as negative)
-      let totalDcDischarge = 0; // Only discharge for battery sizing
-      let totalAcDuringDischarge = 0; // For efficiency calculation
       
       samples.forEach(s => {
-        // AC Energy - always sum (total consumption regardless of source)
+        // AC Energy - total consumption regardless of source
         totalAcEnergy += s.acTotalPower * intervalHours / 1000; // Convert W to kWh
         
         // DC Energy - sum ALL (charging is negative, discharging is positive)
         totalDcEnergy += s.dcPower * intervalHours / 1000; // Convert W to kWh
-        
-        // Track discharge separately for battery sizing and efficiency
-        if (s.dcPower > 0) {
-          totalDcDischarge += s.dcPower * intervalHours / 1000;
-          totalAcDuringDischarge += s.acTotalPower * intervalHours / 1000;
-        }
       });
       
-      // Calculate efficiency as ratio of total energies during discharge
-      const avgEfficiency = totalDcDischarge > 0 
-        ? (totalAcDuringDischarge / totalDcDischarge) * 100 
-        : 0;
-      
-      // Calculate battery capacity needed based on discharge energy
-      // Battery Ah = (Wh / Voltage)
-      const batteryAh = totalDcDischarge > 0 ? (totalDcDischarge * 1000 / 48).toFixed(1) : 0;
-      
-      // Display results
+      // Display results with sign for DC (+ = discharge, - = charge)
       document.getElementById('summary-ac-energy').textContent = totalAcEnergy.toFixed(2) + ' kWh';
-      document.getElementById('summary-dc-energy').textContent = totalDcEnergy.toFixed(2) + ' kWh';
-      document.getElementById('summary-battery-needed').textContent = batteryAh + ' Ah';
-      document.getElementById('summary-efficiency').textContent = avgEfficiency > 0 ? avgEfficiency.toFixed(1) + '%' : '--';
+      document.getElementById('summary-dc-energy').textContent = 
+        (totalDcEnergy >= 0 ? '+' : '') + totalDcEnergy.toFixed(2) + ' kWh';
     }
 
     // Initialize chart when page loads
