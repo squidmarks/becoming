@@ -300,6 +300,12 @@ export const CONFIG_REGISTERS = {
       ]
     },
     { id: '—', address: 0x020C, name: 'Inverter Clock', key: 'systemClock', scale: 1, unit: '', type: 'clock', description: 'RTC date/time', readOnly: false, special: true },
+    { id: '63', address: 0xE216, name: 'Auto N-PE Connection', key: 'autoPeConnection', scale: 1, unit: '', min: 0, max: 1, description: 'Auto neutral-ground bond in inverter mode',
+      options: [
+        { value: 0, label: 'DIS (Disabled)' },
+        { value: 1, label: 'ENA (Enabled)' }
+      ]
+    },
   ],
   
   BATTERY: [
