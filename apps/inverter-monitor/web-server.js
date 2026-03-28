@@ -67,14 +67,24 @@ export class WebServer {
             return res.json({ category, settings: results });
           }
           
-          // Find min and max addresses to determine if we can do a single bulk read
-          const addresses = normalSettings.map(s => s.address);
-          const minAddr = Math.min(...addresses);
-          const maxAddr = Math.max(...addresses);
+          // Check if addresses are contiguous (no gaps) for safe bulk read
+          const addresses = normalSettings.map(s => s.address).sort((a, b) => a - b);
+          const minAddr = addresses[0];
+          const maxAddr = addresses[addresses.length - 1];
           const span = maxAddr - minAddr + 1;
           
-          // If span is small (<=30 registers), do a single bulk read
+          // Only bulk read if span is small AND all addresses are contiguous
+          let isContiguous = true;
           if (span <= 30) {
+            for (let i = 0; i < addresses.length - 1; i++) {
+              if (addresses[i + 1] - addresses[i] !== 1) {
+                isContiguous = false;
+                break;
+              }
+            }
+          }
+          
+          if (span <= 30 && isContiguous) {
             const values = await this.modbusClient.readRegisters(minAddr, span);
             
             // Map values back to settings
@@ -87,11 +97,10 @@ export class WebServer {
               };
             }
           } else {
-            // Address range is too large, read individually with short delays
+            // Address range is too large or non-contiguous, read individually with short delays
             for (const setting of normalSettings) {
               try {
                 const values = await this.modbusClient.readRegisters(setting.address, 1);
-                console.log(`Batch read ${setting.name} (0x${setting.address.toString(16)}): ${values[0]}`);
                 results[setting.key] = {
                   value: values[0],
                   scaled: (values[0] * setting.scale).toFixed(setting.scale < 1 ? 1 : 0),
