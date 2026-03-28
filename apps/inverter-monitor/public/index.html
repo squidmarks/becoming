@@ -1503,26 +1503,27 @@
           
           const hasFaults = data.systemStatus.faults && data.systemStatus.faults.length > 0;
           
+          // Update icon based on fault status
           if (hasFaults) {
             footerIcon.textContent = '⚠';
             footerIcon.className = 'footer-check alert';
-            const faultMessages = data.systemStatus.faults.map(f => `${f.text} (${f.code})`).join(' • ');
-            footerText.textContent = faultMessages;
           } else {
             footerIcon.textContent = '✓';
             footerIcon.className = 'footer-check ok';
-            let stateText = (data.systemStatus.stateText || 'Unknown').toUpperCase();
-            if (stateText.includes('AC POWER')) stateText = 'BYPASS';
-            else if (stateText.includes('INVERTER OPERATION')) stateText = 'INVERTING';
-            
-            // Add elapsed time for current state if available
-            if (data.systemStatus.stateElapsed) {
-              const { hours, minutes } = data.systemStatus.stateElapsed;
-              stateText += ` (${hours}h ${minutes}m)`;
-            }
-            
-            footerText.textContent = stateText;
           }
+          
+          // Always show state with elapsed time (not fault messages)
+          let stateText = (data.systemStatus.stateText || 'Unknown').toUpperCase();
+          if (stateText.includes('AC POWER')) stateText = 'BYPASS';
+          else if (stateText.includes('INVERTER OPERATION')) stateText = 'INVERTING';
+          
+          // Add elapsed time for current state if available
+          if (data.systemStatus.stateElapsed) {
+            const { hours, minutes } = data.systemStatus.stateElapsed;
+            stateText += ` (${hours}h ${minutes}m)`;
+          }
+          
+          footerText.textContent = stateText;
         }
         
         if (data.systemStatus || data.battery || data.ac) {
