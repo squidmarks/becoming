@@ -91,6 +91,7 @@ export class WebServer {
             for (const setting of normalSettings) {
               try {
                 const values = await this.modbusClient.readRegisters(setting.address, 1);
+                console.log(`Batch read ${setting.name} (0x${setting.address.toString(16)}): ${values[0]}`);
                 results[setting.key] = {
                   value: values[0],
                   scaled: (values[0] * setting.scale).toFixed(setting.scale < 1 ? 1 : 0),
