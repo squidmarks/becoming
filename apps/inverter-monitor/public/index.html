@@ -904,6 +904,311 @@
         padding: 5px 8px;
       }
     }
+
+    /* Load Test Modal */
+    .load-test-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 10000;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+    }
+
+    .load-test-modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .load-test-content {
+      background: var(--card-bg);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .load-test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .load-test-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .load-test-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 5px 10px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .load-test-close:hover {
+      color: var(--red);
+    }
+
+    .load-test-step {
+      display: none;
+    }
+
+    .load-test-step.active {
+      display: block;
+    }
+
+    .load-test-input-group {
+      margin-bottom: 20px;
+    }
+
+    .load-test-label {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .load-test-input {
+      width: 100%;
+      padding: 12px;
+      background: var(--navy);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    .load-test-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .load-test-instruction {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      margin-bottom: 25px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .load-test-big-value {
+      font-size: 3.5rem;
+      font-weight: 300;
+      color: var(--accent);
+      text-align: center;
+      margin: 30px 0;
+      line-height: 1;
+    }
+
+    .load-test-big-label {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: -20px;
+      margin-bottom: 30px;
+    }
+
+    .load-test-result-box {
+      background: rgba(60, 125, 206, 0.1);
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .load-test-result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .load-test-result-row:last-child {
+      border-bottom: none;
+      margin-top: 10px;
+      padding-top: 15px;
+    }
+
+    .load-test-result-label {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .load-test-result-value {
+      font-size: 1.3rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .load-test-result-delta {
+      font-size: 2rem;
+      font-weight: 600;
+      text-align: center;
+      margin: 15px 0;
+    }
+
+    .load-test-result-delta.positive {
+      color: var(--red);
+    }
+
+    .load-test-result-delta.negative {
+      color: var(--green);
+    }
+
+    .load-test-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 25px;
+    }
+
+    .load-test-btn {
+      flex: 1;
+      padding: 14px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .load-test-btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .load-test-btn-primary:hover:not(:disabled) {
+      background: var(--light-blue);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(60, 125, 206, 0.4);
+    }
+
+    .load-test-btn-secondary {
+      background: var(--card-bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .load-test-btn-secondary:hover {
+      background: var(--navy);
+    }
+
+    .load-test-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .load-test-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .load-test-history {
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .load-test-history-item {
+      background: var(--navy);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .load-test-history-name {
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 5px;
+    }
+
+    .load-test-history-details {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .load-test-content {
+        padding: 20px;
+      }
+
+      .load-test-title {
+        font-size: 1.2rem;
+      }
+
+      .load-test-big-value {
+        font-size: 2.5rem;
+      }
+
+      .load-test-buttons {
+        flex-direction: column;
+      }
+    }
+
+    .load-test-trigger-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 15px;
+      width: 100%;
+    }
+
+    .load-test-trigger-btn:hover {
+      background: var(--light-blue);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(60, 125, 206, 0.4);
+    }
   </style>
 </head>
 <body>
@@ -983,6 +1288,7 @@
         <span class="metric-label">Solar Power</span>
         <span class="metric-value" id="summary-pv">--<span class="unit">W</span></span>
       </div>
+      <button class="load-test-trigger-btn" onclick="openLoadTest()">⚡ Appliance Load Test</button>
     </div>
 
     <div class="card">
@@ -2382,6 +2688,231 @@
       document.addEventListener('DOMContentLoaded', initPowerChart);
     } else {
       initPowerChart();
+    }
+  </script>
+
+  <!-- Load Test Modal -->
+  <div id="load-test-modal" class="load-test-modal">
+    <div class="load-test-content">
+      <div class="load-test-header">
+        <div class="load-test-title">⚡ Appliance Load Test</div>
+        <button class="load-test-close" onclick="closeLoadTest()">&times;</button>
+      </div>
+
+      <!-- Step 1: Enter appliance name -->
+      <div id="load-test-step-1" class="load-test-step active">
+        <div class="load-test-input-group">
+          <label class="load-test-label">Appliance / Circuit Name</label>
+          <input 
+            type="text" 
+            id="load-test-name" 
+            class="load-test-input" 
+            placeholder="e.g., Galley Lights, Coffee Maker, LED Upgrade"
+            onkeypress="if(event.key==='Enter') startLoadTest()"
+          >
+        </div>
+        <div class="load-test-buttons">
+          <button class="load-test-btn load-test-btn-secondary" onclick="closeLoadTest()">Cancel</button>
+          <button class="load-test-btn load-test-btn-primary" onclick="startLoadTest()">Start Test</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Capturing baseline -->
+      <div id="load-test-step-2" class="load-test-step">
+        <div class="load-test-instruction">
+          <div class="load-test-spinner"></div>
+          Capturing baseline power reading...
+        </div>
+        <div class="load-test-big-value" id="load-test-baseline-display">-- W</div>
+        <div class="load-test-big-label">Current Load</div>
+      </div>
+
+      <!-- Step 3: Ready to flip switch -->
+      <div id="load-test-step-3" class="load-test-step">
+        <div class="load-test-instruction">
+          Baseline captured. Now flip the switch and click "Measure New Load".
+        </div>
+        <div class="load-test-big-value" id="load-test-baseline-value">-- W</div>
+        <div class="load-test-big-label">Baseline Load</div>
+        <div class="load-test-buttons">
+          <button class="load-test-btn load-test-btn-secondary" onclick="closeLoadTest()">Cancel</button>
+          <button class="load-test-btn load-test-btn-primary" onclick="captureAfterLoad()">Measure New Load</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Capturing after load -->
+      <div id="load-test-step-4" class="load-test-step">
+        <div class="load-test-instruction">
+          <div class="load-test-spinner"></div>
+          Measuring new load...
+        </div>
+        <div class="load-test-big-value" id="load-test-after-display">-- W</div>
+        <div class="load-test-big-label">Current Load</div>
+      </div>
+
+      <!-- Step 5: Results -->
+      <div id="load-test-step-5" class="load-test-step">
+        <div class="load-test-instruction">Test Complete!</div>
+        
+        <div class="load-test-result-box">
+          <div class="load-test-result-row">
+            <span class="load-test-result-label">Baseline</span>
+            <span class="load-test-result-value" id="result-baseline">-- W</span>
+          </div>
+          <div class="load-test-result-row">
+            <span class="load-test-result-label">New Load</span>
+            <span class="load-test-result-value" id="result-after">-- W</span>
+          </div>
+          <div class="load-test-result-row">
+            <div class="load-test-result-label">Change</div>
+            <div class="load-test-result-delta" id="result-delta">-- W</div>
+          </div>
+        </div>
+
+        <div class="load-test-buttons">
+          <button class="load-test-btn load-test-btn-secondary" onclick="closeLoadTest()">Close</button>
+          <button class="load-test-btn load-test-btn-primary" onclick="resetLoadTest()">New Test</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Load Test functionality
+    let loadTestState = {
+      appliance: '',
+      baseline: 0,
+      after: 0,
+      baselineSamples: [],
+      afterSamples: []
+    };
+
+    function openLoadTest() {
+      document.getElementById('load-test-modal').classList.add('active');
+      document.getElementById('load-test-name').value = '';
+      document.getElementById('load-test-name').focus();
+      showLoadTestStep(1);
+    }
+
+    function closeLoadTest() {
+      document.getElementById('load-test-modal').classList.remove('active');
+      loadTestState = {
+        appliance: '',
+        baseline: 0,
+        after: 0,
+        baselineSamples: [],
+        afterSamples: []
+      };
+    }
+
+    function showLoadTestStep(stepNum) {
+      document.querySelectorAll('.load-test-step').forEach(el => el.classList.remove('active'));
+      document.getElementById(`load-test-step-${stepNum}`).classList.add('active');
+    }
+
+    async function startLoadTest() {
+      const name = document.getElementById('load-test-name').value.trim();
+      if (!name) {
+        alert('Please enter an appliance or circuit name');
+        return;
+      }
+
+      loadTestState.appliance = name;
+      showLoadTestStep(2);
+
+      // Capture baseline - take 10 rapid samples over 3 seconds
+      const samples = await captureLoadSamples(10, 300);
+      loadTestState.baselineSamples = samples;
+      loadTestState.baseline = Math.round(samples.reduce((sum, s) => sum + s, 0) / samples.length);
+
+      document.getElementById('load-test-baseline-value').textContent = `${loadTestState.baseline} W`;
+      showLoadTestStep(3);
+    }
+
+    async function captureAfterLoad() {
+      showLoadTestStep(4);
+
+      // Capture after load - take 10 rapid samples over 3 seconds
+      const samples = await captureLoadSamples(10, 300);
+      loadTestState.afterSamples = samples;
+      loadTestState.after = Math.round(samples.reduce((sum, s) => sum + s, 0) / samples.length);
+
+      // Show results
+      showResults();
+    }
+
+    async function captureLoadSamples(count, intervalMs) {
+      const samples = [];
+      const baselineDisplay = document.getElementById('load-test-baseline-display');
+      const afterDisplay = document.getElementById('load-test-after-display');
+
+      for (let i = 0; i < count; i++) {
+        try {
+          const response = await fetch('/inverter/api/rapid-poll');
+          const data = await response.json();
+          const load = data.output?.acTotalPower || 0;
+          samples.push(load);
+
+          // Update display with current reading
+          if (baselineDisplay) baselineDisplay.textContent = `${Math.round(load)} W`;
+          if (afterDisplay) afterDisplay.textContent = `${Math.round(load)} W`;
+        } catch (error) {
+          console.error('Error capturing load sample:', error);
+        }
+
+        if (i < count - 1) {
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+      }
+
+      return samples;
+    }
+
+    function showResults() {
+      const delta = loadTestState.after - loadTestState.baseline;
+      const deltaEl = document.getElementById('result-delta');
+
+      document.getElementById('result-baseline').textContent = `${loadTestState.baseline} W`;
+      document.getElementById('result-after').textContent = `${loadTestState.after} W`;
+      
+      deltaEl.textContent = `${delta >= 0 ? '+' : ''}${delta} W`;
+      deltaEl.className = 'load-test-result-delta ' + (delta > 0 ? 'positive' : 'negative');
+
+      // Save result to backend
+      saveLoadTestResult();
+
+      showLoadTestStep(5);
+    }
+
+    async function saveLoadTestResult() {
+      try {
+        await fetch('/inverter/api/load-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appliance: loadTestState.appliance,
+            baseline: loadTestState.baseline,
+            after: loadTestState.after,
+            delta: loadTestState.after - loadTestState.baseline,
+            baselineSamples: loadTestState.baselineSamples,
+            afterSamples: loadTestState.afterSamples
+          })
+        });
+      } catch (error) {
+        console.error('Error saving load test result:', error);
+      }
+    }
+
+    function resetLoadTest() {
+      loadTestState = {
+        appliance: '',
+        baseline: 0,
+        after: 0,
+        baselineSamples: [],
+        afterSamples: []
+      };
+      document.getElementById('load-test-name').value = '';
+      showLoadTestStep(1);
     }
   </script>
 </body>

@@ -317,6 +317,99 @@ export class WebServer {
       }
     });
 
+    // Rapid polling endpoint for load testing (bypasses normal poll interval)
+    this.app.get('/api/rapid-poll', async (req, res) => {
+      if (!this.modbusClient) {
+        return res.status(503).json({ error: 'Modbus client not available' });
+      }
+
+      try {
+        // Read AC load power registers directly - fastest possible read
+        // LOAD_ACTIVE_POWER_A at 0x021B, LOAD_ACTIVE_POWER_B at 0x0232
+        const acL1Power = await this.modbusClient.readRegisters(0x021B, 1);
+        const acL2Power = await this.modbusClient.readRegisters(0x0232, 1);
+        
+        const totalPower = acL1Power[0] + acL2Power[0]; // Already in watts, scale is 1
+
+        res.json({
+          timestamp: new Date().toISOString(),
+          output: {
+            acTotalPower: Math.round(totalPower)
+          }
+        });
+      } catch (error) {
+        console.error('Error in rapid poll:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Save load test result
+    this.app.post('/api/load-test', async (req, res) => {
+      try {
+        const { appliance, baseline, after, delta, baselineSamples, afterSamples } = req.body;
+        
+        if (!appliance || baseline === undefined || after === undefined) {
+          return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Import and use event logger if available (will create load-test logger)
+        const { promises: fs } = await import('fs');
+        const logDir = './logs/load-tests';
+        
+        // Ensure directory exists
+        await fs.mkdir(logDir, { recursive: true });
+        
+        // Create/append to load tests CSV
+        const timestamp = new Date();
+        const logFile = path.join(logDir, `load-tests-${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}.csv`);
+        
+        // Check if file exists to determine if we need header
+        let needsHeader = false;
+        try {
+          await fs.access(logFile);
+        } catch {
+          needsHeader = true;
+        }
+        
+        // Prepare CSV row
+        const escapeCSV = (value) => {
+          if (value === null || value === undefined) return '';
+          const str = String(value);
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        };
+        
+        const row = [
+          timestamp.toISOString(),
+          escapeCSV(appliance),
+          baseline,
+          after,
+          delta,
+          Math.round(baseline * 100) / 100, // avg baseline
+          Math.round(after * 100) / 100, // avg after
+          Math.abs(delta) > 0 ? Math.round((Math.abs(delta) / baseline) * 100) : 0 // % change
+        ].join(',');
+        
+        // Write to file
+        let content = '';
+        if (needsHeader) {
+          content = 'timestamp,appliance,baseline_w,after_w,delta_w,avg_baseline,avg_after,percent_change\n';
+        }
+        content += row + '\n';
+        
+        await fs.appendFile(logFile, content);
+        
+        console.log(`✓ Load test logged: ${appliance} (${delta >= 0 ? '+' : ''}${delta}W)`);
+        
+        res.json({ success: true, delta });
+      } catch (error) {
+        console.error('Error saving load test:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     this.app.get('/events', (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
