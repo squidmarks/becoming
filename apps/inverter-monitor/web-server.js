@@ -410,6 +410,189 @@ export class WebServer {
       }
     });
 
+    // Get all load tests
+    this.app.get('/api/load-tests', async (req, res) => {
+      try {
+        const { promises: fs } = await import('fs');
+        const logDir = './logs/load-tests';
+        
+        // Check if directory exists
+        try {
+          await fs.access(logDir);
+        } catch {
+          return res.json([]);
+        }
+        
+        // Read all CSV files in directory
+        const files = await fs.readdir(logDir);
+        const csvFiles = files.filter(f => f.startsWith('load-tests-') && f.endsWith('.csv'));
+        
+        const allTests = [];
+        
+        for (const file of csvFiles) {
+          const filePath = path.join(logDir, file);
+          const content = await fs.readFile(filePath, 'utf-8');
+          const lines = content.trim().split('\n').slice(1); // Skip header
+          
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            
+            const parsed = this.parseCSVLine(line);
+            if (parsed.length >= 5) {
+              allTests.push({
+                id: parsed[0], // timestamp as ID
+                timestamp: parsed[0],
+                appliance: parsed[1],
+                baseline: parseInt(parsed[2]),
+                after: parseInt(parsed[3]),
+                delta: parseInt(parsed[4])
+              });
+            }
+          }
+        }
+        
+        res.json(allTests);
+      } catch (error) {
+        console.error('Error reading load tests:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Get single load test
+    this.app.get('/api/load-test/:id', async (req, res) => {
+      try {
+        const { promises: fs } = await import('fs');
+        const logDir = './logs/load-tests';
+        const id = decodeURIComponent(req.params.id);
+        
+        const files = await fs.readdir(logDir);
+        const csvFiles = files.filter(f => f.startsWith('load-tests-') && f.endsWith('.csv'));
+        
+        for (const file of csvFiles) {
+          const filePath = path.join(logDir, file);
+          const content = await fs.readFile(filePath, 'utf-8');
+          const lines = content.trim().split('\n').slice(1);
+          
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const parsed = this.parseCSVLine(line);
+            if (parsed[0] === id) {
+              return res.json({
+                id: parsed[0],
+                timestamp: parsed[0],
+                appliance: parsed[1],
+                baseline: parseInt(parsed[2]),
+                after: parseInt(parsed[3]),
+                delta: parseInt(parsed[4])
+              });
+            }
+          }
+        }
+        
+        res.status(404).json({ error: 'Test not found' });
+      } catch (error) {
+        console.error('Error reading load test:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Update load test (edit appliance name)
+    this.app.patch('/api/load-test/:id', async (req, res) => {
+      try {
+        const { promises: fs } = await import('fs');
+        const logDir = './logs/load-tests';
+        const id = decodeURIComponent(req.params.id);
+        const { appliance } = req.body;
+        
+        if (!appliance) {
+          return res.status(400).json({ error: 'Appliance name required' });
+        }
+        
+        const files = await fs.readdir(logDir);
+        const csvFiles = files.filter(f => f.startsWith('load-tests-') && f.endsWith('.csv'));
+        
+        for (const file of csvFiles) {
+          const filePath = path.join(logDir, file);
+          const content = await fs.readFile(filePath, 'utf-8');
+          const lines = content.split('\n');
+          
+          let updated = false;
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const parsed = this.parseCSVLine(lines[i]);
+            if (parsed[0] === id) {
+              // Update appliance name (second column)
+              const escapeCSV = (value) => {
+                const str = String(value);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                  return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+              };
+              parsed[1] = escapeCSV(appliance);
+              lines[i] = parsed.join(',');
+              updated = true;
+              break;
+            }
+          }
+          
+          if (updated) {
+            await fs.writeFile(filePath, lines.join('\n'));
+            console.log(`✓ Updated load test: ${id} -> ${appliance}`);
+            return res.json({ success: true });
+          }
+        }
+        
+        res.status(404).json({ error: 'Test not found' });
+      } catch (error) {
+        console.error('Error updating load test:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Delete load test
+    this.app.delete('/api/load-test/:id', async (req, res) => {
+      try {
+        const { promises: fs } = await import('fs');
+        const logDir = './logs/load-tests';
+        const id = decodeURIComponent(req.params.id);
+        
+        const files = await fs.readdir(logDir);
+        const csvFiles = files.filter(f => f.startsWith('load-tests-') && f.endsWith('.csv'));
+        
+        for (const file of csvFiles) {
+          const filePath = path.join(logDir, file);
+          const content = await fs.readFile(filePath, 'utf-8');
+          const lines = content.split('\n');
+          
+          const filteredLines = [];
+          filteredLines.push(lines[0]); // Keep header
+          
+          let deleted = false;
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const parsed = this.parseCSVLine(lines[i]);
+            if (parsed[0] === id) {
+              deleted = true;
+              console.log(`✓ Deleted load test: ${id}`);
+              continue; // Skip this line
+            }
+            filteredLines.push(lines[i]);
+          }
+          
+          if (deleted) {
+            await fs.writeFile(filePath, filteredLines.join('\n'));
+            return res.json({ success: true });
+          }
+        }
+        
+        res.status(404).json({ error: 'Test not found' });
+      } catch (error) {
+        console.error('Error deleting load test:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     this.app.get('/events', (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
@@ -424,6 +607,34 @@ export class WebServer {
         this.clients.delete(res);
       });
     });
+  }
+
+  parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+      
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    
+    return result;
   }
 
   broadcastData(data) {
