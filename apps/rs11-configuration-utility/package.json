@@ -1,0 +1,28 @@
+{
+  "name": "rs11-configuration-utility",
+  "version": "1.0.0",
+  "description": "Web-based configuration utility for NoLand RS11 Engine Data Converter",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "rs11",
+    "nmea2000",
+    "engine",
+    "configuration"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

@@ -1,0 +1,462 @@
+// RS11 Configuration Utility - Frontend
+
+let ws = null;
+let connected = false;
+let liveUpdateInterval = null;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initializeWebSocket();
+  loadPortList();
+  setupEventListeners();
+  
+  log('Application started', 'info');
+});
+
+// WebSocket connection for real-time updates
+function initializeWebSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}`;
+  
+  ws = new WebSocket(wsUrl);
+  
+  ws.onopen = () => {
+    log('WebSocket connected', 'success');
+  };
+  
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    handleWebSocketMessage(data);
+  };
+  
+  ws.onerror = (error) => {
+    log('WebSocket error', 'error');
+  };
+  
+  ws.onclose = () => {
+    log('WebSocket disconnected, reconnecting...', 'warning');
+    setTimeout(initializeWebSocket, 3000);
+  };
+}
+
+function handleWebSocketMessage(data) {
+  if (data.type === 'connection') {
+    if (data.status === 'connected') {
+      setConnectionStatus(true, data.port);
+    } else if (data.status === 'disconnected') {
+      setConnectionStatus(false);
+    }
+  }
+}
+
+// Set up event listeners
+function setupEventListeners() {
+  document.getElementById('refresh-ports-btn').addEventListener('click', loadPortList);
+  document.getElementById('connect-btn').addEventListener('click', connectToDevice);
+  document.getElementById('disconnect-btn').addEventListener('click', disconnectFromDevice);
+  
+  document.getElementById('apply-engine-btn').addEventListener('click', applyEngineConfig);
+  document.getElementById('query-btn').addEventListener('click', queryConfiguration);
+  document.getElementById('stop-btn').addEventListener('click', stopDevice);
+  document.getElementById('restart-btn').addEventListener('click', restartDevice);
+  document.getElementById('reset-btn').addEventListener('click', factoryReset);
+  document.getElementById('save-config-btn').addEventListener('click', saveConfiguration);
+  document.getElementById('clear-log-btn').addEventListener('click', clearLog);
+}
+
+// Load available serial ports
+async function loadPortList() {
+  try {
+    log('Scanning for serial ports...', 'info');
+    const response = await fetch('/api/ports');
+    const data = await response.json();
+    
+    const select = document.getElementById('port-select');
+    select.innerHTML = '<option value="">Select COM Port</option>';
+    
+    if (data.ports.length === 0) {
+      log('No serial ports found', 'warning');
+      select.innerHTML += '<option value="" disabled>No ports found</option>';
+    } else {
+      data.ports.forEach(port => {
+        const option = document.createElement('option');
+        option.value = port.path;
+        option.textContent = `${port.path}${port.manufacturer ? ' - ' + port.manufacturer : ''}`;
+        select.appendChild(option);
+      });
+      log(`Found ${data.ports.length} serial port(s)`, 'success');
+    }
+  } catch (error) {
+    log(`Error loading ports: ${error.message}`, 'error');
+  }
+}
+
+// Connect to device
+async function connectToDevice() {
+  const port = document.getElementById('port-select').value;
+  
+  if (!port) {
+    log('Please select a port', 'warning');
+    return;
+  }
+  
+  try {
+    log(`Connecting to ${port}...`, 'info');
+    
+    const response = await fetch('/api/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port, baudRate: 4800 })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      log(data.message, 'success');
+      setConnectionStatus(true, port);
+      startLiveUpdates();
+    } else {
+      log(`Connection failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Connection error: ${error.message}`, 'error');
+  }
+}
+
+// Disconnect from device
+async function disconnectFromDevice() {
+  try {
+    log('Disconnecting...', 'info');
+    
+    const response = await fetch('/api/disconnect', { method: 'POST' });
+    const data = await response.json();
+    
+    if (response.ok) {
+      log('Disconnected', 'success');
+      setConnectionStatus(false);
+      stopLiveUpdates();
+    } else {
+      log(`Disconnect failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Disconnect error: ${error.message}`, 'error');
+  }
+}
+
+// Set connection status UI
+function setConnectionStatus(isConnected, port = '') {
+  connected = isConnected;
+  
+  const indicator = document.getElementById('connection-indicator');
+  const text = document.getElementById('connection-text');
+  const connectBtn = document.getElementById('connect-btn');
+  const disconnectBtn = document.getElementById('disconnect-btn');
+  
+  if (isConnected) {
+    indicator.className = 'indicator connected';
+    text.textContent = `Connected to ${port}`;
+    connectBtn.disabled = true;
+    disconnectBtn.disabled = false;
+  } else {
+    indicator.className = 'indicator disconnected';
+    text.textContent = 'Disconnected';
+    connectBtn.disabled = false;
+    disconnectBtn.disabled = true;
+  }
+}
+
+// Start live value updates
+function startLiveUpdates() {
+  if (liveUpdateInterval) return;
+  
+  liveUpdateInterval = setInterval(async () => {
+    try {
+      const response = await fetch('/api/live');
+      const data = await response.json();
+      
+      // Update analog displays
+      data.analogs.forEach(analog => {
+        const valueEl = document.getElementById(`a${analog.port}-value`);
+        if (valueEl) {
+          valueEl.textContent = `${analog.value.toFixed(2)} V`;
+        }
+      });
+    } catch (error) {
+      // Silently fail - don't spam the log
+    }
+  }, 2000); // Update every 2 seconds
+}
+
+// Stop live updates
+function stopLiveUpdates() {
+  if (liveUpdateInterval) {
+    clearInterval(liveUpdateInterval);
+    liveUpdateInterval = null;
+  }
+}
+
+// Apply engine configuration
+async function applyEngineConfig() {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  try {
+    const instance = parseInt(document.getElementById('instance').value);
+    const portPPR = parseInt(document.getElementById('port-ppr').value);
+    const stbdPPR = parseInt(document.getElementById('stbd-ppr').value);
+    
+    log('Applying engine configuration...', 'info');
+    
+    // Set instance
+    await fetch('/api/config/instance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instance })
+    });
+    
+    // Set RPM values
+    await fetch('/api/config/rpm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port: portPPR, stbd: stbdPPR })
+    });
+    
+    log('Engine configuration applied', 'success');
+  } catch (error) {
+    log(`Error applying config: ${error.message}`, 'error');
+  }
+}
+
+// Apply analog input configuration
+async function applyAnalog(port) {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  try {
+    const engine = document.querySelector(`input[name="a${port}-engine"]:checked`).value;
+    const field = parseInt(document.getElementById(`a${port}-field`).value);
+    
+    let senderCurrent, smoothing;
+    if (port <= 4) {
+      senderCurrent = document.getElementById(`a${port}-current`).checked;
+      smoothing = document.getElementById(`a${port}-smooth`).checked;
+    }
+    
+    log(`Configuring A${port}...`, 'info');
+    
+    const response = await fetch(`/api/config/analog/${port}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        engine,
+        field,
+        senderCurrent,
+        smoothing
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      log(`A${port} configured`, 'success');
+    } else {
+      log(`A${port} config failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Error configuring A${port}: ${error.message}`, 'error');
+  }
+}
+
+// Query configuration
+async function queryConfiguration() {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  try {
+    log('Querying device configuration...', 'info');
+    
+    const response = await fetch('/api/config');
+    const data = await response.json();
+    
+    if (response.ok) {
+      log('Configuration received:', 'success');
+      log(JSON.stringify(data, null, 2), 'info');
+      
+      // Update UI with received config
+      if (data.instance !== null) {
+        document.getElementById('instance').value = data.instance;
+      }
+      if (data.portPPR !== null) {
+        document.getElementById('port-ppr').value = data.portPPR;
+      }
+      if (data.stbdPPR !== null) {
+        document.getElementById('stbd-ppr').value = data.stbdPPR;
+      }
+    } else {
+      log(`Query failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Query error: ${error.message}`, 'error');
+  }
+}
+
+// Stop device
+async function stopDevice() {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  if (!confirm('Stop the device? This will halt all operations.')) {
+    return;
+  }
+  
+  try {
+    log('Stopping device...', 'info');
+    
+    const response = await fetch('/api/device/stop', { method: 'POST' });
+    const data = await response.json();
+    
+    if (response.ok) {
+      log('Device stopped', 'success');
+    } else {
+      log(`Stop failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Stop error: ${error.message}`, 'error');
+  }
+}
+
+// Restart device
+async function restartDevice() {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  if (!confirm('Restart the device?')) {
+    return;
+  }
+  
+  try {
+    log('Restarting device...', 'info');
+    
+    const response = await fetch('/api/device/restart', { method: 'POST' });
+    const data = await response.json();
+    
+    if (response.ok) {
+      log('Device restarted', 'success');
+    } else {
+      log(`Restart failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Restart error: ${error.message}`, 'error');
+  }
+}
+
+// Factory reset
+async function factoryReset() {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  if (!confirm('⚠️ FACTORY RESET will erase all configuration! Are you sure?')) {
+    return;
+  }
+  
+  if (!confirm('This action cannot be undone. Continue?')) {
+    return;
+  }
+  
+  try {
+    log('⚠️ Performing factory reset...', 'warning');
+    
+    const response = await fetch('/api/device/reset', { method: 'POST' });
+    const data = await response.json();
+    
+    if (response.ok) {
+      log('✓ Factory reset complete', 'success');
+    } else {
+      log(`Reset failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Reset error: ${error.message}`, 'error');
+  }
+}
+
+// Save configuration
+async function saveConfiguration() {
+  const name = prompt('Enter a name for this configuration:');
+  
+  if (!name) return;
+  
+  try {
+    // Gather current configuration from UI
+    const config = {
+      instance: parseInt(document.getElementById('instance').value),
+      portPPR: parseInt(document.getElementById('port-ppr').value),
+      stbdPPR: parseInt(document.getElementById('stbd-ppr').value),
+      analogs: []
+    };
+    
+    // Collect analog configurations
+    for (let i = 1; i <= 6; i++) {
+      config.analogs.push({
+        port: i,
+        engine: document.querySelector(`input[name="a${i}-engine"]:checked`).value,
+        field: parseInt(document.getElementById(`a${i}-field`).value),
+        senderCurrent: i <= 4 ? document.getElementById(`a${i}-current`).checked : false,
+        smoothing: i <= 4 ? document.getElementById(`a${i}-smooth`).checked : false
+      });
+    }
+    
+    const response = await fetch('/api/config/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, config })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      log(`Configuration "${name}" saved`, 'success');
+    } else {
+      log(`Save failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`Save error: ${error.message}`, 'error');
+  }
+}
+
+// Logging functions
+function log(message, type = 'info') {
+  const logDiv = document.getElementById('log');
+  const entry = document.createElement('div');
+  entry.className = `log-entry log-${type}`;
+  
+  const timestamp = new Date().toLocaleTimeString();
+  entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${message}`;
+  
+  logDiv.appendChild(entry);
+  logDiv.scrollTop = logDiv.scrollHeight;
+  
+  // Keep only last 100 entries
+  while (logDiv.children.length > 100) {
+    logDiv.removeChild(logDiv.firstChild);
+  }
+}
+
+function clearLog() {
+  document.getElementById('log').innerHTML = '';
+  log('Log cleared', 'info');
+}
+
+// Make applyAnalog available globally
+window.applyAnalog = applyAnalog;

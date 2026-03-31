@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RS11 Setup Utility</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-content">
+        <h1>⚙️ RS11 Setup Utility v4.00</h1>
+        <div class="connection-status">
+          <span id="connection-indicator" class="indicator disconnected">●</span>
+          <span id="connection-text">Disconnected</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Connection Panel -->
+    <section class="card">
+      <h2>Device Connection</h2>
+      <div class="connection-controls">
+        <select id="port-select" class="input-field">
+          <option value="">Select COM Port</option>
+        </select>
+        <button id="refresh-ports-btn" class="btn btn-secondary">🔄 Refresh</button>
+        <button id="connect-btn" class="btn btn-primary">Connect</button>
+        <button id="disconnect-btn" class="btn btn-danger" disabled>Disconnect</button>
+      </div>
+    </section>
+
+    <!-- Instance & RPM Configuration -->
+    <section class="card">
+      <h2>Engine Configuration</h2>
+      <div class="config-grid">
+        <div class="config-item">
+          <label>Instance:</label>
+          <input type="number" id="instance" class="input-field small" min="0" max="9" value="0">
+        </div>
+        <div class="config-item">
+          <label>Stbd Instance:</label>
+          <input type="number" id="stbd-instance" class="input-field small" min="0" max="9" value="1">
+        </div>
+        <div class="config-item">
+          <label>Port PPR:</label>
+          <input type="number" id="port-ppr" class="input-field small" min="0" max="500" value="30">
+        </div>
+        <div class="config-item">
+          <label>Stbd PPR:</label>
+          <input type="number" id="stbd-ppr" class="input-field small" min="0" max="500" value="30">
+        </div>
+      </div>
+      <button id="apply-engine-btn" class="btn btn-primary">Apply Engine Config</button>
+    </section>
+
+    <!-- Analog Inputs Configuration -->
+    <section class="card">
+      <h2>Analog Inputs</h2>
+      
+      <div class="analog-grid">
+        <!-- A1 -->
+        <div class="analog-card">
+          <h3>A1 (0-20V)</h3>
+          <div class="analog-controls">
+            <div class="radio-group">
+              <label><input type="radio" name="a1-engine" value="P" checked> Port</label>
+              <label><input type="radio" name="a1-engine" value="S"> Stbd</label>
+            </div>
+            <select id="a1-field" class="input-field">
+              <option value="0">Trans Oil Press</option>
+              <option value="1">Oil Press</option>
+              <option value="2">Oil Temp</option>
+              <option value="3">Cool Temp</option>
+              <option value="4">Cool Press</option>
+              <option value="5">Fuel Press</option>
+              <option value="6">Fuel Level</option>
+              <option value="7">Trans Press</option>
+            </select>
+            <div class="gauge-display">
+              <label>Gauge Volts:</label>
+              <span id="a1-value" class="value-display">0.00 V</span>
+            </div>
+            <div class="checkbox-group">
+              <label><input type="checkbox" id="a1-current"> Current</label>
+              <label><input type="checkbox" id="a1-smooth"> Smooth</label>
+            </div>
+          </div>
+          <button class="btn btn-small btn-primary" onclick="applyAnalog(1)">Send</button>
+        </div>
+
+        <!-- A2 -->
+        <div class="analog-card">
+          <h3>A2 (0-20V)</h3>
+          <div class="analog-controls">
+            <div class="radio-group">
+              <label><input type="radio" name="a2-engine" value="P" checked> Port</label>
+              <label><input type="radio" name="a2-engine" value="S"> Stbd</label>
+            </div>
+            <select id="a2-field" class="input-field">
+              <option value="0">Trans Oil Press</option>
+              <option value="1">Oil Press</option>
+              <option value="2">Oil Temp</option>
+              <option value="3">Cool Temp</option>
+              <option value="4">Cool Press</option>
+              <option value="5">Fuel Press</option>
+              <option value="6">Fuel Level</option>
+              <option value="7">Trans Press</option>
+            </select>
+            <div class="gauge-display">
+              <label>Gauge Volts:</label>
+              <span id="a2-value" class="value-display">0.00 V</span>
+            </div>
+            <div class="checkbox-group">
+              <label><input type="checkbox" id="a2-current"> Current</label>
+              <label><input type="checkbox" id="a2-smooth"> Smooth</label>
+            </div>
+          </div>
+          <button class="btn btn-small btn-primary" onclick="applyAnalog(2)">Send</button>
+        </div>
+
+        <!-- A3 -->
+        <div class="analog-card">
+          <h3>A3 (0-20V)</h3>
+          <div class="analog-controls">
+            <div class="radio-group">
+              <label><input type="radio" name="a3-engine" value="P" checked> Port</label>
+              <label><input type="radio" name="a3-engine" value="S"> Stbd</label>
+            </div>
+            <select id="a3-field" class="input-field">
+              <option value="0">Trans Oil Press</option>
+              <option value="1">Oil Press</option>
+              <option value="2">Oil Temp</option>
+              <option value="3">Cool Temp</option>
+              <option value="4">Cool Press</option>
+              <option value="5">Fuel Press</option>
+              <option value="6">Fuel Level</option>
+              <option value="7">Trans Press</option>
+            </select>
+            <div class="gauge-display">
+              <label>Gauge Volts:</label>
+              <span id="a3-value" class="value-display">0.00 V</span>
+            </div>
+            <div class="checkbox-group">
+              <label><input type="checkbox" id="a3-current"> Current</label>
+              <label><input type="checkbox" id="a3-smooth"> Smooth</label>
+            </div>
+          </div>
+          <button class="btn btn-small btn-primary" onclick="applyAnalog(3)">Send</button>
+        </div>
+
+        <!-- A4 -->
+        <div class="analog-card">
+          <h3>A4 (0-20V)</h3>
+          <div class="analog-controls">
+            <div class="radio-group">
+              <label><input type="radio" name="a4-engine" value="P" checked> Port</label>
+              <label><input type="radio" name="a4-engine" value="S"> Stbd</label>
+            </div>
+            <select id="a4-field" class="input-field">
+              <option value="0">Trans Oil Press</option>
+              <option value="1">Oil Press</option>
+              <option value="2">Oil Temp</option>
+              <option value="3">Cool Temp</option>
+              <option value="4">Cool Press</option>
+              <option value="5">Fuel Press</option>
+              <option value="6">Fuel Level</option>
+              <option value="7">Trans Press</option>
+            </select>
+            <div class="gauge-display">
+              <label>Gauge Volts:</label>
+              <span id="a4-value" class="value-display">0.00 V</span>
+            </div>
+            <div class="checkbox-group">
+              <label><input type="checkbox" id="a4-current"> Current</label>
+              <label><input type="checkbox" id="a4-smooth"> Smooth</label>
+            </div>
+          </div>
+          <button class="btn btn-small btn-primary" onclick="applyAnalog(4)">Send</button>
+        </div>
+
+        <!-- A5 -->
+        <div class="analog-card">
+          <h3>A5 (0-30V)</h3>
+          <div class="analog-controls">
+            <div class="radio-group">
+              <label><input type="radio" name="a5-engine" value="P" checked> Port</label>
+              <label><input type="radio" name="a5-engine" value="S"> Stbd</label>
+            </div>
+            <select id="a5-field" class="input-field">
+              <option value="0">Batt Volts (P)</option>
+              <option value="1">Oil Press</option>
+              <option value="2">Oil Temp</option>
+              <option value="3">Cool Temp</option>
+              <option value="4">Cool Press</option>
+              <option value="5">Fuel Press</option>
+              <option value="6">Fuel Level</option>
+              <option value="7">Trans Press</option>
+            </select>
+            <div class="gauge-display">
+              <label>Gauge Volts:</label>
+              <span id="a5-value" class="value-display">0.00 V</span>
+            </div>
+            <p class="note">No sender current available</p>
+          </div>
+          <button class="btn btn-small btn-primary" onclick="applyAnalog(5)">Send</button>
+        </div>
+
+        <!-- A6 -->
+        <div class="analog-card">
+          <h3>A6 (0-30V)</h3>
+          <div class="analog-controls">
+            <div class="radio-group">
+              <label><input type="radio" name="a6-engine" value="P" checked> Port</label>
+              <label><input type="radio" name="a6-engine" value="S"> Stbd</label>
+            </div>
+            <select id="a6-field" class="input-field">
+              <option value="0">Batt Volts (S)</option>
+              <option value="1">Oil Press</option>
+              <option value="2">Oil Temp</option>
+              <option value="3">Cool Temp</option>
+              <option value="4">Cool Press</option>
+              <option value="5">Fuel Press</option>
+              <option value="6">Fuel Level</option>
+              <option value="7">Trans Press</option>
+            </select>
+            <div class="gauge-display">
+              <label>Gauge Volts:</label>
+              <span id="a6-value" class="value-display">0.00 V</span>
+            </div>
+            <p class="note">No sender current available</p>
+          </div>
+          <button class="btn btn-small btn-primary" onclick="applyAnalog(6)">Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Control Buttons -->
+    <section class="card">
+      <h2>Device Control</h2>
+      <div class="control-buttons">
+        <button id="query-btn" class="btn btn-primary">Query Config</button>
+        <button id="stop-btn" class="btn btn-warning">Stop Device</button>
+        <button id="restart-btn" class="btn btn-info">Restart Device</button>
+        <button id="reset-btn" class="btn btn-danger">Factory Reset</button>
+        <button id="save-config-btn" class="btn btn-success">Save Config</button>
+      </div>
+    </section>
+
+    <!-- Status Log -->
+    <section class="card">
+      <h2>Status Log</h2>
+      <div id="log" class="log-display"></div>
+      <button id="clear-log-btn" class="btn btn-secondary btn-small">Clear Log</button>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

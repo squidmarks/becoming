@@ -1,0 +1,36 @@
+    RS11 COMMAND LIST
+    Operating commands:
+        @<                Stop Device
+        @>                Restart Device
+        @?                Print Config Query
+        @q                Print Query w/Calc values
+        @~rst             Factory Reset
+     
+    Configuration commands(user configurable):
+        @Q(xxx)                           Set Engine Instance(000-009)
+        @|(xxx)                             Set Start Address(000-251)
+        @b(0/4/6)                       Set Multi-Batt Start Instance   
+        @R(P/S,xxxxx)              Set/Enable Engine-Hours(0-99998)
+        @P(xxx)                           Port PPR(001-500, 000=off)      
+        @S(xxx)                            Stbd PPR(0001-500, 000=off)  
+        @p(xxxx)                         Port PPL(0060-9999, 99999=off)
+        @s(xxxx)                          Stbd PPL(0060-9999, 99999=off)
+        @C(1-4,+/-)                   A1-A4 Current on/off
+        @T(1-4,+/-)                    A1-A4 Smoothing on/off
+        @^(P/S,xxx)                    Fuel Capacity(liters)
+        @[(P/S,xxx)                    Water Capacity(liters)
+        @](P/S,xxx)                    Oil Capacity(liters)
+        @[(P/S,xxx)                    Waste Capacity(liters)
+        @](P/S,xxx)                    Black Capacity(liters)
+     
+    Calibration command(Software configed}
+        @D(1-6,P/S,0-..)         A1-A6 Field#                                    
+        @N(1-9,P/S,+/-)          CANbus Message# on/off
+        @X(1-6,+/-,xxxx)          A1-A6 X_value(0000-9999)                       
+        @Y(1-6,+/-,xxx)            A1-A6 Y_value(001-125)                             
+        @Z(1-6,0-F,+/-)            A1-A6 Z_byte(shifts, flags)
+        @L(1-6,xxx)                    A1-A6 Breakpoint(x100, 000=off)             
+        @x(1-6,xxxx)                  A1-A6 3-pnt X_value(0000-9999)             
+        @y(1-6,xxx)                    A1-A6 3-pnt Y_value(001-125)                  
+        @z(1-6,0-F,+/-)            A1-A6 3-pnt Z_byte(shifts, flags)
+        @A(1-6,xx)                     A1-A6 Alarm Value (00=off)   

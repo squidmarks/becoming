@@ -1,0 +1,405 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #1a4e9c;
+  --secondary: #5a7fa5;
+  --success: #22c55e;
+  --warning: #f97316;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  
+  --bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --border: #e0e4e8;
+  --text: #1f2937;
+  --text-muted: #6b7280;
+  
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  padding-bottom: 40px;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: white;
+  padding: 20px 30px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-lg);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.indicator {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.indicator.connected {
+  color: var(--success);
+}
+
+.indicator.disconnected {
+  color: var(--danger);
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  font-size: 1.3rem;
+  color: var(--primary);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+
+.connection-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-item label {
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.analog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.analog-card {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.analog-card h3 {
+  font-size: 1.1rem;
+  color: var(--primary);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.analog-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 15px;
+}
+
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.checkbox-group {
+  display: flex;
+  gap: 15px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.gauge-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.value-display {
+  font-weight: 600;
+  color: var(--primary);
+  font-family: 'Courier New', monospace;
+}
+
+.note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.input-field {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.95rem;
+  background: white;
+  min-width: 150px;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(26, 78, 156, 0.1);
+}
+
+.input-field.small {
+  min-width: 80px;
+  max-width: 120px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #164080;
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #4a6f95;
+}
+
+.btn-success {
+  background: var(--success);
+  color: white;
+}
+
+.btn-success:hover {
+  background: #16a34a;
+}
+
+.btn-warning {
+  background: var(--warning);
+  color: white;
+}
+
+.btn-warning:hover {
+  background: #ea580c;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-info {
+  background: var(--info);
+  color: white;
+}
+
+.btn-info:hover {
+  background: #2563eb;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.log-display {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 16px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.log-display:empty::before {
+  content: 'No log messages yet...';
+  color: #64748b;
+}
+
+.log-entry {
+  margin-bottom: 4px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-timestamp {
+  color: #94a3b8;
+  margin-right: 8px;
+}
+
+.log-success {
+  color: var(--success);
+}
+
+.log-error {
+  color: var(--danger);
+}
+
+.log-info {
+  color: var(--info);
+}
+
+.log-warning {
+  color: var(--warning);
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+
+  header {
+    padding: 15px 20px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .analog-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .connection-controls select,
+  .connection-controls button {
+    width: 100%;
+  }
+
+  .control-buttons {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
