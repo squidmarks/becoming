@@ -34,9 +34,20 @@ wss.on('connection', (ws) => {
   console.log('✓ WebSocket client connected');
   wsClients.add(ws);
 
-  ws.on('close', () => {
+  ws.on('close', async () => {
     console.log('✓ WebSocket client disconnected');
     wsClients.delete(ws);
+    
+    // Auto-disconnect from RS11 if last client and port is locked
+    if (wsClients.size === 0 && rs11.isConnected()) {
+      console.log('Last client disconnected, releasing serial port...');
+      try {
+        await rs11.disconnect();
+        console.log('✓ Serial port released');
+      } catch (error) {
+        console.error('Error releasing port:', error);
+      }
+    }
   });
 
   ws.on('error', (error) => {
@@ -101,6 +112,8 @@ app.get('/api/status', (req, res) => {
 app.get('/api/config', async (req, res) => {
   try {
     const config = await rs11.queryConfig();
+    // Log raw response for debugging
+    console.log('Raw config response:', config.raw);
     res.json(config);
   } catch (error) {
     res.status(500).json({ error: error.message });

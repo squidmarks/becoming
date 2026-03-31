@@ -14,7 +14,6 @@ export class RS11Serial {
     this.protocol = new RS11Protocol();
     this.connected = false;
     this.buffer = '';
-    this.responseCallbacks = [];
   }
 
   // List available serial ports
@@ -74,18 +73,6 @@ export class RS11Serial {
           this.connected = false;
         });
 
-        // Handle incoming data
-        this.parser.on('data', (line) => {
-          this.buffer += line + '\n';
-          console.log('RX:', line);
-          
-          // Call any waiting callbacks
-          if (this.responseCallbacks.length > 0) {
-            const callback = this.responseCallbacks.shift();
-            callback(line);
-          }
-        });
-
       } catch (error) {
         reject(error);
       }
@@ -121,22 +108,36 @@ export class RS11Serial {
         return;
       }
 
-      this.buffer = '';
       const responses = [];
+      let responseTimeout = null;
 
-      // Set up response handler
-      const responseHandler = (line) => {
+      // Set up temporary data handler to collect responses
+      const dataHandler = (line) => {
+        console.log('RX:', line);
         responses.push(line);
+        
+        // Reset timeout on each line received
+        if (responseTimeout) {
+          clearTimeout(responseTimeout);
+        }
+        
+        // For query commands, wait for more data
+        if (command.includes('@?') || command.includes('@q')) {
+          responseTimeout = setTimeout(() => {
+            this.parser.removeListener('data', dataHandler);
+            console.log(`Collected ${responses.length} response lines`);
+            resolve({ responses, timeout: false });
+          }, 500); // Wait 500ms after last line
+        }
       };
 
-      this.responseCallbacks.push(responseHandler);
+      this.parser.on('data', dataHandler);
 
-      // Set timeout
-      const timeout = setTimeout(() => {
-        const index = this.responseCallbacks.indexOf(responseHandler);
-        if (index > -1) {
-          this.responseCallbacks.splice(index, 1);
-        }
+      // Set overall timeout
+      const overallTimeout = setTimeout(() => {
+        this.parser.removeListener('data', dataHandler);
+        if (responseTimeout) clearTimeout(responseTimeout);
+        console.log(`Command timeout after ${timeoutMs}ms, collected ${responses.length} lines`);
         resolve({ responses, timeout: true });
       }, timeoutMs);
 
@@ -144,18 +145,22 @@ export class RS11Serial {
       console.log('TX:', command.trim());
       this.port.write(command, (err) => {
         if (err) {
-          clearTimeout(timeout);
+          clearTimeout(overallTimeout);
+          if (responseTimeout) clearTimeout(responseTimeout);
+          this.parser.removeListener('data', dataHandler);
           reject(err);
+        } else {
+          // For non-query commands, resolve quickly
+          if (!command.includes('@?') && !command.includes('@q')) {
+            setTimeout(() => {
+              clearTimeout(overallTimeout);
+              if (responseTimeout) clearTimeout(responseTimeout);
+              this.parser.removeListener('data', dataHandler);
+              resolve({ responses, timeout: false });
+            }, 300);
+          }
         }
       });
-
-      // For query commands, wait a bit longer to collect all responses
-      if (command.includes('@?') || command.includes('@q')) {
-        setTimeout(() => {
-          clearTimeout(timeout);
-          resolve({ responses, timeout: false });
-        }, 1500);
-      }
     });
   }
 
