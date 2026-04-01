@@ -458,5 +458,55 @@ function clearLog() {
   log('Log cleared', 'info');
 }
 
-// Make applyAnalog available globally
+// Calibration function
+async function calibrateAnalog(port) {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  try {
+    // Get calibration points
+    const lowVolts = parseFloat(document.getElementById(`a${port}-low-volts`).value);
+    const lowValue = parseFloat(document.getElementById(`a${port}-low-value`).value);
+    const highVolts = parseFloat(document.getElementById(`a${port}-high-volts`).value);
+    const highValue = parseFloat(document.getElementById(`a${port}-high-value`).value);
+    
+    if (isNaN(lowVolts) || isNaN(lowValue) || isNaN(highVolts) || isNaN(highValue)) {
+      log(`A${port}: Please enter all calibration values`, 'warning');
+      return;
+    }
+    
+    if (lowVolts >= highVolts) {
+      log(`A${port}: Low voltage must be less than high voltage`, 'warning');
+      return;
+    }
+    
+    log(`A${port}: Calculating calibration...`, 'info');
+    
+    const response = await fetch(`/api/config/analog/${port}/calibrate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lowVolts,
+        lowValue,
+        highVolts,
+        highValue
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      log(`A${port}: Calibration applied (X=${data.xValue}, Y=${data.yValue})`, 'success');
+    } else {
+      log(`A${port}: Calibration failed: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    log(`A${port}: Calibration error: ${error.message}`, 'error');
+  }
+}
+
+// Make functions available globally
 window.applyAnalog = applyAnalog;
+window.calibrateAnalog = calibrateAnalog;

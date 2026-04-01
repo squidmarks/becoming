@@ -212,6 +212,62 @@ app.post('/api/config/analog/:port', async (req, res) => {
   }
 });
 
+// Calibrate analog input (two-point linear)
+app.post('/api/config/analog/:port/calibrate', async (req, res) => {
+  try {
+    const port = parseInt(req.params.port);
+    const { lowVolts, lowValue, highVolts, highValue } = req.body;
+    
+    if (!lowVolts || !lowValue || !highVolts || !highValue) {
+      return res.status(400).json({ error: 'All calibration points required' });
+    }
+    
+    // Calculate linear calibration: engineeringValue = (voltage * slope) + offset
+    const voltageRange = highVolts - lowVolts;
+    const valueRange = highValue - lowValue;
+    const slope = valueRange / voltageRange;
+    const offset = lowValue - (slope * lowVolts);
+    
+    console.log(`A${port} Calibration:`);
+    console.log(`  Points: (${lowVolts}V → ${lowValue}) to (${highVolts}V → ${highValue})`);
+    console.log(`  Slope: ${slope.toFixed(3)}, Offset: ${offset.toFixed(3)}`);
+    
+    // RS11 X/Y format: Output = (Input * X) / Y
+    // We need to convert our slope/offset to X/Y format
+    // For now, use a simplified approach: X = slope * 100, Y = 100
+    // This gives us decent resolution for most sensors
+    
+    let xValue = Math.round(Math.abs(slope) * 100);
+    let yValue = 100;
+    
+    // Constrain to RS11 limits
+    xValue = Math.min(9999, Math.max(1, xValue));
+    yValue = Math.min(125, Math.max(1, yValue));
+    
+    const xSign = slope >= 0 ? '+' : '-';
+    
+    console.log(`  RS11 Format: X=${xSign}${xValue}, Y=+${yValue}`);
+    
+    // Send calibration commands
+    const results = [];
+    results.push(await rs11.setAnalogXValue(port, xSign, xValue));
+    results.push(await rs11.setAnalogYValue(port, '+', yValue));
+    
+    res.json({
+      success: true,
+      xValue,
+      yValue,
+      xSign,
+      slope,
+      offset,
+      results
+    });
+  } catch (error) {
+    console.error('Calibration error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Stop device
 app.post('/api/device/stop', async (req, res) => {
   try {

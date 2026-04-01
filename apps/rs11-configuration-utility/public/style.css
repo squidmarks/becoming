@@ -360,6 +360,64 @@ h1 {
   color: var(--warning);
 }
 
+.calibration-section {
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.calibration-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--success);
+  user-select: none;
+  padding: 4px 0;
+}
+
+.calibration-section summary:hover {
+  color: #16a34a;
+}
+
+.calibration-points {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-point {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-point label {
+  min-width: 80px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.cal-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  width: 100px;
+}
+
+.cal-input:focus {
+  outline: none;
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.calibration-section button {
+  margin-top: 10px;
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 10px;
@@ -400,6 +458,19 @@ h1 {
   }
 
   .btn {
+    width: 100%;
+  }
+
+  .cal-point {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cal-point label {
+    min-width: auto;
+  }
+
+  .cal-input {
     width: 100%;
   }
 }
