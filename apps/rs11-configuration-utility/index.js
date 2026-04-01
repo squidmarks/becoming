@@ -152,6 +152,37 @@ app.post('/api/config/address', async (req, res) => {
   }
 });
 
+// Set multi-battery instance
+app.post('/api/config/multi-batt', async (req, res) => {
+  try {
+    const { value } = req.body;
+    if (![0, 4, 6].includes(value)) {
+      return res.status(400).json({ error: 'Value must be 0, 4, or 6' });
+    }
+    const result = await rs11.setMultiBattStartInstance(value);
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Set engine hours
+app.post('/api/config/engine-hours', async (req, res) => {
+  try {
+    const { engine, hours } = req.body;
+    if (!['P', 'S'].includes(engine)) {
+      return res.status(400).json({ error: 'Engine must be P or S' });
+    }
+    if (hours < 0 || hours > 99998) {
+      return res.status(400).json({ error: 'Hours must be 0-99998' });
+    }
+    const result = await rs11.setEngineHours(engine, hours);
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Set RPM configuration
 app.post('/api/config/rpm', async (req, res) => {
   try {

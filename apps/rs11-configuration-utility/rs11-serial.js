@@ -200,6 +200,14 @@ export class RS11Serial {
     return await this.sendCommand(this.protocol.setStartAddress(address));
   }
 
+  async setMultiBattStartInstance(value) {
+    return await this.sendCommand(this.protocol.setMultiBattStartInstance(value));
+  }
+
+  async setEngineHours(engine, hours) {
+    return await this.sendCommand(this.protocol.setEngineHours(engine, hours));
+  }
+
   async setPortPPR(ppr) {
     return await this.sendCommand(this.protocol.setPortPPR(ppr));
   }

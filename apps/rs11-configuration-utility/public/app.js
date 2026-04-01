@@ -204,8 +204,13 @@ async function applyEngineConfig() {
   
   try {
     const instance = parseInt(document.getElementById('instance').value);
+    const multiBatt = parseInt(document.getElementById('multi-batt').value);
     const portPPR = parseInt(document.getElementById('port-ppr').value);
     const stbdPPR = parseInt(document.getElementById('stbd-ppr').value);
+    const portPPL = parseInt(document.getElementById('port-ppl').value);
+    const stbdPPL = parseInt(document.getElementById('stbd-ppl').value);
+    const portHours = parseInt(document.getElementById('port-hours').value);
+    const stbdHours = parseInt(document.getElementById('stbd-hours').value);
     
     log('Applying engine configuration...', 'info');
     
@@ -216,12 +221,43 @@ async function applyEngineConfig() {
       body: JSON.stringify({ instance })
     });
     
+    // Set multi-batt instance
+    if (multiBatt !== 0) {
+      await fetch('/api/config/multi-batt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: multiBatt })
+      });
+    }
+    
     // Set RPM values
     await fetch('/api/config/rpm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ port: portPPR, stbd: stbdPPR })
+      body: JSON.stringify({ 
+        port: portPPR, 
+        stbd: stbdPPR,
+        portPPL,
+        stbdPPL
+      })
     });
+    
+    // Set engine hours
+    if (portHours > 0) {
+      await fetch('/api/config/engine-hours', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engine: 'P', hours: portHours })
+      });
+    }
+    
+    if (stbdHours > 0) {
+      await fetch('/api/config/engine-hours', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engine: 'S', hours: stbdHours })
+      });
+    }
     
     log('Engine configuration applied', 'success');
   } catch (error) {

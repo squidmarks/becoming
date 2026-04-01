@@ -118,9 +118,28 @@ h1 {
   gap: 10px;
 }
 
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.config-item > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .config-item label {
   font-weight: 500;
   min-width: 120px;
+}
+
+.help-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-left: 10px;
 }
 
 .analog-grid {

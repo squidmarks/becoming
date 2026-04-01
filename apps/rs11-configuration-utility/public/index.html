@@ -36,22 +36,82 @@
       <h2>Engine Configuration</h2>
       <div class="config-grid">
         <div class="config-item">
-          <label>Instance:</label>
-          <input type="number" id="instance" class="input-field small" min="0" max="9" value="0">
+          <div>
+            <label>Port Instance:</label>
+            <input type="number" id="instance" class="input-field small" min="0" max="9" value="0">
+          </div>
+          <span class="help-text">NMEA instance for port engine (0-9)</span>
         </div>
         <div class="config-item">
-          <label>Stbd Instance:</label>
-          <input type="number" id="stbd-instance" class="input-field small" min="0" max="9" value="1">
+          <div>
+            <label>Stbd Instance:</label>
+            <input type="number" id="stbd-instance" class="input-field small" min="0" max="9" value="1">
+          </div>
+          <span class="help-text">NMEA instance for starboard engine</span>
         </div>
         <div class="config-item">
-          <label>Port PPR:</label>
-          <input type="number" id="port-ppr" class="input-field small" min="0" max="500" value="30">
-        </div>
-        <div class="config-item">
-          <label>Stbd PPR:</label>
-          <input type="number" id="stbd-ppr" class="input-field small" min="0" max="500" value="30">
+          <div>
+            <label>Multi-Batt Instance:</label>
+            <select id="multi-batt" class="input-field small">
+              <option value="0">0 (Default)</option>
+              <option value="4">4</option>
+              <option value="6">6</option>
+            </select>
+          </div>
+          <span class="help-text">Battery voltage instance offset</span>
         </div>
       </div>
+      
+      <h3 style="margin-top: 20px; margin-bottom: 15px; font-size: 1.1rem; color: var(--primary);">RPM Settings</h3>
+      <div class="config-grid">
+        <div class="config-item">
+          <div>
+            <label>Port PPR:</label>
+            <input type="number" id="port-ppr" class="input-field small" min="0" max="500" value="0" placeholder="0=off">
+          </div>
+          <span class="help-text">Pulses per revolution (0=disabled)</span>
+        </div>
+        <div class="config-item">
+          <div>
+            <label>Stbd PPR:</label>
+            <input type="number" id="stbd-ppr" class="input-field small" min="0" max="500" value="0" placeholder="0=off">
+          </div>
+          <span class="help-text">Pulses per revolution (0=disabled)</span>
+        </div>
+        <div class="config-item">
+          <div>
+            <label>Port PPL:</label>
+            <input type="number" id="port-ppl" class="input-field small" min="60" max="99999" value="99999" placeholder="99999=off">
+          </div>
+          <span class="help-text">Pulses per liter fuel (99999=disabled)</span>
+        </div>
+        <div class="config-item">
+          <div>
+            <label>Stbd PPL:</label>
+            <input type="number" id="stbd-ppl" class="input-field small" min="60" max="99999" value="99999" placeholder="99999=off">
+          </div>
+          <span class="help-text">Pulses per liter fuel (99999=disabled)</span>
+        </div>
+      </div>
+      
+      <h3 style="margin-top: 20px; margin-bottom: 15px; font-size: 1.1rem; color: var(--primary);">Engine Hours</h3>
+      <div class="config-grid">
+        <div class="config-item">
+          <div>
+            <label>Port Hours:</label>
+            <input type="number" id="port-hours" class="input-field small" min="0" max="99998" value="0" placeholder="Current hours">
+          </div>
+          <span class="help-text">Current engine hours (RS11 increments when RPM &gt; 100)</span>
+        </div>
+        <div class="config-item">
+          <div>
+            <label>Stbd Hours:</label>
+            <input type="number" id="stbd-hours" class="input-field small" min="0" max="99998" value="0" placeholder="Current hours">
+          </div>
+          <span class="help-text">Current engine hours (RS11 increments when RPM &gt; 100)</span>
+        </div>
+      </div>
+      
       <button id="apply-engine-btn" class="btn btn-primary">Apply Engine Config</button>
     </section>
 
