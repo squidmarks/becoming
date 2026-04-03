@@ -216,23 +216,33 @@ async function applyEngineConfig() {
     log('Applying engine configuration...', 'info');
     
     // Set instance
-    await fetch('/api/config/instance', {
+    let response = await fetch('/api/config/instance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ instance })
     });
+    if (!response.ok) {
+      const error = await response.json();
+      log(`Instance: ${error.error}`, 'error');
+      return;
+    }
     
     // Set multi-batt instance
     if (multiBatt !== 0) {
-      await fetch('/api/config/multi-batt', {
+      response = await fetch('/api/config/multi-batt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: multiBatt })
       });
+      if (!response.ok) {
+        const error = await response.json();
+        log(`Multi-Batt: ${error.error}`, 'error');
+        return;
+      }
     }
     
     // Set RPM values
-    await fetch('/api/config/rpm', {
+    response = await fetch('/api/config/rpm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -242,22 +252,37 @@ async function applyEngineConfig() {
         stbdPPL
       })
     });
+    if (!response.ok) {
+      const error = await response.json();
+      log(`RPM: ${error.error}`, 'error');
+      return;
+    }
     
-    // Set engine hours
-    if (portHours > 0) {
-      await fetch('/api/config/engine-hours', {
+    // Set engine hours (send even if 0)
+    if (!isNaN(portHours)) {
+      response = await fetch('/api/config/engine-hours', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ engine: 'P', hours: portHours })
       });
+      if (!response.ok) {
+        const error = await response.json();
+        log(`Port Hours: ${error.error}`, 'error');
+        return;
+      }
     }
     
-    if (stbdHours > 0) {
-      await fetch('/api/config/engine-hours', {
+    if (!isNaN(stbdHours)) {
+      response = await fetch('/api/config/engine-hours', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ engine: 'S', hours: stbdHours })
       });
+      if (!response.ok) {
+        const error = await response.json();
+        log(`Stbd Hours: ${error.error}`, 'error');
+        return;
+      }
     }
     
     log('Engine configuration applied', 'success');
