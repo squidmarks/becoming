@@ -1,0 +1,21 @@
+[Unit]
+Description=RS11 Configuration Utility
+After=network.target
+
+[Service]
+Type=simple
+User=geoff
+WorkingDirectory=/home/geoff/code/becoming/apps/rs11-configuration-utility
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rs11-config
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=PORT=3002
+
+[Install]
+WantedBy=multi-user.target
