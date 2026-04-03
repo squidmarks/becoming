@@ -289,8 +289,10 @@ async function applyEngineConfig() {
     }
     
     log('Engine configuration applied', 'success');
+    showToast('Engine Configuration Saved', 'success', 'Settings applied to RS11');
   } catch (error) {
     log(`Error applying config: ${error.message}`, 'error');
+    showToast('Configuration Failed', 'error', error.message);
   } finally {
     // Resume live updates
     startLiveUpdates();
@@ -334,8 +336,10 @@ async function applyAnalog(port) {
     
     if (response.ok) {
       log(`A${port} configured`, 'success');
+      showToast(`A${port} Configured`, 'success');
     } else {
       log(`A${port} config failed: ${data.error}`, 'error');
+      showToast(`A${port} Failed`, 'error', data.error);
     }
   } catch (error) {
     log(`Error configuring A${port}: ${error.message}`, 'error');
@@ -359,6 +363,7 @@ async function applyAllAnalogs() {
   }
   
   log('All analog channels configured', 'success');
+  showToast('All Channels Configured', 'success', '6 analog inputs saved');
 }
 
 // Query configuration
@@ -415,8 +420,10 @@ async function stopDevice() {
     
     if (response.ok) {
       log('Device stopped', 'success');
+      showToast('Device Stopped', 'success');
     } else {
       log(`Stop failed: ${data.error}`, 'error');
+      showToast('Stop Failed', 'error', data.error);
     }
   } catch (error) {
     log(`Stop error: ${error.message}`, 'error');
@@ -442,8 +449,10 @@ async function restartDevice() {
     
     if (response.ok) {
       log('Device restarted', 'success');
+      showToast('Device Restarted', 'success', 'Configuration saved to NVRAM');
     } else {
       log(`Restart failed: ${data.error}`, 'error');
+      showToast('Restart Failed', 'error', data.error);
     }
   } catch (error) {
     log(`Restart error: ${error.message}`, 'error');
@@ -595,6 +604,36 @@ async function calibrateAnalog(port) {
   } catch (error) {
     log(`A${port}: Calibration error: ${error.message}`, 'error');
   }
+}
+
+// Show toast notification
+function showToast(message, type = 'success', detail = null) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: '✓',
+    error: '✗',
+    warning: '⚠',
+    info: 'ℹ'
+  };
+  
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || icons.info}</div>
+    <div class="toast-content">
+      <div class="toast-message">${message}</div>
+      ${detail ? `<div class="toast-detail">${detail}</div>` : ''}
+    </div>
+  `;
+  
+  container.appendChild(toast);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    toast.style.animation = 'slideIn 0.3s ease-out reverse';
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
 }
 
 // Make functions available globally
