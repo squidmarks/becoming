@@ -167,13 +167,14 @@ app.get('/api/live', async (req, res) => {
 // Batch set all engine configuration (single stop/restart cycle)
 app.post('/api/config/engine-batch', async (req, res) => {
   try {
-    const { instance, multiBatt, portPPR, stbdPPR, portPPL, stbdPPL, portHours, stbdHours } = req.body;
+    const { instance, stbdInstance, multiBatt, portPPR, stbdPPR, portPPL, stbdPPL, portHours, stbdHours } = req.body;
     
     const results = await withLock(async () => {
       const results = [];
       
+      // Try setting both port and starboard instances with experimental 6-digit format
       if (instance !== undefined) {
-        const result = await rs11.setEngineInstance(instance);
+        const result = await rs11.setEngineInstance(instance, stbdInstance);
         if (result.error) throw new Error(`Instance: ${result.error}`);
         results.push({ command: 'instance', result });
       }

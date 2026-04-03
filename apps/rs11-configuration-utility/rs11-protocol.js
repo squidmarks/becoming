@@ -30,9 +30,18 @@ export class RS11Protocol {
   }
 
   // Configuration Commands
-  setEngineInstance(instance) {
-    const val = String(instance).padStart(3, '0');
-    return `@Q${val}\r\n`;
+  setEngineInstance(portInstance, stbdInstance = null) {
+    // Try sending both port and starboard instances as 6 digits (experimental)
+    // Windows app has separate fields, so maybe @Q accepts 6 digits?
+    if (stbdInstance !== null && stbdInstance !== undefined) {
+      const portVal = String(portInstance).padStart(3, '0');
+      const stbdVal = String(stbdInstance).padStart(3, '0');
+      return `@Q${portVal}${stbdVal}\r\n`;
+    } else {
+      // Fallback to original 3-digit format
+      const val = String(portInstance).padStart(3, '0');
+      return `@Q${val}\r\n`;
+    }
   }
 
   setStartAddress(address) {

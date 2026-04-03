@@ -232,8 +232,8 @@ export class RS11Serial {
   }
 
   // Configuration setters
-  async setEngineInstance(instance) {
-    return await this.sendCommand(this.protocol.setEngineInstance(instance));
+  async setEngineInstance(portInstance, stbdInstance = null) {
+    return await this.sendCommand(this.protocol.setEngineInstance(portInstance, stbdInstance));
   }
 
   async setStartAddress(address) {
