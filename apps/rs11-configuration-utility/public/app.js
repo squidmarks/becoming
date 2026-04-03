@@ -203,6 +203,9 @@ async function applyEngineConfig() {
     return;
   }
   
+  // Pause live updates to avoid command interference
+  stopLiveUpdates();
+  
   try {
     const instance = parseInt(document.getElementById('instance').value);
     const multiBatt = parseInt(document.getElementById('multi-batt').value);
@@ -288,6 +291,9 @@ async function applyEngineConfig() {
     log('Engine configuration applied', 'success');
   } catch (error) {
     log(`Error applying config: ${error.message}`, 'error');
+  } finally {
+    // Resume live updates
+    startLiveUpdates();
   }
 }
 
@@ -297,6 +303,9 @@ async function applyAnalog(port) {
     log('Not connected to device', 'warning');
     return;
   }
+  
+  // Pause live updates to avoid command interference
+  stopLiveUpdates();
   
   try {
     const engine = document.querySelector(`input[name="a${port}-engine"]:checked`).value;
@@ -330,6 +339,9 @@ async function applyAnalog(port) {
     }
   } catch (error) {
     log(`Error configuring A${port}: ${error.message}`, 'error');
+  } finally {
+    // Resume live updates
+    startLiveUpdates();
   }
 }
 
