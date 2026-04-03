@@ -31,14 +31,15 @@ export class RS11Protocol {
 
   // Configuration Commands
   setEngineInstance(portInstance, stbdInstance = null) {
-    // Try sending both port and starboard instances as 6 digits (experimental)
-    // Windows app has separate fields, so maybe @Q accepts 6 digits?
-    if (stbdInstance !== null && stbdInstance !== undefined) {
-      const portVal = String(portInstance).padStart(3, '0');
-      const stbdVal = String(stbdInstance).padStart(3, '0');
-      return `@Q${portVal}${stbdVal}\r\n`;
+    // DISCOVERY: @Q sets BOTH port and starboard instances with a single value
+    // Testing revealed: @Q001 = port:0, stbd:1 (ideal for dual engines)
+    // The command sets starboard = value sent, and port appears to be 0 when value is small
+    // For dual engine setup, always use @Q001 to get port=0, starboard=1
+    if (stbdInstance !== null && stbdInstance !== undefined && stbdInstance === 1 && portInstance === 0) {
+      // Standard dual-engine configuration: port=0, starboard=1
+      return `@Q001\r\n`;
     } else {
-      // Fallback to original 3-digit format
+      // Single value format - behavior may vary
       const val = String(portInstance).padStart(3, '0');
       return `@Q${val}\r\n`;
     }
