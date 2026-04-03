@@ -261,97 +261,31 @@ async function applyEngineConfig() {
     log('Applying engine configuration...', 'info');
     console.log('[FRONTEND] Engine config values:', { instance, multiBatt, portPPR, stbdPPR, portPPL, stbdPPL, portHours, stbdHours });
     
-    // Set instance
-    console.log('[FRONTEND] Setting instance...');
-    let response = await fetch('/api/config/instance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instance })
-    });
-      if (!response.ok) {
-        const error = await response.json();
-        log(`Instance: ${error.error}`, 'error');
-        showToast('Instance Failed', 'error', error.error);
-        return;
-      }
-    
-    // Set multi-batt instance
-    if (multiBatt !== 0) {
-      response = await fetch('/api/config/multi-batt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: multiBatt })
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        log(`Multi-Batt: ${error.error}`, 'error');
-        showToast('Multi-Batt Failed', 'error', error.error);
-        return;
-      }
-    }
-    
-    // Set RPM values
-    console.log('[FRONTEND] Setting RPM...');
-    response = await fetch('/api/config/rpm', {
+    // Send all engine config in a single batched request (one stop/restart cycle)
+    const response = await fetch('/api/config/engine-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        port: portPPR, 
-        stbd: stbdPPR,
-        portPPL,
-        stbdPPL
+        instance, 
+        multiBatt, 
+        portPPR, 
+        stbdPPR, 
+        portPPL, 
+        stbdPPL, 
+        portHours, 
+        stbdHours 
       })
     });
-    console.log('[FRONTEND] RPM response status:', response.status);
+    
     if (!response.ok) {
       const error = await response.json();
-      log(`RPM: ${error.error}`, 'error');
-      showToast('RPM Config Failed', 'error', error.error);
-      console.error('[FRONTEND] RPM failed:', error);
+      log(`Engine Config Failed: ${error.error}`, 'error');
+      showToast('Engine Config Failed', 'error', error.error);
       return;
-    }
-    console.log('[FRONTEND] RPM success');
-    
-    // Set engine hours (send even if 0)
-    console.log('[FRONTEND] Setting engine hours...');
-    if (!isNaN(portHours)) {
-      console.log('[FRONTEND] Setting port hours:', portHours);
-      response = await fetch('/api/config/engine-hours', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ engine: 'P', hours: portHours })
-      });
-      console.log('[FRONTEND] Port hours response:', response.status);
-      if (!response.ok) {
-        const error = await response.json();
-        log(`Port Hours: ${error.error}`, 'error');
-        showToast('Port Hours Failed', 'error', error.error);
-        console.error('[FRONTEND] Port hours failed:', error);
-        return;
-      }
-      console.log('[FRONTEND] Port hours success');
-    }
-    
-    if (!isNaN(stbdHours)) {
-      console.log('[FRONTEND] Setting stbd hours:', stbdHours);
-      response = await fetch('/api/config/engine-hours', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ engine: 'S', hours: stbdHours })
-      });
-      console.log('[FRONTEND] Stbd hours response:', response.status);
-      if (!response.ok) {
-        const error = await response.json();
-        log(`Stbd Hours: ${error.error}`, 'error');
-        showToast('Stbd Hours Failed', 'error', error.error);
-        console.error('[FRONTEND] Stbd hours failed:', error);
-        return;
-      }
-      console.log('[FRONTEND] Stbd hours success');
     }
     
     log('Engine configuration applied', 'success');
-    showToast('Engine Configuration Saved', 'success', 'Settings applied to RS11');
+    showToast('Engine Configuration Saved', 'success', 'All settings applied and saved to NVRAM');
   } catch (error) {
     log(`Error applying config: ${error.message}`, 'error');
     showToast('Configuration Failed', 'error', error.message);
@@ -457,6 +391,12 @@ async function queryConfiguration() {
       }
       if (data.stbdPPR !== null) {
         document.getElementById('stbd-ppr').value = data.stbdPPR;
+      }
+      if (data.portPPL !== null) {
+        document.getElementById('port-ppl').value = data.portPPL;
+      }
+      if (data.stbdPPL !== null) {
+        document.getElementById('stbd-ppl').value = data.stbdPPL;
       }
       
       // Update analog channel fields

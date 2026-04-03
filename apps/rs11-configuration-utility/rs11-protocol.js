@@ -188,11 +188,22 @@ export class RS11Protocol {
         const match = line.match(/(\d+)/);
         if (match) config.instance = parseInt(match[1]);
       }
-      if (line.includes('PPR')) {
-        const match = line.match(/Port.*?(\d+).*?Stbd.*?(\d+)/i);
+      // Message1 Eng Rapid Port (On)/Stbd(Off) [ppr=123/456] or [ppr=---/---]
+      if (line.includes('ppr=')) {
+        const match = line.match(/ppr=(\d+|---?)\/(\d+|---?)/i);
         if (match) {
-          config.portPPR = parseInt(match[1]);
-          config.stbdPPR = parseInt(match[2]);
+          config.portPPR = match[1].includes('-') ? 0 : parseInt(match[1]);
+          config.stbdPPR = match[2].includes('-') ? 0 : parseInt(match[2]);
+        }
+      }
+      // Message2 Eng Dynamic Port (On)/Stbd(Off) [ppl=1234/5678] or [ppl=9999/----]
+      if (line.includes('ppl=')) {
+        const match = line.match(/ppl=(\d+|---?)\/(\d+|---?)/i);
+        if (match) {
+          const portVal = match[1].includes('-') ? 99999 : parseInt(match[1]);
+          const stbdVal = match[2].includes('-') ? 99999 : parseInt(match[2]);
+          config.portPPL = portVal === 9999 ? 99999 : portVal;
+          config.stbdPPL = stbdVal === 9999 ? 99999 : stbdVal;
         }
       }
       

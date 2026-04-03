@@ -164,6 +164,71 @@ app.get('/api/live', async (req, res) => {
   }
 });
 
+// Batch set all engine configuration (single stop/restart cycle)
+app.post('/api/config/engine-batch', async (req, res) => {
+  try {
+    const { instance, multiBatt, portPPR, stbdPPR, portPPL, stbdPPL, portHours, stbdHours } = req.body;
+    
+    const results = await withLock(async () => {
+      const results = [];
+      
+      if (instance !== undefined) {
+        const result = await rs11.setEngineInstance(instance);
+        if (result.error) throw new Error(`Instance: ${result.error}`);
+        results.push({ command: 'instance', result });
+      }
+      
+      if (multiBatt !== undefined && multiBatt !== 0) {
+        const result = await rs11.setMultiBattStartInstance(multiBatt);
+        if (result.error) throw new Error(`Multi-Batt: ${result.error}`);
+        results.push({ command: 'multiBatt', result });
+      }
+      
+      if (portPPR !== undefined) {
+        const result = await rs11.setPortPPR(portPPR);
+        if (result.error) throw new Error(`Port PPR: ${result.error}`);
+        results.push({ command: 'portPPR', result });
+      }
+      
+      if (stbdPPR !== undefined) {
+        const result = await rs11.setStbdPPR(stbdPPR);
+        if (result.error) throw new Error(`Stbd PPR: ${result.error}`);
+        results.push({ command: 'stbdPPR', result });
+      }
+      
+      if (portPPL !== undefined) {
+        const result = await rs11.setPortPPL(portPPL);
+        if (result.error) throw new Error(`Port PPL: ${result.error}`);
+        results.push({ command: 'portPPL', result });
+      }
+      
+      if (stbdPPL !== undefined) {
+        const result = await rs11.setStbdPPL(stbdPPL);
+        if (result.error) throw new Error(`Stbd PPL: ${result.error}`);
+        results.push({ command: 'stbdPPL', result });
+      }
+      
+      if (portHours !== undefined && !isNaN(portHours)) {
+        const result = await rs11.setEngineHours('P', portHours);
+        if (result.error) throw new Error(`Port Hours: ${result.error}`);
+        results.push({ command: 'portHours', result });
+      }
+      
+      if (stbdHours !== undefined && !isNaN(stbdHours)) {
+        const result = await rs11.setEngineHours('S', stbdHours);
+        if (result.error) throw new Error(`Stbd Hours: ${result.error}`);
+        results.push({ command: 'stbdHours', result });
+      }
+      
+      return results;
+    });
+    
+    res.json({ success: true, results });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Set engine instance
 app.post('/api/config/instance', async (req, res) => {
   try {
