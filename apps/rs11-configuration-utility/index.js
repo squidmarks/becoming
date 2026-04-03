@@ -427,7 +427,11 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
     const port = parseInt(req.params.port);
     const { lowVolts, lowValue, highVolts, highValue } = req.body;
     
-    if (!lowVolts || !lowValue || !highVolts || !highValue) {
+    // Check for undefined/null, but allow 0 as valid value
+    if (lowVolts === undefined || lowVolts === null || 
+        lowValue === undefined || lowValue === null ||
+        highVolts === undefined || highVolts === null || 
+        highValue === undefined || highValue === null) {
       return res.status(400).json({ error: 'All calibration points required' });
     }
     
