@@ -43,7 +43,7 @@ export class RS11Serial {
       try {
         this.port = new SerialPort({
           path: portPath,
-          baudRate: baudRate,
+          baudRate: baudRate || 4800,
           dataBits: 8,
           stopBits: 1,
           parity: 'none'
