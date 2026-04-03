@@ -56,6 +56,7 @@ function setupEventListeners() {
   document.getElementById('disconnect-btn').addEventListener('click', disconnectFromDevice);
   
   document.getElementById('apply-engine-btn').addEventListener('click', applyEngineConfig);
+  document.getElementById('save-all-channels-btn').addEventListener('click', applyAllAnalogs);
   document.getElementById('query-btn').addEventListener('click', queryConfiguration);
   document.getElementById('stop-btn').addEventListener('click', stopDevice);
   document.getElementById('restart-btn').addEventListener('click', restartDevice);
@@ -305,6 +306,22 @@ async function applyAnalog(port) {
   } catch (error) {
     log(`Error configuring A${port}: ${error.message}`, 'error');
   }
+}
+
+// Apply all analog input configurations
+async function applyAllAnalogs() {
+  if (!connected) {
+    log('Not connected to device', 'warning');
+    return;
+  }
+  
+  log('Configuring all analog channels...', 'info');
+  
+  for (let port = 1; port <= 6; port++) {
+    await applyAnalog(port);
+  }
+  
+  log('All analog channels configured', 'success');
 }
 
 // Query configuration
