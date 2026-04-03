@@ -23,6 +23,19 @@ const CONFIG_FILE = path.join(__dirname, 'saved-configs.json');
 // Initialize RS11 serial handler
 const rs11 = new RS11Serial();
 
+// Command lock to prevent interference between config and live queries
+let commandLock = false;
+
+// Helper to execute config commands with lock
+async function withLock(fn) {
+  commandLock = true;
+  try {
+    return await fn();
+  } finally {
+    commandLock = false;
+  }
+}
+
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -123,6 +136,11 @@ app.get('/api/config', async (req, res) => {
 // Query live values
 app.get('/api/live', async (req, res) => {
   try {
+    // Skip live queries if configuration commands are in progress
+    if (commandLock) {
+      return res.json({ analogs: [], skipped: true });
+    }
+    
     const data = await rs11.queryLive();
     res.json(data);
   } catch (error) {
@@ -134,7 +152,7 @@ app.get('/api/live', async (req, res) => {
 app.post('/api/config/instance', async (req, res) => {
   try {
     const { instance } = req.body;
-    const result = await rs11.setEngineInstance(instance);
+    const result = await withLock(() => rs11.setEngineInstance(instance));
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
@@ -148,7 +166,7 @@ app.post('/api/config/instance', async (req, res) => {
 app.post('/api/config/address', async (req, res) => {
   try {
     const { address } = req.body;
-    const result = await rs11.setStartAddress(address);
+    const result = await withLock(() => rs11.setStartAddress(address));
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
@@ -165,7 +183,7 @@ app.post('/api/config/multi-batt', async (req, res) => {
     if (![0, 4, 6].includes(value)) {
       return res.status(400).json({ error: 'Value must be 0, 4, or 6' });
     }
-    const result = await rs11.setMultiBattStartInstance(value);
+    const result = await withLock(() => rs11.setMultiBattStartInstance(value));
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
@@ -185,7 +203,7 @@ app.post('/api/config/engine-hours', async (req, res) => {
     if (hours < 0 || hours > 99998) {
       return res.status(400).json({ error: 'Hours must be 0-99998' });
     }
-    const result = await rs11.setEngineHours(engine, hours);
+    const result = await withLock(() => rs11.setEngineHours(engine, hours));
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
@@ -200,39 +218,42 @@ app.post('/api/config/rpm', async (req, res) => {
   try {
     const { port, stbd, portPPL, stbdPPL } = req.body;
     
-    const results = [];
-    if (port !== undefined) {
-      const result = await rs11.setPortPPR(port);
-      if (result.error) {
-        return res.status(400).json({ error: `Port PPR: ${result.error}` });
+    const results = await withLock(async () => {
+      const results = [];
+      if (port !== undefined) {
+        const result = await rs11.setPortPPR(port);
+        if (result.error) {
+          throw new Error(`Port PPR: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (stbd !== undefined) {
-      const result = await rs11.setStbdPPR(stbd);
-      if (result.error) {
-        return res.status(400).json({ error: `Stbd PPR: ${result.error}` });
+      if (stbd !== undefined) {
+        const result = await rs11.setStbdPPR(stbd);
+        if (result.error) {
+          throw new Error(`Stbd PPR: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (portPPL !== undefined) {
-      const result = await rs11.setPortPPL(portPPL);
-      if (result.error) {
-        return res.status(400).json({ error: `Port PPL: ${result.error}` });
+      if (portPPL !== undefined) {
+        const result = await rs11.setPortPPL(portPPL);
+        if (result.error) {
+          throw new Error(`Port PPL: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (stbdPPL !== undefined) {
-      const result = await rs11.setStbdPPL(stbdPPL);
-      if (result.error) {
-        return res.status(400).json({ error: `Stbd PPL: ${result.error}` });
+      if (stbdPPL !== undefined) {
+        const result = await rs11.setStbdPPL(stbdPPL);
+        if (result.error) {
+          throw new Error(`Stbd PPL: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
+      return results;
+    });
     
     res.json({ success: true, results });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(400).json({ error: error.message });
   }
 });
 
@@ -242,56 +263,60 @@ app.post('/api/config/analog/:port', async (req, res) => {
     const port = parseInt(req.params.port);
     const { engine, field, senderCurrent, smoothing, xValue, yValue, alarm } = req.body;
     
-    const results = [];
-    
-    if (field !== undefined) {
-      const result = await rs11.setAnalogField(port, engine, field);
-      if (result.error) {
-        return res.status(400).json({ error: `A${port} field: ${result.error}` });
+    const results = await withLock(async () => {
+      const results = [];
+      
+      if (field !== undefined) {
+        const result = await rs11.setAnalogField(port, engine, field);
+        if (result.error) {
+          throw new Error(`A${port} field: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (senderCurrent !== undefined && port <= 4) {
-      const result = await rs11.setSenderCurrent(port, senderCurrent);
-      if (result.error) {
-        return res.status(400).json({ error: `A${port} sender current: ${result.error}` });
+      if (senderCurrent !== undefined && port <= 4) {
+        const result = await rs11.setSenderCurrent(port, senderCurrent);
+        if (result.error) {
+          throw new Error(`A${port} sender current: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (smoothing !== undefined && port <= 4) {
-      const result = await rs11.setSmoothing(port, smoothing);
-      if (result.error) {
-        return res.status(400).json({ error: `A${port} smoothing: ${result.error}` });
+      if (smoothing !== undefined && port <= 4) {
+        const result = await rs11.setSmoothing(port, smoothing);
+        if (result.error) {
+          throw new Error(`A${port} smoothing: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (xValue !== undefined) {
-      const sign = xValue >= 0 ? '+' : '-';
-      const result = await rs11.setAnalogXValue(port, sign, Math.abs(xValue));
-      if (result.error) {
-        return res.status(400).json({ error: `A${port} X value: ${result.error}` });
+      if (xValue !== undefined) {
+        const sign = xValue >= 0 ? '+' : '-';
+        const result = await rs11.setAnalogXValue(port, sign, Math.abs(xValue));
+        if (result.error) {
+          throw new Error(`A${port} X value: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (yValue !== undefined) {
-      const sign = yValue >= 0 ? '+' : '-';
-      const result = await rs11.setAnalogYValue(port, sign, Math.abs(yValue));
-      if (result.error) {
-        return res.status(400).json({ error: `A${port} Y value: ${result.error}` });
+      if (yValue !== undefined) {
+        const sign = yValue >= 0 ? '+' : '-';
+        const result = await rs11.setAnalogYValue(port, sign, Math.abs(yValue));
+        if (result.error) {
+          throw new Error(`A${port} Y value: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
-    if (alarm !== undefined) {
-      const result = await rs11.setAlarmValue(port, alarm);
-      if (result.error) {
-        return res.status(400).json({ error: `A${port} alarm: ${result.error}` });
+      if (alarm !== undefined) {
+        const result = await rs11.setAlarmValue(port, alarm);
+        if (result.error) {
+          throw new Error(`A${port} alarm: ${result.error}`);
+        }
+        results.push(result);
       }
-      results.push(result);
-    }
+      
+      return results;
+    });
     
     res.json({ success: true, results });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(400).json({ error: error.message });
   }
 });
 
@@ -331,19 +356,23 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
     
     console.log(`  RS11 Format: X=${xSign}${xValue}, Y=+${yValue}`);
     
-    // Send calibration commands
-    const results = [];
-    const xResult = await rs11.setAnalogXValue(port, xSign, xValue);
-    if (xResult.error) {
-      return res.status(400).json({ error: `A${port} X value: ${xResult.error}` });
-    }
-    results.push(xResult);
-    
-    const yResult = await rs11.setAnalogYValue(port, '+', yValue);
-    if (yResult.error) {
-      return res.status(400).json({ error: `A${port} Y value: ${yResult.error}` });
-    }
-    results.push(yResult);
+    // Send calibration commands with lock
+    const results = await withLock(async () => {
+      const results = [];
+      const xResult = await rs11.setAnalogXValue(port, xSign, xValue);
+      if (xResult.error) {
+        throw new Error(`A${port} X value: ${xResult.error}`);
+      }
+      results.push(xResult);
+      
+      const yResult = await rs11.setAnalogYValue(port, '+', yValue);
+      if (yResult.error) {
+        throw new Error(`A${port} Y value: ${yResult.error}`);
+      }
+      results.push(yResult);
+      
+      return results;
+    });
     
     res.json({
       success: true,
@@ -363,7 +392,7 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
 // Stop device
 app.post('/api/device/stop', async (req, res) => {
   try {
-    const result = await rs11.stopDevice();
+    const result = await withLock(() => rs11.stopDevice());
     res.json({ success: true, result });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -373,7 +402,7 @@ app.post('/api/device/stop', async (req, res) => {
 // Restart device
 app.post('/api/device/restart', async (req, res) => {
   try {
-    const result = await rs11.restartDevice();
+    const result = await withLock(() => rs11.restartDevice());
     res.json({ success: true, result });
   } catch (error) {
     res.status(500).json({ error: error.message });
