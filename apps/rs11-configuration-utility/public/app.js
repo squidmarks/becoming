@@ -192,6 +192,14 @@ function startLiveUpdates() {
             valueEl.textContent = analog.value.toFixed(2);
           }
         });
+        
+        // Trigger ping animation
+        const pingEl = document.getElementById('live-ping');
+        if (pingEl) {
+          pingEl.classList.remove('pulse');
+          void pingEl.offsetWidth; // Force reflow
+          pingEl.classList.add('pulse');
+        }
       }
     } catch (error) {
       // Silently fail - don't spam the log
