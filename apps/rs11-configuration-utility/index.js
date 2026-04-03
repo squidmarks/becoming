@@ -222,20 +222,30 @@ app.post('/api/config/engine-batch', async (req, res) => {
       }
       
       // CRITICAL: Enable CANbus messages AFTER setting values
+      // Message4 (Trans Param) should be enabled if ANY engine config was applied,
+      // not just if RPM sensors are configured
       const portEnabled = (portPPR && portPPR > 0) || (portPPL && portPPL < 99999) || (portHours !== undefined);
-      if (portEnabled) {
-        await rs11.enableMessage(1, 'P', true); // Message1: Rapid (RPM)
-        await rs11.enableMessage(2, 'P', true); // Message2: Dynamic (Hours)
-        await rs11.enableMessage(4, 'P', true); // Message4: Trans Param
-        results.push({ command: 'enablePortMessages' });
-      }
-      
       const stbdEnabled = (stbdPPR && stbdPPR > 0) || (stbdPPL && stbdPPL < 99999) || (stbdHours !== undefined);
-      if (stbdEnabled) {
-        await rs11.enableMessage(1, 'S', true); // Message1: Rapid (RPM)
-        await rs11.enableMessage(2, 'S', true); // Message2: Dynamic (Hours)
-        await rs11.enableMessage(4, 'S', true); // Message4: Trans Param
-        results.push({ command: 'enableStbdMessages' });
+      const anyEngineConfigured = portEnabled || stbdEnabled || instance !== undefined;
+      
+      if (anyEngineConfigured) {
+        // Enable messages for port engine
+        if (portEnabled) {
+          await rs11.enableMessage(1, 'P', true); // Message1: Rapid (RPM)
+          await rs11.enableMessage(2, 'P', true); // Message2: Dynamic (Hours)
+        }
+        
+        // Enable messages for starboard engine  
+        if (stbdEnabled) {
+          await rs11.enableMessage(1, 'S', true); // Message1: Rapid (RPM)
+          await rs11.enableMessage(2, 'S', true); // Message2: Dynamic (Hours)
+        }
+        
+        // ALWAYS enable Message4 (Trans Param) for both engines when ANY config is applied
+        // This is needed for transmission pressure sensors even without RPM sensors
+        await rs11.enableMessage(4, 'P', true); // Message4: Trans Param (Port)
+        await rs11.enableMessage(4, 'S', true); // Message4: Trans Param (Stbd)
+        results.push({ command: 'enableTransParamMessages' });
       }
       
       return results;
