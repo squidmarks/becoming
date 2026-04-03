@@ -183,7 +183,6 @@ export class RS11Protocol {
     };
 
     // Parse configuration lines
-    // Format varies, will need to be refined based on actual device response
     for (const line of lines) {
       if (line.includes('Instance')) {
         const match = line.match(/(\d+)/);
@@ -195,6 +194,23 @@ export class RS11Protocol {
           config.portPPR = parseInt(match[1]);
           config.stbdPPR = parseInt(match[2]);
         }
+      }
+      
+      // Parse analog lines: "A1= Port Oil Pres [-----,----,0] FFFF Sndr_Curr(Off)"
+      const analogMatch = line.match(/^A(\d)=\s+(Port|Stbd)\s+(.+?)\s+\[/);
+      if (analogMatch) {
+        const port = parseInt(analogMatch[1]);
+        const engine = analogMatch[2] === 'Port' ? 'P' : 'S';
+        const fieldName = analogMatch[3].trim();
+        const senderCurrentMatch = line.match(/Sndr_Curr\s*\((\w+)\)/);
+        const senderCurrent = senderCurrentMatch ? senderCurrentMatch[1] === 'On' : null;
+        
+        config.analogs.push({
+          port,
+          engine,
+          fieldName,
+          senderCurrent
+        });
       }
     }
 

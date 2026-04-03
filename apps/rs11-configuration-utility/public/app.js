@@ -409,7 +409,7 @@ async function queryConfiguration() {
       log('Configuration received:', 'success');
       log(JSON.stringify(data, null, 2), 'info');
       
-      // Update UI with received config
+      // Update engine config fields
       if (data.instance !== null) {
         document.getElementById('instance').value = data.instance;
       }
@@ -418,6 +418,31 @@ async function queryConfiguration() {
       }
       if (data.stbdPPR !== null) {
         document.getElementById('stbd-ppr').value = data.stbdPPR;
+      }
+      
+      // Update analog channel fields
+      if (data.analogs && data.analogs.length > 0) {
+        data.analogs.forEach(analog => {
+          const engineSelect = document.getElementById(`a${analog.port}-engine`);
+          const fieldSelect = document.getElementById(`a${analog.port}-field`);
+          const currentCheckbox = document.getElementById(`a${analog.port}-current`);
+          
+          if (engineSelect) {
+            engineSelect.value = analog.engine;
+          }
+          if (fieldSelect && analog.fieldName !== '<Off>') {
+            // Try to match field name to field number
+            const fieldOption = Array.from(fieldSelect.options).find(opt => 
+              opt.text.includes(analog.fieldName)
+            );
+            if (fieldOption) {
+              fieldSelect.value = fieldOption.value;
+            }
+          }
+          if (currentCheckbox && analog.senderCurrent !== null && analog.port <= 4) {
+            currentCheckbox.checked = analog.senderCurrent;
+          }
+        });
       }
     } else {
       log(`Query failed: ${data.error}`, 'error');
