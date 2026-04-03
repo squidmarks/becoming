@@ -184,22 +184,7 @@ app.post('/api/config/engine-batch', async (req, res) => {
         results.push({ command: 'multiBatt', result });
       }
       
-      // Enable CANbus messages for Port if any Port settings are configured
-      const portEnabled = (portPPR && portPPR > 0) || (portPPL && portPPL < 99999) || (portHours !== undefined);
-      if (portEnabled) {
-        await rs11.enableMessage(1, 'P', true); // Message1: Rapid (RPM)
-        await rs11.enableMessage(2, 'P', true); // Message2: Dynamic (Hours)
-        results.push({ command: 'enablePortMessages' });
-      }
-      
-      // Enable CANbus messages for Stbd if any Stbd settings are configured
-      const stbdEnabled = (stbdPPR && stbdPPR > 0) || (stbdPPL && stbdPPL < 99999) || (stbdHours !== undefined);
-      if (stbdEnabled) {
-        await rs11.enableMessage(1, 'S', true); // Message1: Rapid (RPM)
-        await rs11.enableMessage(2, 'S', true); // Message2: Dynamic (Hours)
-        results.push({ command: 'enableStbdMessages' });
-      }
-      
+      // CRITICAL: Set PPR/PPL/hours values BEFORE enabling messages
       if (portPPR !== undefined) {
         const result = await rs11.setPortPPR(portPPR);
         if (result.error) throw new Error(`Port PPR: ${result.error}`);
@@ -234,6 +219,21 @@ app.post('/api/config/engine-batch', async (req, res) => {
         const result = await rs11.setEngineHours('S', stbdHours);
         if (result.error) throw new Error(`Stbd Hours: ${result.error}`);
         results.push({ command: 'stbdHours', result });
+      }
+      
+      // CRITICAL: Enable CANbus messages AFTER setting values
+      const portEnabled = (portPPR && portPPR > 0) || (portPPL && portPPL < 99999) || (portHours !== undefined);
+      if (portEnabled) {
+        await rs11.enableMessage(1, 'P', true); // Message1: Rapid (RPM)
+        await rs11.enableMessage(2, 'P', true); // Message2: Dynamic (Hours)
+        results.push({ command: 'enablePortMessages' });
+      }
+      
+      const stbdEnabled = (stbdPPR && stbdPPR > 0) || (stbdPPL && stbdPPL < 99999) || (stbdHours !== undefined);
+      if (stbdEnabled) {
+        await rs11.enableMessage(1, 'S', true); // Message1: Rapid (RPM)
+        await rs11.enableMessage(2, 'S', true); // Message2: Dynamic (Hours)
+        results.push({ command: 'enableStbdMessages' });
       }
       
       return results;
