@@ -126,7 +126,10 @@ export class RS11Serial {
           responseTimeout = setTimeout(() => {
             this.parser.removeListener('data', dataHandler);
             console.log(`Collected ${responses.length} response lines`);
-            resolve({ responses, timeout: false });
+            
+            // Check for errors in responses
+            const error = this._checkForErrors(responses);
+            resolve({ responses, timeout: false, error });
           }, 500); // Wait 500ms after last line
         }
       };
@@ -138,7 +141,9 @@ export class RS11Serial {
         this.parser.removeListener('data', dataHandler);
         if (responseTimeout) clearTimeout(responseTimeout);
         console.log(`Command timeout after ${timeoutMs}ms, collected ${responses.length} lines`);
-        resolve({ responses, timeout: true });
+        
+        const error = this._checkForErrors(responses);
+        resolve({ responses, timeout: true, error });
       }, timeoutMs);
 
       // Write command
@@ -156,12 +161,25 @@ export class RS11Serial {
               clearTimeout(overallTimeout);
               if (responseTimeout) clearTimeout(responseTimeout);
               this.parser.removeListener('data', dataHandler);
-              resolve({ responses, timeout: false });
+              
+              // Check for errors in responses
+              const error = this._checkForErrors(responses);
+              resolve({ responses, timeout: false, error });
             }, 300);
           }
         }
       });
     });
+  }
+
+  // Check responses for error messages
+  _checkForErrors(responses) {
+    for (const line of responses) {
+      if (line.includes('Invalid Command:')) {
+        return line.trim();
+      }
+    }
+    return null;
   }
 
   // Query configuration
