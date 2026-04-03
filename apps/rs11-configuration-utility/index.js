@@ -226,6 +226,7 @@ app.post('/api/config/engine-batch', async (req, res) => {
       if (portEnabled) {
         await rs11.enableMessage(1, 'P', true); // Message1: Rapid (RPM)
         await rs11.enableMessage(2, 'P', true); // Message2: Dynamic (Hours)
+        await rs11.enableMessage(4, 'P', true); // Message4: Trans Param
         results.push({ command: 'enablePortMessages' });
       }
       
@@ -233,6 +234,7 @@ app.post('/api/config/engine-batch', async (req, res) => {
       if (stbdEnabled) {
         await rs11.enableMessage(1, 'S', true); // Message1: Rapid (RPM)
         await rs11.enableMessage(2, 'S', true); // Message2: Dynamic (Hours)
+        await rs11.enableMessage(4, 'S', true); // Message4: Trans Param
         results.push({ command: 'enableStbdMessages' });
       }
       

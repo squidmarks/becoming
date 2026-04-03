@@ -250,6 +250,7 @@ async function applyEngineConfig() {
   
   try {
     const instance = parseInt(document.getElementById('instance').value);
+    const stbdInstance = parseInt(document.getElementById('stbd-instance').value);
     const multiBatt = parseInt(document.getElementById('multi-batt').value);
     const portPPR = parseInt(document.getElementById('port-ppr').value);
     const stbdPPR = parseInt(document.getElementById('stbd-ppr').value);
@@ -266,14 +267,15 @@ async function applyEngineConfig() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        instance, 
+        instance,
+        stbdInstance,
         multiBatt, 
         portPPR, 
         stbdPPR, 
         portPPL, 
-        stbdPPL, 
-        portHours, 
-        stbdHours 
+        stbdPPL,
+        portHours,
+        stbdHours
       })
     });
     
