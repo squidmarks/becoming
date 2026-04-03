@@ -75,6 +75,12 @@ export class RS11Protocol {
     return `@s${val}\r\n`;
   }
 
+  enableMessage(messageNum, engine, enabled) {
+    // messageNum: 1-9, engine: 'P' or 'S', enabled: true/false
+    const state = enabled ? '+' : '-';
+    return `@N${messageNum}${engine}${state}\r\n`;
+  }
+
   setSenderCurrent(port, enabled) {
     // port: 1-4, enabled: true/false
     const state = enabled ? '+' : '-';

@@ -272,6 +272,10 @@ export class RS11Serial {
     return await this.sendCommand(this.protocol.setSmoothing(port, enabled));
   }
 
+  async enableMessage(messageNum, engine, enabled) {
+    return await this.sendCommand(this.protocol.enableMessage(messageNum, engine, enabled));
+  }
+
   async setAnalogField(port, engine, fieldNum) {
     return await this.sendCommand(this.protocol.setAnalogField(port, engine, fieldNum));
   }
