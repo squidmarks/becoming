@@ -448,22 +448,49 @@ async function queryConfiguration() {
       // Update analog channel fields
       if (data.analogs && data.analogs.length > 0) {
         data.analogs.forEach(analog => {
-          const engineSelect = document.getElementById(`a${analog.port}-engine`);
-          const fieldSelect = document.getElementById(`a${analog.port}-field`);
-          const currentCheckbox = document.getElementById(`a${analog.port}-current`);
-          
-          if (engineSelect) {
-            engineSelect.value = analog.engine;
+          // Update Port/Stbd radio buttons
+          const portRadio = document.querySelector(`input[name="a${analog.port}-engine"][value="P"]`);
+          const stbdRadio = document.querySelector(`input[name="a${analog.port}-engine"][value="S"]`);
+          if (analog.engine === 'P' && portRadio) {
+            portRadio.checked = true;
+          } else if (analog.engine === 'S' && stbdRadio) {
+            stbdRadio.checked = true;
           }
+          
+          // Update field dropdown
+          const fieldSelect = document.getElementById(`a${analog.port}-field`);
           if (fieldSelect && analog.fieldName !== '<Off>') {
-            // Try to match field name to field number
-            const fieldOption = Array.from(fieldSelect.options).find(opt => 
-              opt.text.includes(analog.fieldName)
+            // Map device truncated names to option values
+            // Device: "Oil Pres" / "Oil Temp" / "Cool Temp" / "Trans Pres" (note: truncated "Pres")
+            // Options: "Trans Oil Press" (0), "Oil Press" (1), "Oil Temp" (2), "Cool Temp" (3), 
+            //          "Cool Press" (4), "Fuel Press" (5), "Fuel Level" (6), "Trans Press" (7)
+            
+            const normalized = analog.fieldName.replace(/Pres$/, 'Press'); // Fix truncation
+            
+            // Try exact match first, then prefix match
+            let matchedOption = Array.from(fieldSelect.options).find(opt => 
+              opt.textContent.trim() === normalized
             );
-            if (fieldOption) {
-              fieldSelect.value = fieldOption.value;
+            
+            if (!matchedOption) {
+              // Try matching by starting words (avoid "Trans Oil Press" matching "Oil Press")
+              matchedOption = Array.from(fieldSelect.options).find(opt => {
+                const optText = opt.textContent.trim();
+                const normalizedWords = normalized.split(' ');
+                const optWords = optText.split(' ');
+                
+                // Must match all words in device name, in order
+                return normalizedWords.every((word, i) => optWords[i] === word);
+              });
+            }
+            
+            if (matchedOption) {
+              fieldSelect.value = matchedOption.value;
             }
           }
+          
+          // Update sender current checkbox
+          const currentCheckbox = document.getElementById(`a${analog.port}-current`);
           if (currentCheckbox && analog.senderCurrent !== null && analog.port <= 4) {
             currentCheckbox.checked = analog.senderCurrent;
           }
