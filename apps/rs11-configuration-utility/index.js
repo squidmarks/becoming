@@ -186,25 +186,26 @@ app.post('/api/config/engine-batch', async (req, res) => {
       }
       
       // CRITICAL: Set PPR/PPL/hours values BEFORE enabling messages
-      if (portPPR !== undefined) {
+      // Only send if value is provided AND non-zero (0 = disabled in RS11)
+      if (portPPR !== undefined && portPPR > 0) {
         const result = await rs11.setPortPPR(portPPR);
         if (result.error) throw new Error(`Port PPR: ${result.error}`);
         results.push({ command: 'portPPR', result });
       }
       
-      if (stbdPPR !== undefined) {
+      if (stbdPPR !== undefined && stbdPPR > 0) {
         const result = await rs11.setStbdPPR(stbdPPR);
         if (result.error) throw new Error(`Stbd PPR: ${result.error}`);
         results.push({ command: 'stbdPPR', result });
       }
       
-      if (portPPL !== undefined) {
+      if (portPPL !== undefined && portPPL > 0 && portPPL < 99999) {
         const result = await rs11.setPortPPL(portPPL);
         if (result.error) throw new Error(`Port PPL: ${result.error}`);
         results.push({ command: 'portPPL', result });
       }
       
-      if (stbdPPL !== undefined) {
+      if (stbdPPL !== undefined && stbdPPL > 0 && stbdPPL < 99999) {
         const result = await rs11.setStbdPPL(stbdPPL);
         if (result.error) throw new Error(`Stbd PPL: ${result.error}`);
         results.push({ command: 'stbdPPL', result });
