@@ -30,6 +30,11 @@ let commandLock = false;
 async function withLock(fn) {
   commandLock = true;
   try {
+    // Stop device to halt binary stream
+    await rs11.stopDevice();
+    // Wait for stream to stop
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     return await fn();
   } finally {
     commandLock = false;
