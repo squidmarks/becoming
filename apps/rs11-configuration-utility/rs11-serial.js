@@ -14,6 +14,7 @@ export class RS11Serial {
     this.protocol = new RS11Protocol();
     this.connected = false;
     this.buffer = '';
+    this.lastStreamData = []; // Cache last few lines from continuous stream
   }
 
   // List available serial ports
@@ -51,6 +52,15 @@ export class RS11Serial {
 
         // Set up line parser (responses end with \r\n)
         this.parser = this.port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+
+        // Set up continuous stream data caching
+        this.parser.on('data', (line) => {
+          // Cache last 10 lines for live data queries
+          this.lastStreamData.push(line);
+          if (this.lastStreamData.length > 10) {
+            this.lastStreamData.shift();
+          }
+        });
 
         this.port.on('open', () => {
           console.log(`✓ Connected to RS11 on ${portPath}`);
@@ -196,10 +206,10 @@ export class RS11Serial {
     return this.protocol.parseConfigResponse(result.responses);
   }
 
-  // Query live values
+  // Query live values (from cached stream, no command sent)
   async queryLive() {
-    const result = await this.sendCommand(this.protocol.queryLive());
-    return this.protocol.parseLiveResponse(result.responses);
+    // Don't send @q command - just parse the continuous stream data we're already receiving
+    return this.protocol.parseLiveResponse(this.lastStreamData);
   }
 
   // Stop device

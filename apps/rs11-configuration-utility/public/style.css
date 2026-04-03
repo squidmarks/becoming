@@ -566,3 +566,34 @@ h1 {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
+
+/* Live Data Display */
+.live-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.live-item {
+  background: var(--bg-hover);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+}
+
+.live-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 30px;
+}
+
+.live-value {
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--success);
+}

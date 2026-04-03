@@ -227,23 +227,32 @@ export class RS11Protocol {
       raw: lines
     };
 
-    // Parse live data lines
-    // Format will need to be refined based on actual device response
+    // Parse NMEA sentences from continuous stream
+    // $PNOLA sentence format: $PNOLA,A1,A2,A3,A4,A5,A6,hex1,hex2
     for (const line of lines) {
+      if (line.startsWith('$PNOLA,')) {
+        const parts = line.split(',');
+        if (parts.length >= 7) {
+          // Extract 6 analog voltage values
+          for (let i = 0; i < 6; i++) {
+            const value = parseFloat(parts[i + 1]);
+            if (!isNaN(value)) {
+              data.analogs.push({
+                port: i + 1,
+                value: value
+              });
+            }
+          }
+        }
+      }
+      
+      // Parse RPM data if present
       if (line.includes('RPM')) {
         const match = line.match(/Port.*?(\d+).*?Stbd.*?(\d+)/i);
         if (match) {
           data.portRPM = parseInt(match[1]);
           data.stbdRPM = parseInt(match[2]);
         }
-      }
-      // Parse analog values
-      const analogMatch = line.match(/A(\d+).*?(\d+\.?\d*)/);
-      if (analogMatch) {
-        data.analogs.push({
-          port: parseInt(analogMatch[1]),
-          value: parseFloat(analogMatch[2])
-        });
       }
     }
 

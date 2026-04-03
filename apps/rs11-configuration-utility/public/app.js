@@ -170,18 +170,29 @@ function setConnectionStatus(isConnected, port = '') {
 function startLiveUpdates() {
   if (liveUpdateInterval) return;
   
+  // Show live data card
+  const liveCard = document.getElementById('live-data-card');
+  if (liveCard) {
+    liveCard.style.display = 'block';
+  }
+  
   liveUpdateInterval = setInterval(async () => {
     try {
       const response = await fetch('/api/live');
       const data = await response.json();
       
-      // Update analog displays
-      data.analogs.forEach(analog => {
-        const valueEl = document.getElementById(`a${analog.port}-value`);
-        if (valueEl) {
-          valueEl.textContent = `${analog.value.toFixed(2)} V`;
-        }
-      });
+      // Skip if data was skipped due to command lock
+      if (data.skipped) return;
+      
+      // Update live analog voltage displays
+      if (data.analogs && data.analogs.length > 0) {
+        data.analogs.forEach(analog => {
+          const valueEl = document.getElementById(`live-a${analog.port}`);
+          if (valueEl) {
+            valueEl.textContent = analog.value.toFixed(2);
+          }
+        });
+      }
     } catch (error) {
       // Silently fail - don't spam the log
     }
@@ -193,6 +204,12 @@ function stopLiveUpdates() {
   if (liveUpdateInterval) {
     clearInterval(liveUpdateInterval);
     liveUpdateInterval = null;
+  }
+  
+  // Hide live data card
+  const liveCard = document.getElementById('live-data-card');
+  if (liveCard) {
+    liveCard.style.display = 'none';
   }
 }
 
