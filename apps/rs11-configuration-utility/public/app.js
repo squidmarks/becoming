@@ -116,6 +116,11 @@ async function connectToDevice() {
       log(data.message, 'success');
       setConnectionStatus(true, port);
       startLiveUpdates();
+      
+      // Auto-query configuration after successful connection
+      setTimeout(() => {
+        queryConfiguration();
+      }, 1000);
     } else {
       log(`Connection failed: ${data.error}`, 'error');
     }
