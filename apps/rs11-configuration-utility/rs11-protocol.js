@@ -10,157 +10,157 @@ export class RS11Protocol {
 
   // Operating Commands
   stopDevice() {
-    return '@<\r';
+    return '@<\r\n';
   }
 
   restartDevice() {
-    return '@>\r';
+    return '@>\r\n';
   }
 
   queryConfig() {
-    return '@?\r';
+    return '@?\r\n';
   }
 
   queryLive() {
-    return '@q\r';
+    return '@q\r\n';
   }
 
   factoryReset() {
-    return '@~rst\r';
+    return '@~rst\r\n';
   }
 
   // Configuration Commands
   setEngineInstance(instance) {
     const val = String(instance).padStart(3, '0');
-    return `@Q${val}\r`;
+    return `@Q${val}\r\n`;
   }
 
   setStartAddress(address) {
     const val = String(address).padStart(3, '0');
-    return `@|${val}\r`;
+    return `@|${val}\r\n`;
   }
 
   setMultiBattStartInstance(value) {
     // 0/4/6
-    return `@b${value}\r`;
+    return `@b${value}\r\n`;
   }
 
   setEngineHours(engine, hours) {
     // engine: 'P' or 'S', hours: 0-99998
     const val = String(hours).padStart(5, '0');
-    return `@R${engine},${val}\r`;
+    return `@R${engine},${val}\r\n`;
   }
 
   setPortPPR(ppr) {
     // 001-500, 000=off
     const val = String(ppr).padStart(3, '0');
-    return `@P${val}\r`;
+    return `@P${val}\r\n`;
   }
 
   setStbdPPR(ppr) {
     // 001-500, 000=off
     const val = String(ppr).padStart(3, '0');
-    return `@S${val}\r`;
+    return `@S${val}\r\n`;
   }
 
   setPortPPL(ppl) {
     // 0060-9999, 99999=off
     const val = ppl === 99999 ? '99999' : String(ppl).padStart(4, '0');
-    return `@p${val}\r`;
+    return `@p${val}\r\n`;
   }
 
   setStbdPPL(ppl) {
     // 0060-9999, 99999=off
     const val = ppl === 99999 ? '99999' : String(ppl).padStart(4, '0');
-    return `@s${val}\r`;
+    return `@s${val}\r\n`;
   }
 
   setSenderCurrent(port, enabled) {
     // port: 1-4, enabled: true/false
     const state = enabled ? '+' : '-';
-    return `@C${port},${state}\r`;
+    return `@C${port},${state}\r\n`;
   }
 
   setSmoothing(port, enabled) {
     // port: 1-4, enabled: true/false
     const state = enabled ? '+' : '-';
-    return `@T${port},${state}\r`;
+    return `@T${port},${state}\r\n`;
   }
 
   setFuelCapacity(engine, liters) {
     // engine: 'P' or 'S'
     const val = String(liters).padStart(3, '0');
-    return `@^${engine},${val}\r`;
+    return `@^${engine},${val}\r\n`;
   }
 
   setWaterCapacity(engine, liters) {
     const val = String(liters).padStart(3, '0');
-    return `@[${engine},${val}\r`;
+    return `@[${engine},${val}\r\n`;
   }
 
   setOilCapacity(engine, liters) {
     const val = String(liters).padStart(3, '0');
-    return `@]${engine},${val}\r`;
+    return `@]${engine},${val}\r\n`;
   }
 
   // Calibration Commands
   setAnalogField(port, engine, fieldNum) {
     // port: 1-6, engine: 'P' or 'S', fieldNum: 0-n
-    return `@D${port},${engine},${fieldNum}\r`;
+    return `@D${port},${engine},${fieldNum}\r\n`;
   }
 
   setCANbusMessage(msgNum, engine, enabled) {
     // msgNum: 1-9, engine: 'P' or 'S', enabled: true/false
     const state = enabled ? '+' : '-';
-    return `@N${msgNum},${engine},${state}\r`;
+    return `@N${msgNum},${engine},${state}\r\n`;
   }
 
   setAnalogXValue(port, sign, value) {
     // port: 1-6, sign: '+' or '-', value: 0000-9999
     const val = String(value).padStart(4, '0');
-    return `@X${port},${sign},${val}\r`;
+    return `@X${port},${sign},${val}\r\n`;
   }
 
   setAnalogYValue(port, sign, value) {
     // port: 1-6, sign: '+' or '-', value: 001-125
     const val = String(value).padStart(3, '0');
-    return `@Y${port},${sign},${val}\r`;
+    return `@Y${port},${sign},${val}\r\n`;
   }
 
   setAnalogZByte(port, hex, enabled) {
     // port: 1-6, hex: 0-F, enabled: true/false
     const state = enabled ? '+' : '-';
-    return `@Z${port},${hex},${state}\r`;
+    return `@Z${port},${hex},${state}\r\n`;
   }
 
   setBreakpoint(port, value) {
     // port: 1-6, value: x100, 000=off
     const val = String(value).padStart(3, '0');
-    return `@L${port},${val}\r`;
+    return `@L${port},${val}\r\n`;
   }
 
   setThreePointXValue(port, value) {
     // port: 1-6, value: 0000-9999
     const val = String(value).padStart(4, '0');
-    return `@x${port},${val}\r`;
+    return `@x${port},${val}\r\n`;
   }
 
   setThreePointYValue(port, value) {
     // port: 1-6, value: 001-125
     const val = String(value).padStart(3, '0');
-    return `@y${port},${val}\r`;
+    return `@y${port},${val}\r\n`;
   }
 
   setThreePointZByte(port, hex, enabled) {
     // port: 1-6, hex: 0-F, enabled: true/false
     const state = enabled ? '+' : '-';
-    return `@z${port},${hex},${state}\r`;
+    return `@z${port},${hex},${state}\r\n`;
   }
 
   setAlarmValue(port, value) {
     // port: 1-6, value: 00-99, 00=off
     const val = String(value).padStart(2, '0');
-    return `@A${port},${val}\r`;
+    return `@A${port},${val}\r\n`;
   }
 
   // Parse response from device
