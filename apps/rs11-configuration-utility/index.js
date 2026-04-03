@@ -28,15 +28,19 @@ let commandLock = false;
 
 // Helper to execute config commands with lock
 async function withLock(fn) {
+  console.log('[LOCK] Acquiring command lock...');
   commandLock = true;
   try {
     // Stop device to halt binary stream
+    console.log('[LOCK] Stopping device...');
     await rs11.stopDevice();
-    // Wait for stream to stop
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait longer for stream to fully stop
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log('[LOCK] Device stopped, executing command...');
     
     return await fn();
   } finally {
+    console.log('[LOCK] Releasing command lock');
     commandLock = false;
   }
 }
@@ -202,6 +206,7 @@ app.post('/api/config/multi-batt', async (req, res) => {
 app.post('/api/config/engine-hours', async (req, res) => {
   try {
     const { engine, hours } = req.body;
+    console.log(`[ENGINE HOURS] Request: engine=${engine}, hours=${hours} (type: ${typeof hours})`);
     if (!['P', 'S'].includes(engine)) {
       return res.status(400).json({ error: 'Engine must be P or S' });
     }
@@ -209,11 +214,13 @@ app.post('/api/config/engine-hours', async (req, res) => {
       return res.status(400).json({ error: 'Hours must be 0-99998' });
     }
     const result = await withLock(() => rs11.setEngineHours(engine, hours));
+    console.log(`[ENGINE HOURS] Result:`, result);
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
     res.json({ success: true, result });
   } catch (error) {
+    console.log(`[ENGINE HOURS] Error:`, error);
     res.status(500).json({ error: error.message });
   }
 });
