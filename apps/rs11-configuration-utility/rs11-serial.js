@@ -124,7 +124,9 @@ export class RS11Serial {
         // For query commands, wait for more data
         if (command.includes('@?') || command.includes('@q')) {
           responseTimeout = setTimeout(() => {
-            this.parser.removeListener('data', dataHandler);
+            if (this.parser) {
+              this.parser.removeListener('data', dataHandler);
+            }
             console.log(`Collected ${responses.length} response lines`);
             
             // Check for errors in responses
@@ -138,7 +140,9 @@ export class RS11Serial {
 
       // Set overall timeout
       const overallTimeout = setTimeout(() => {
-        this.parser.removeListener('data', dataHandler);
+        if (this.parser) {
+          this.parser.removeListener('data', dataHandler);
+        }
         if (responseTimeout) clearTimeout(responseTimeout);
         console.log(`Command timeout after ${timeoutMs}ms, collected ${responses.length} lines`);
         
@@ -152,7 +156,9 @@ export class RS11Serial {
         if (err) {
           clearTimeout(overallTimeout);
           if (responseTimeout) clearTimeout(responseTimeout);
-          this.parser.removeListener('data', dataHandler);
+          if (this.parser) {
+            this.parser.removeListener('data', dataHandler);
+          }
           reject(err);
         } else {
           // For non-query commands, resolve quickly
@@ -160,7 +166,9 @@ export class RS11Serial {
             setTimeout(() => {
               clearTimeout(overallTimeout);
               if (responseTimeout) clearTimeout(responseTimeout);
-              this.parser.removeListener('data', dataHandler);
+              if (this.parser) {
+                this.parser.removeListener('data', dataHandler);
+              }
               
               // Check for errors in responses
               const error = this._checkForErrors(responses);
