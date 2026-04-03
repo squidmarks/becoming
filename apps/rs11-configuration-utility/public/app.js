@@ -206,6 +206,9 @@ async function applyEngineConfig() {
   // Pause live updates to avoid command interference
   stopLiveUpdates();
   
+  // Wait a moment for live updates to fully stop
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
   try {
     const instance = parseInt(document.getElementById('instance').value);
     const multiBatt = parseInt(document.getElementById('multi-batt').value);
@@ -224,11 +227,12 @@ async function applyEngineConfig() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ instance })
     });
-    if (!response.ok) {
-      const error = await response.json();
-      log(`Instance: ${error.error}`, 'error');
-      return;
-    }
+      if (!response.ok) {
+        const error = await response.json();
+        log(`Instance: ${error.error}`, 'error');
+        showToast('Instance Failed', 'error', error.error);
+        return;
+      }
     
     // Set multi-batt instance
     if (multiBatt !== 0) {
@@ -240,6 +244,7 @@ async function applyEngineConfig() {
       if (!response.ok) {
         const error = await response.json();
         log(`Multi-Batt: ${error.error}`, 'error');
+        showToast('Multi-Batt Failed', 'error', error.error);
         return;
       }
     }
@@ -258,6 +263,7 @@ async function applyEngineConfig() {
     if (!response.ok) {
       const error = await response.json();
       log(`RPM: ${error.error}`, 'error');
+      showToast('RPM Config Failed', 'error', error.error);
       return;
     }
     
@@ -271,6 +277,7 @@ async function applyEngineConfig() {
       if (!response.ok) {
         const error = await response.json();
         log(`Port Hours: ${error.error}`, 'error');
+        showToast('Port Hours Failed', 'error', error.error);
         return;
       }
     }
@@ -284,6 +291,7 @@ async function applyEngineConfig() {
       if (!response.ok) {
         const error = await response.json();
         log(`Stbd Hours: ${error.error}`, 'error');
+        showToast('Stbd Hours Failed', 'error', error.error);
         return;
       }
     }
@@ -308,6 +316,9 @@ async function applyAnalog(port) {
   
   // Pause live updates to avoid command interference
   stopLiveUpdates();
+  
+  // Wait a moment for live updates to fully stop
+  await new Promise(resolve => setTimeout(resolve, 500));
   
   try {
     const engine = document.querySelector(`input[name="a${port}-engine"]:checked`).value;
