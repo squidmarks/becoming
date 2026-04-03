@@ -179,6 +179,14 @@ export class RS11Protocol {
     return `@A${port}${val}\r\n`;
   }
 
+  setTwoPointCalibration(port, lowVolts, lowValue, highVolts, highValue) {
+    // UNDOCUMENTED command discovered from Windows app
+    // @m{port}stn: {flag};{lowVolts};{lowValue};{highVolts};{highValue};{alarm?}>
+    // RS11 calculates X/Y internally from these raw values
+    // Format appears to be: 0;lowV;lowVal;highV;highVal;0>
+    return `@m${port}stn:0;${lowVolts};${lowValue};${highVolts};${highValue};0>\r\n`;
+  }
+
   // Parse response from device
   parseResponse(data) {
     const lines = data.toString().split('\r\n').filter(line => line.trim());

@@ -479,51 +479,24 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
     const offset = lowValueSI - (slope * lowVolts);
     
     console.log(`A${port} Calibration:${unitLabel}`);
-    console.log(`  Points: (${lowVolts}V → ${lowValueSI.toFixed(2)}) to (${highVolts}V → ${highValueSI.toFixed(2)})`);
-    console.log(`  Slope: ${slope.toFixed(3)}, Offset: ${offset.toFixed(3)}`);
+    console.log(`  Using undocumented @m${port}stn: command (Windows app format)`);
+    console.log(`  RS11 will calculate X/Y internally from raw values`);
     
-    // RS11 X/Y format: Output = (Input * X) / Y
-    // We need to convert our slope/offset to X/Y format
-    // For now, use a simplified approach: X = slope * 100, Y = 100
-    // This gives us decent resolution for most sensors
-    
-    let xValue = Math.round(Math.abs(slope) * 100);
-    let yValue = 100;
-    
-    // Constrain to RS11 limits
-    xValue = Math.min(9999, Math.max(1, xValue));
-    yValue = Math.min(125, Math.max(1, yValue));
-    
-    const xSign = slope >= 0 ? '+' : '-';
-    
-    console.log(`  RS11 Format: X=${xSign}${xValue}, Y=+${yValue}`);
-    
-    // Send calibration commands with lock
-    const results = await withLock(async () => {
-      const results = [];
-      const xResult = await rs11.setAnalogXValue(port, xSign, xValue);
-      if (xResult.error) {
-        throw new Error(`A${port} X value: ${xResult.error}`);
-      }
-      results.push(xResult);
-      
-      const yResult = await rs11.setAnalogYValue(port, '+', yValue);
-      if (yResult.error) {
-        throw new Error(`A${port} Y value: ${yResult.error}`);
-      }
-      results.push(yResult);
-      
-      return results;
+    // DISCOVERY: Use undocumented @m{port}stn: command from Windows app
+    // Format: @m{port}stn:0;{lowVolts};{lowValue};{highVolts};{highValue};0>
+    // This sends raw calibration data and RS11 calculates X/Y internally
+    const result = await withLock(async () => {
+      return await rs11.setTwoPointCalibration(port, lowVolts, lowValueSI, highVolts, highValueSI);
     });
+    
+    if (result.error) {
+      throw new Error(`A${port}: ${result.error}`);
+    }
     
     res.json({
       success: true,
-      xValue,
-      yValue,
-      xSign,
-      slope,
-      offset,
-      results
+      message: 'Calibration sent to RS11',
+      result
     });
   } catch (error) {
     console.error('Calibration error:', error);

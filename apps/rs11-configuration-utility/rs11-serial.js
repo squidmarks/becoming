@@ -292,6 +292,10 @@ export class RS11Serial {
     return await this.sendCommand(this.protocol.setAlarmValue(port, value));
   }
 
+  async setTwoPointCalibration(port, lowVolts, lowValue, highVolts, highValue) {
+    return await this.sendCommand(this.protocol.setTwoPointCalibration(port, lowVolts, lowValue, highVolts, highValue), 3000);
+  }
+
   // Get connection status
   isConnected() {
     return this.connected;
