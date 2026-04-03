@@ -55,6 +55,10 @@ export class RS11Serial {
 
         // Set up continuous stream data caching
         this.parser.on('data', (line) => {
+          // Log stream data for debugging
+          if (line.startsWith('$PNOLA')) {
+            console.log('RX:', line);
+          }
           // Cache last 10 lines for live data queries
           this.lastStreamData.push(line);
           if (this.lastStreamData.length > 10) {

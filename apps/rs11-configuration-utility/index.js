@@ -38,7 +38,14 @@ async function withLock(fn) {
     await new Promise(resolve => setTimeout(resolve, 1500));
     console.log('[LOCK] Device stopped, executing command...');
     
-    return await fn();
+    const result = await fn();
+    
+    // Restart device to resume streaming and save to NVRAM
+    console.log('[LOCK] Restarting device to save and resume streaming...');
+    await rs11.restartDevice();
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for restart
+    
+    return result;
   } finally {
     console.log('[LOCK] Releasing command lock');
     commandLock = false;
