@@ -192,9 +192,18 @@ function startLiveUpdates() {
       // Update live analog voltage displays
       if (data.analogs && data.analogs.length > 0) {
         data.analogs.forEach(analog => {
-          const valueEl = document.getElementById(`live-a${analog.port}`);
-          if (valueEl) {
-            valueEl.textContent = analog.value.toFixed(2);
+          const voltage = analog.value.toFixed(2);
+          
+          // Update live panel
+          const liveEl = document.getElementById(`live-a${analog.port}`);
+          if (liveEl) {
+            liveEl.textContent = voltage;
+          }
+          
+          // Update gauge volts in channel card
+          const gaugeEl = document.getElementById(`a${analog.port}-value`);
+          if (gaugeEl) {
+            gaugeEl.textContent = `${voltage} V`;
           }
         });
         
