@@ -438,7 +438,7 @@ app.post('/api/config/analog/:port', async (req, res) => {
 app.post('/api/config/analog/:port/calibrate', async (req, res) => {
   try {
     const port = parseInt(req.params.port);
-    const { lowVolts, lowValue, highVolts, highValue } = req.body;
+    let { lowVolts, lowValue, highVolts, highValue, fieldType } = req.body;
     
     // Check for undefined/null, but allow 0 as valid value
     if (lowVolts === undefined || lowVolts === null || 
@@ -448,14 +448,36 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
       return res.status(400).json({ error: 'All calibration points required' });
     }
     
+    // Convert user-friendly units (PSI, °F) to SI units (Pascals, Kelvin) for NMEA 2000
+    // Pressure fields: Oil Press, Trans Pres, Fuel Press, Cool Press, etc.
+    // Temperature fields: Engine Temp, Cool Temp, Oil Temp, Trans Temp, etc.
+    const isPressure = fieldType && (fieldType.includes('Pres') || fieldType.includes('Press'));
+    const isTemperature = fieldType && fieldType.includes('Temp');
+    
+    let lowValueSI = lowValue;
+    let highValueSI = highValue;
+    let unitLabel = '';
+    
+    if (isPressure) {
+      // Convert PSI to Pascals: 1 PSI = 6894.76 Pa
+      lowValueSI = lowValue * 6894.76;
+      highValueSI = highValue * 6894.76;
+      unitLabel = ` (${lowValue} PSI → ${lowValueSI.toFixed(0)} Pa, ${highValue} PSI → ${highValueSI.toFixed(0)} Pa)`;
+    } else if (isTemperature) {
+      // Convert °F to Kelvin: K = (°F - 32) × 5/9 + 273.15
+      lowValueSI = (lowValue - 32) * (5/9) + 273.15;
+      highValueSI = (highValue - 32) * (5/9) + 273.15;
+      unitLabel = ` (${lowValue} °F → ${lowValueSI.toFixed(2)} K, ${highValue} °F → ${highValueSI.toFixed(2)} K)`;
+    }
+    
     // Calculate linear calibration: engineeringValue = (voltage * slope) + offset
     const voltageRange = highVolts - lowVolts;
-    const valueRange = highValue - lowValue;
+    const valueRange = highValueSI - lowValueSI;
     const slope = valueRange / voltageRange;
-    const offset = lowValue - (slope * lowVolts);
+    const offset = lowValueSI - (slope * lowVolts);
     
-    console.log(`A${port} Calibration:`);
-    console.log(`  Points: (${lowVolts}V → ${lowValue}) to (${highVolts}V → ${highValue})`);
+    console.log(`A${port} Calibration:${unitLabel}`);
+    console.log(`  Points: (${lowVolts}V → ${lowValueSI.toFixed(2)}) to (${highVolts}V → ${highValueSI.toFixed(2)})`);
     console.log(`  Slope: ${slope.toFixed(3)}, Offset: ${offset.toFixed(3)}`);
     
     // RS11 X/Y format: Output = (Input * X) / Y

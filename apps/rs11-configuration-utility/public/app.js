@@ -748,6 +748,10 @@ async function calibrateAnalog(port) {
     const highVolts = parseFloat(document.getElementById(`a${port}-high-volts`).value);
     const highValue = parseFloat(document.getElementById(`a${port}-high-value`).value);
     
+    // Get field type to determine units (for PSI/°F to SI conversion)
+    const fieldSelect = document.getElementById(`a${port}-field`);
+    const fieldText = fieldSelect.options[fieldSelect.selectedIndex]?.text || '';
+    
     if (isNaN(lowVolts) || isNaN(lowValue) || isNaN(highVolts) || isNaN(highValue)) {
       log(`A${port}: Please enter all calibration values`, 'warning');
       return;
@@ -758,7 +762,7 @@ async function calibrateAnalog(port) {
       return;
     }
     
-    log(`A${port}: Calculating calibration...`, 'info');
+    log(`A${port}: Calculating calibration (${fieldText})...`, 'info');
     
     const response = await fetch(`/api/config/analog/${port}/calibrate`, {
       method: 'POST',
@@ -767,7 +771,8 @@ async function calibrateAnalog(port) {
         lowVolts,
         lowValue,
         highVolts,
-        highValue
+        highValue,
+        fieldType: fieldText
       })
     });
     
