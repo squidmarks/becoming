@@ -62,7 +62,11 @@ function setupEventListeners() {
   document.getElementById('restart-btn').addEventListener('click', restartDevice);
   document.getElementById('reset-btn').addEventListener('click', factoryReset);
   document.getElementById('save-config-btn').addEventListener('click', saveConfiguration);
+  document.getElementById('load-config-btn').addEventListener('click', loadConfiguration);
   document.getElementById('clear-log-btn').addEventListener('click', clearLog);
+  
+  // Load saved configs list on startup
+  loadSavedConfigsList();
 }
 
 // Load available serial ports
@@ -549,6 +553,26 @@ async function factoryReset() {
   }
 }
 
+// Load list of saved configurations
+async function loadSavedConfigsList() {
+  try {
+    const response = await fetch('/api/config/saved');
+    const configs = await response.json();
+    
+    const select = document.getElementById('saved-configs-select');
+    select.innerHTML = '<option value="">-- Select Config --</option>';
+    
+    for (const name in configs) {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    }
+  } catch (error) {
+    console.error('Failed to load saved configs:', error);
+  }
+}
+
 // Save configuration
 async function saveConfiguration() {
   const name = prompt('Enter a name for this configuration:');
@@ -559,20 +583,38 @@ async function saveConfiguration() {
     // Gather current configuration from UI
     const config = {
       instance: parseInt(document.getElementById('instance').value),
+      stbdInstance: parseInt(document.getElementById('stbd-instance').value),
       portPPR: parseInt(document.getElementById('port-ppr').value),
       stbdPPR: parseInt(document.getElementById('stbd-ppr').value),
+      portPPL: parseInt(document.getElementById('port-ppl').value),
+      stbdPPL: parseInt(document.getElementById('stbd-ppl').value),
+      portHours: parseInt(document.getElementById('port-hours').value),
+      stbdHours: parseInt(document.getElementById('stbd-hours').value),
       analogs: []
     };
     
     // Collect analog configurations
     for (let i = 1; i <= 6; i++) {
-      config.analogs.push({
+      const analogConfig = {
         port: i,
         engine: document.querySelector(`input[name="a${i}-engine"]:checked`).value,
         field: parseInt(document.getElementById(`a${i}-field`).value),
         senderCurrent: i <= 4 ? document.getElementById(`a${i}-current`).checked : false,
         smoothing: i <= 4 ? document.getElementById(`a${i}-smooth`).checked : false
-      });
+      };
+      
+      // Save calibration data if present
+      const lowVolts = document.getElementById(`a${i}-low-volts`).value;
+      const lowValue = document.getElementById(`a${i}-low-value`).value;
+      const highVolts = document.getElementById(`a${i}-high-volts`).value;
+      const highValue = document.getElementById(`a${i}-high-value`).value;
+      
+      if (lowVolts) analogConfig.lowVolts = parseFloat(lowVolts);
+      if (lowValue) analogConfig.lowValue = parseFloat(lowValue);
+      if (highVolts) analogConfig.highVolts = parseFloat(highVolts);
+      if (highValue) analogConfig.highValue = parseFloat(highValue);
+      
+      config.analogs.push(analogConfig);
     }
     
     const response = await fetch('/api/config/save', {
@@ -585,11 +627,87 @@ async function saveConfiguration() {
     
     if (response.ok) {
       log(`Configuration "${name}" saved`, 'success');
+      showToast(`Configuration "${name}" saved`, 'success');
+      await loadSavedConfigsList(); // Refresh the dropdown
     } else {
       log(`Save failed: ${data.error}`, 'error');
+      showToast(`Save failed: ${data.error}`, 'error');
     }
   } catch (error) {
     log(`Save error: ${error.message}`, 'error');
+    showToast(`Save error: ${error.message}`, 'error');
+  }
+}
+
+// Load configuration
+async function loadConfiguration() {
+  const select = document.getElementById('saved-configs-select');
+  const name = select.value;
+  
+  if (!name) {
+    showToast('Please select a configuration to load', 'warning');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/config/saved');
+    const configs = await response.json();
+    const config = configs[name];
+    
+    if (!config) {
+      showToast(`Configuration "${name}" not found`, 'error');
+      return;
+    }
+    
+    // Apply configuration to UI
+    document.getElementById('instance').value = config.instance || 0;
+    document.getElementById('stbd-instance').value = config.stbdInstance || 1;
+    document.getElementById('port-ppr').value = config.portPPR || 0;
+    document.getElementById('stbd-ppr').value = config.stbdPPR || 0;
+    document.getElementById('port-ppl').value = config.portPPL || 99999;
+    document.getElementById('stbd-ppl').value = config.stbdPPL || 99999;
+    document.getElementById('port-hours').value = config.portHours || 0;
+    document.getElementById('stbd-hours').value = config.stbdHours || 0;
+    
+    // Apply analog configurations
+    if (config.analogs) {
+      config.analogs.forEach(analog => {
+        const port = analog.port;
+        
+        // Set engine (Port/Stbd)
+        const engineRadio = document.querySelector(`input[name="a${port}-engine"][value="${analog.engine}"]`);
+        if (engineRadio) engineRadio.checked = true;
+        
+        // Set field
+        document.getElementById(`a${port}-field`).value = analog.field || 0;
+        
+        // Set sender current and smoothing (only for A1-A4)
+        if (port <= 4) {
+          document.getElementById(`a${port}-current`).checked = analog.senderCurrent || false;
+          document.getElementById(`a${port}-smooth`).checked = analog.smoothing || false;
+        }
+        
+        // Load calibration data if present
+        if (analog.lowVolts !== undefined) {
+          document.getElementById(`a${port}-low-volts`).value = analog.lowVolts;
+        }
+        if (analog.lowValue !== undefined) {
+          document.getElementById(`a${port}-low-value`).value = analog.lowValue;
+        }
+        if (analog.highVolts !== undefined) {
+          document.getElementById(`a${port}-high-volts`).value = analog.highVolts;
+        }
+        if (analog.highValue !== undefined) {
+          document.getElementById(`a${port}-high-value`).value = analog.highValue;
+        }
+      });
+    }
+    
+    log(`Configuration "${name}" loaded`, 'success');
+    showToast(`Configuration "${name}" loaded into UI. Click "Apply Engine Config" and "Save All Channels" to apply to device.`, 'success');
+  } catch (error) {
+    log(`Load error: ${error.message}`, 'error');
+    showToast(`Load error: ${error.message}`, 'error');
   }
 }
 
