@@ -459,15 +459,16 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
     let unitLabel = '';
     
     if (isPressure) {
-      // Convert PSI to Pascals: 1 PSI = 6894.76 Pa
-      lowValueSI = lowValue * 6894.76;
-      highValueSI = highValue * 6894.76;
-      unitLabel = ` (${lowValue} PSI → ${lowValueSI.toFixed(0)} Pa, ${highValue} PSI → ${highValueSI.toFixed(0)} Pa)`;
+      // TESTING: Pass PSI values directly to RS11 - let IT handle conversion to Pascals
+      // The offset issue suggests RS11 expects display units and converts internally
+      // lowValueSI = lowValue * 6894.76;
+      // highValueSI = highValue * 6894.76;
+      unitLabel = ` (${lowValue} PSI, ${highValue} PSI)`;
     } else if (isTemperature) {
-      // Convert °F to Kelvin: K = (°F - 32) × 5/9 + 273.15
-      lowValueSI = (lowValue - 32) * (5/9) + 273.15;
-      highValueSI = (highValue - 32) * (5/9) + 273.15;
-      unitLabel = ` (${lowValue} °F → ${lowValueSI.toFixed(2)} K, ${highValue} °F → ${highValueSI.toFixed(2)} K)`;
+      // TESTING: Pass °F values directly to RS11 - let IT handle conversion to Kelvin
+      // lowValueSI = (lowValue - 32) * (5/9) + 273.15;
+      // highValueSI = (highValue - 32) * (5/9) + 273.15;
+      unitLabel = ` (${lowValue} °F, ${highValue} °F)`;
     }
     
     // Calculate linear calibration: engineeringValue = (voltage * slope) + offset
