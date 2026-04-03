@@ -292,13 +292,14 @@ app.post('/api/config/analog/:port', async (req, res) => {
         }
         results.push(result);
       }
-      if (smoothing !== undefined && port <= 4) {
-        const result = await rs11.setSmoothing(port, smoothing);
-        if (result.error) {
-          throw new Error(`A${port} smoothing: ${result.error}`);
-        }
-        results.push(result);
-      }
+      // TEMPORARILY DISABLED - @T command not supported in firmware v3.50
+      // if (smoothing !== undefined && port <= 4) {
+      //   const result = await rs11.setSmoothing(port, smoothing);
+      //   if (result.error) {
+      //     throw new Error(`A${port} smoothing: ${result.error}`);
+      //   }
+      //   results.push(result);
+      // }
       if (xValue !== undefined) {
         const sign = xValue >= 0 ? '+' : '-';
         const result = await rs11.setAnalogXValue(port, sign, Math.abs(xValue));

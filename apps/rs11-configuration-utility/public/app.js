@@ -220,8 +220,10 @@ async function applyEngineConfig() {
     const stbdHours = parseInt(document.getElementById('stbd-hours').value);
     
     log('Applying engine configuration...', 'info');
+    console.log('[FRONTEND] Engine config values:', { instance, multiBatt, portPPR, stbdPPR, portPPL, stbdPPL, portHours, stbdHours });
     
     // Set instance
+    console.log('[FRONTEND] Setting instance...');
     let response = await fetch('/api/config/instance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -250,6 +252,7 @@ async function applyEngineConfig() {
     }
     
     // Set RPM values
+    console.log('[FRONTEND] Setting RPM...');
     response = await fetch('/api/config/rpm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -260,40 +263,52 @@ async function applyEngineConfig() {
         stbdPPL
       })
     });
+    console.log('[FRONTEND] RPM response status:', response.status);
     if (!response.ok) {
       const error = await response.json();
       log(`RPM: ${error.error}`, 'error');
       showToast('RPM Config Failed', 'error', error.error);
+      console.error('[FRONTEND] RPM failed:', error);
       return;
     }
+    console.log('[FRONTEND] RPM success');
     
     // Set engine hours (send even if 0)
+    console.log('[FRONTEND] Setting engine hours...');
     if (!isNaN(portHours)) {
+      console.log('[FRONTEND] Setting port hours:', portHours);
       response = await fetch('/api/config/engine-hours', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ engine: 'P', hours: portHours })
       });
+      console.log('[FRONTEND] Port hours response:', response.status);
       if (!response.ok) {
         const error = await response.json();
         log(`Port Hours: ${error.error}`, 'error');
         showToast('Port Hours Failed', 'error', error.error);
+        console.error('[FRONTEND] Port hours failed:', error);
         return;
       }
+      console.log('[FRONTEND] Port hours success');
     }
     
     if (!isNaN(stbdHours)) {
+      console.log('[FRONTEND] Setting stbd hours:', stbdHours);
       response = await fetch('/api/config/engine-hours', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ engine: 'S', hours: stbdHours })
       });
+      console.log('[FRONTEND] Stbd hours response:', response.status);
       if (!response.ok) {
         const error = await response.json();
         log(`Stbd Hours: ${error.error}`, 'error');
         showToast('Stbd Hours Failed', 'error', error.error);
+        console.error('[FRONTEND] Stbd hours failed:', error);
         return;
       }
+      console.log('[FRONTEND] Stbd hours success');
     }
     
     log('Engine configuration applied', 'success');
