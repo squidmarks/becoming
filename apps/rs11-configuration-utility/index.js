@@ -480,13 +480,14 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
     
     console.log(`A${port} Calibration:${unitLabel}`);
     console.log(`  Using undocumented @m${port}stn: command (Windows app format)`);
-    console.log(`  RS11 will calculate X/Y internally from raw values`);
+    console.log(`  RS11 will calculate X/Y internally and convert to SI units for NMEA 2000`);
     
     // DISCOVERY: Use undocumented @m{port}stn: command from Windows app
-    // Format: @m{port}stn:0;{lowVolts};{lowValue};{highVolts};{highValue};0>
-    // This sends raw calibration data and RS11 calculates X/Y internally
+    // Format: @m{port}stn:{flag};{lowVolts};{lowValue};{highVolts};{highValue};{alarm}>
+    // Flag: 0=pressure (PSI), 1=temperature (°F)
+    // This sends raw calibration data in user units, RS11 converts to SI internally
     const result = await withLock(async () => {
-      return await rs11.setTwoPointCalibration(port, lowVolts, lowValueSI, highVolts, highValueSI);
+      return await rs11.setTwoPointCalibration(port, lowVolts, lowValue, highVolts, highValue, fieldType);
     });
     
     if (result.error) {
