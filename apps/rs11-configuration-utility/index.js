@@ -482,12 +482,30 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
     console.log(`  Using undocumented @m${port}stn: command (Windows app format)`);
     console.log(`  RS11 will calculate X/Y internally and convert to SI units for NMEA 2000`);
     
-    // DISCOVERY: Use undocumented @m{port}stn: command from Windows app
-    // Format: @m{port}stn:{flag};{lowVolts};{lowValue};{highVolts};{highValue};{alarm}>
-    // Flag: 0=pressure (PSI), 1=temperature (°F)
-    // This sends raw calibration data in user units, RS11 converts to SI internally
+    // DISCOVERY: Windows app sends @Z command BEFORE @m calibration
+    // Format from Windows app for Oil Pressure (PSI):
+    //   @Z10+  (Z-byte: port 1, hex 0, enabled)
+    //   @m1stn:0;.87;0;4.43;42;0>  (flag 0 = PSI)
+    // Z-byte hex value might indicate unit type: 0=PSI, others=different units?
     const result = await withLock(async () => {
-      return await rs11.setTwoPointCalibration(port, lowVolts, lowValue, highVolts, highValue, fieldType);
+      const results = [];
+      
+      // Set Z-byte first (hex 0 seems to work for pressure)
+      const zHex = '0';
+      const zResult = await rs11.setAnalogZByte(port, zHex, true);
+      if (zResult.error) {
+        throw new Error(`A${port} Z-byte: ${zResult.error}`);
+      }
+      results.push(zResult);
+      
+      // Then send calibration data
+      const calResult = await rs11.setTwoPointCalibration(port, lowVolts, lowValue, highVolts, highValue, fieldType);
+      if (calResult.error) {
+        throw new Error(`A${port} calibration: ${calResult.error}`);
+      }
+      results.push(calResult);
+      
+      return results;
     });
     
     if (result.error) {
@@ -497,7 +515,7 @@ app.post('/api/config/analog/:port/calibrate', async (req, res) => {
     res.json({
       success: true,
       message: 'Calibration sent to RS11',
-      result
+      results: result
     });
   } catch (error) {
     console.error('Calibration error:', error);
