@@ -300,12 +300,6 @@ export const CONFIG_REGISTERS = {
       ]
     },
     { id: '—', address: 0x020C, name: 'Inverter Clock', key: 'systemClock', scale: 1, unit: '', type: 'clock', description: 'RTC date/time', readOnly: false, special: true },
-    { id: '63', address: 0xE216, name: 'Auto N-PE Connection', key: 'autoPeConnection', scale: 1, unit: '', min: 0, max: 1, description: 'Auto neutral-ground bond in inverter mode',
-      options: [
-        { value: 0, label: 'DIS (Disabled)' },
-        { value: 1, label: 'ENA (Enabled)' }
-      ]
-    },
   ],
   
   BATTERY: [
@@ -376,8 +370,8 @@ export const CONFIG_REGISTERS = {
     { id: '28', address: 0xE205, name: 'Grid Charge Current', key: 'acChgLimit', scale: 0.1, unit: 'A', min: 0, max: 80, description: 'Max current from AC/grid' },
     { id: '06', address: 0xE20F, name: 'Battery Charge Mode', key: 'chgSourcePriority', scale: 1, unit: '', min: 0, max: 3, description: 'Charge source priority',
       options: [
-        { value: 0, label: 'SNU (PV First, Grid Supplement)' },
-        { value: 1, label: 'OSO (PV Only, No Grid Charge)' }
+        { value: 0, label: 'OSO (PV Only, No Grid Charge)' },
+        { value: 1, label: 'SNU (PV First, Grid Supplement)' }
       ]
     },
     { id: '39', address: 0xE025, name: 'Charge Limit (BMS Mode)', key: 'bmsChgMode', scale: 1, unit: '', min: 0, max: 2, description: 'Charge current limit source',
