@@ -239,8 +239,12 @@ export class RS11Protocol {
       
       // Parse analog lines: "A1= Port Oil Pres   [-0708,+008,0] 0000 Sndr_Curr(Off)"
       // Note: Field name may have trailing spaces before the bracket
+      if (line.startsWith('A') && line.includes('[')) {
+        console.log('DEBUG: Analog line:', line);
+      }
       const analogMatch = line.match(/^A(\d)=\s+(Port|Stbd)\s+(.+?)\s*\[([+\-]\d+),([+\-]\d+),(.)\]\s+([0-9A-F]+)/);
       if (analogMatch) {
+        console.log('DEBUG: Regex MATCHED for', analogMatch[1]);
         const port = parseInt(analogMatch[1]);
         const engine = analogMatch[2] === 'Port' ? 'P' : 'S';
         const fieldName = analogMatch[3].trim();
@@ -261,6 +265,26 @@ export class RS11Protocol {
           hexValue,
           senderCurrent
         });
+      } else if (line.startsWith('A') && line.includes('[')) {
+        console.log('DEBUG: Regex FAILED to match analog line');
+        
+        // Fallback: Try old parsing logic without calibration values
+        const fallbackMatch = line.match(/^A(\d)=\s+(Port|Stbd)\s+(.+?)\s+\[/);
+        if (fallbackMatch) {
+          console.log('DEBUG: Fallback matched, adding without calibration');
+          const port = parseInt(fallbackMatch[1]);
+          const engine = fallbackMatch[2] === 'Port' ? 'P' : 'S';
+          const fieldName = fallbackMatch[3].trim();
+          const senderCurrentMatch = line.match(/Sndr_Curr\s*\((\w+)\)/);
+          const senderCurrent = senderCurrentMatch ? senderCurrentMatch[1] === 'On' : null;
+          
+          config.analogs.push({
+            port,
+            engine,
+            fieldName,
+            senderCurrent
+          });
+        }
       }
     }
 
