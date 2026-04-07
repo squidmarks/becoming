@@ -454,6 +454,21 @@ async function queryConfiguration() {
           if (currentCheckbox && analog.senderCurrent !== null && analog.port <= 4) {
             currentCheckbox.checked = analog.senderCurrent;
           }
+          
+          // Display calibration values (X/Y/Z) if available
+          if (analog.xValue && analog.yValue) {
+            const calStatus = document.getElementById(`a${analog.port}-cal-status`);
+            const calX = document.getElementById(`a${analog.port}-cal-x`);
+            const calY = document.getElementById(`a${analog.port}-cal-y`);
+            const calZ = document.getElementById(`a${analog.port}-cal-z`);
+            
+            if (calStatus && calX && calY && calZ) {
+              calX.textContent = analog.xValue;
+              calY.textContent = analog.yValue;
+              calZ.textContent = analog.zValue;
+              calStatus.style.display = 'block';
+            }
+          }
         });
       }
     } else {

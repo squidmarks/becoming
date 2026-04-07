@@ -237,12 +237,16 @@ export class RS11Protocol {
         }
       }
       
-      // Parse analog lines: "A1= Port Oil Pres [-----,----,0] FFFF Sndr_Curr(Off)"
-      const analogMatch = line.match(/^A(\d)=\s+(Port|Stbd)\s+(.+?)\s+\[/);
+      // Parse analog lines: "A1= Port Oil Pres [+1234,-056,0] FFFF Sndr_Curr(Off)"
+      const analogMatch = line.match(/^A(\d)=\s+(Port|Stbd)\s+(.+?)\s+\[([+\-]\d+),([+\-]\d+),(.)\]\s+([0-9A-F]+)/);
       if (analogMatch) {
         const port = parseInt(analogMatch[1]);
         const engine = analogMatch[2] === 'Port' ? 'P' : 'S';
         const fieldName = analogMatch[3].trim();
+        const xValue = analogMatch[4]; // e.g., "+1234" or "-0708"
+        const yValue = analogMatch[5]; // e.g., "+008" or "-013"
+        const zValue = analogMatch[6]; // e.g., "0" or "@"
+        const hexValue = analogMatch[7]; // e.g., "0000" or "FFFF"
         const senderCurrentMatch = line.match(/Sndr_Curr\s*\((\w+)\)/);
         const senderCurrent = senderCurrentMatch ? senderCurrentMatch[1] === 'On' : null;
         
@@ -250,6 +254,10 @@ export class RS11Protocol {
           port,
           engine,
           fieldName,
+          xValue,
+          yValue,
+          zValue,
+          hexValue,
           senderCurrent
         });
       }
