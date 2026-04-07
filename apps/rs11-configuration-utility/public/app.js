@@ -408,6 +408,9 @@ async function queryConfiguration() {
       // Update analog channel fields
       if (data.analogs && data.analogs.length > 0) {
         data.analogs.forEach(analog => {
+          console.log(`Processing A${analog.port}:`, analog);
+          console.log(`  xValue=${analog.xValue}, yValue=${analog.yValue}, zValue=${analog.zValue}`);
+          
           // Update Port/Stbd radio buttons
           const portRadio = document.querySelector(`input[name="a${analog.port}-engine"][value="P"]`);
           const stbdRadio = document.querySelector(`input[name="a${analog.port}-engine"][value="S"]`);
