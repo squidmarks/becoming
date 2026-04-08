@@ -763,6 +763,180 @@ export class ApiServer {
               }
             }
           },
+          '/api/events/active': {
+            get: {
+              tags: ['Events'],
+              summary: 'Get active events',
+              description: 'Returns all currently active duration events (not yet ended)',
+              operationId: 'getActiveEvents',
+              responses: {
+                '200': {
+                  description: 'Active events',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: {
+                          count: { type: 'integer' },
+                          events: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/RichEvent' }
+                          },
+                          detectorActive: { type: 'integer', description: 'Number of active events in detector memory' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '/api/events/pending': {
+            get: {
+              tags: ['Events'],
+              summary: 'Get pending events',
+              description: 'Returns events awaiting user review (confirm or dismiss)',
+              operationId: 'getPendingEvents',
+              parameters: [
+                {
+                  name: 'limit',
+                  in: 'query',
+                  description: 'Maximum number of events to return',
+                  schema: { type: 'integer', default: 50 }
+                }
+              ],
+              responses: {
+                '200': {
+                  description: 'Pending events',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: {
+                          count: { type: 'integer' },
+                          events: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/RichEvent' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '/api/events/{eventId}/confirm': {
+            post: {
+              tags: ['Events'],
+              summary: 'Confirm event',
+              description: 'Confirm a pending event and add user notes/tags',
+              operationId: 'confirmEvent',
+              parameters: [
+                {
+                  name: 'eventId',
+                  in: 'path',
+                  required: true,
+                  description: 'Event ID',
+                  schema: { type: 'string' }
+                }
+              ],
+              requestBody: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        notes: { type: 'string' },
+                        tags: { type: 'array', items: { type: 'string' } },
+                        userFields: { type: 'object' }
+                      }
+                    },
+                    example: {
+                      notes: 'Ran to Charleston Harbor for fuel',
+                      tags: ['fuel-run'],
+                      userFields: { destination: 'Charleston Harbor', fuelGallons: 240 }
+                    }
+                  }
+                }
+              },
+              responses: {
+                '200': { description: 'Event confirmed' },
+                '500': { description: 'Server error' }
+              }
+            }
+          },
+          '/api/events/{eventId}/dismiss': {
+            post: {
+              tags: ['Events'],
+              summary: 'Dismiss event',
+              description: 'Dismiss a pending event as false positive',
+              operationId: 'dismissEvent',
+              parameters: [
+                {
+                  name: 'eventId',
+                  in: 'path',
+                  required: true,
+                  description: 'Event ID',
+                  schema: { type: 'string' }
+                }
+              ],
+              requestBody: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        reason: { type: 'string' }
+                      }
+                    },
+                    example: {
+                      reason: 'False trigger from brief engine start'
+                    }
+                  }
+                }
+              },
+              responses: {
+                '200': { description: 'Event dismissed' },
+                '500': { description: 'Server error' }
+              }
+            }
+          },
+          '/api/events/{eventId}/update': {
+            post: {
+              tags: ['Events'],
+              summary: 'Update event',
+              description: 'Update event notes, tags, or user fields',
+              operationId: 'updateEvent',
+              parameters: [
+                {
+                  name: 'eventId',
+                  in: 'path',
+                  required: true,
+                  description: 'Event ID',
+                  schema: { type: 'string' }
+                }
+              ],
+              requestBody: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        userNotes: { type: 'string' },
+                        tags: { type: 'array', items: { type: 'string' } },
+                        userFields: { type: 'object' }
+                      }
+                    }
+                  }
+                }
+              },
+              responses: {
+                '200': { description: 'Event updated' },
+                '500': { description: 'Server error' }
+              }
+            }
+          },
           '/api/status': {
             get: {
               tags: ['System'],
@@ -805,6 +979,39 @@ export class ApiServer {
                     }
                   }
                 }
+              }
+            }
+          }
+        },
+        components: {
+          schemas: {
+            RichEvent: {
+              type: 'object',
+              properties: {
+                eventId: { type: 'string' },
+                detectorId: { type: 'string' },
+                name: { type: 'string' },
+                description: { type: 'string' },
+                type: { type: 'string', enum: ['duration', 'instant', 'manual'] },
+                state: { type: 'string', enum: ['active', 'pending', 'confirmed', 'dismissed', 'auto_confirmed'] },
+                category: { type: 'string' },
+                tags: { type: 'array', items: { type: 'string' } },
+                startTime: { type: 'string', format: 'date-time' },
+                endTime: { type: 'string', format: 'date-time', nullable: true },
+                duration: { type: 'integer', nullable: true, description: 'Duration in seconds' },
+                startData: { type: 'object' },
+                endData: { type: 'object', nullable: true },
+                userNotes: { type: 'string' },
+                userFields: { type: 'object' },
+                notifications: {
+                  type: 'object',
+                  properties: {
+                    enabled: { type: 'boolean' },
+                    sent: { type: 'array', items: { type: 'string' } }
+                  }
+                },
+                createdAt: { type: 'string', format: 'date-time' },
+                updatedAt: { type: 'string', format: 'date-time' }
               }
             }
           }
