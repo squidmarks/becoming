@@ -336,6 +336,49 @@
       margin-bottom: 15px;
       opacity: 0.5;
     }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: inherit;
+    }
+
+    .form-group small {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .switch-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    .switch-label input[type="checkbox"] {
+      width: auto;
+    }
+
+    .switch-label-text {
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -432,6 +475,131 @@
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
         <button class="btn btn-danger" onclick="dismissEvent()">Dismiss</button>
         <button class="btn btn-primary" onclick="confirmEvent()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detector Editor Modal -->
+  <div id="detectorModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+      <h2 class="modal-title" id="detectorModalTitle">Add Event Detector</h2>
+      
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div class="form-group">
+          <label for="detectorName">Name *</label>
+          <input type="text" id="detectorName" placeholder="e.g., Vessel Underway">
+        </div>
+        <div class="form-group">
+          <label for="detectorId">ID *</label>
+          <input type="text" id="detectorId" placeholder="e.g., vessel_underway">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="detectorDescription">Description</label>
+        <input type="text" id="detectorDescription" placeholder="Describe when this event occurs">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="detectorCategory">Category</label>
+          <select id="detectorCategory">
+            <option value="navigation">Navigation</option>
+            <option value="engine">Engine</option>
+            <option value="electrical">Electrical</option>
+            <option value="safety">Safety</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="general">General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="switch-label">
+            <input type="checkbox" id="detectorNotifications" checked>
+            <div>
+              <div class="switch-label-text">Enable Notifications</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border-color); margin: 1.5rem 0; padding-top: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">Start Conditions</h3>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="startPath">Path *</label>
+            <input type="text" id="startPath" placeholder="navigation.speedOverGround">
+          </div>
+          <div class="form-group">
+            <label for="startOperator">Operator *</label>
+            <select id="startOperator">
+              <option value=">">></option>
+              <option value=">=">>=</option>
+              <option value="<"><</option>
+              <option value="<="><=</option>
+              <option value="==">==</option>
+              <option value="!=">!=</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="startValue">Value *</label>
+            <input type="number" id="startValue" step="0.1" placeholder="1.0">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+          <div class="form-group">
+            <label for="startSamples">Consecutive Samples</label>
+            <input type="number" id="startSamples" value="3" min="1">
+            <small style="color: var(--text-secondary);">Stability check</small>
+          </div>
+          <div class="form-group">
+            <label for="startDuration">Within Duration (s)</label>
+            <input type="number" id="startDuration" value="60" min="1">
+            <small style="color: var(--text-secondary);">Time window</small>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border-color); margin: 1.5rem 0; padding-top: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">End Conditions</h3>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="endPath">Path *</label>
+            <input type="text" id="endPath" placeholder="navigation.speedOverGround">
+          </div>
+          <div class="form-group">
+            <label for="endOperator">Operator *</label>
+            <select id="endOperator">
+              <option value=">">></option>
+              <option value=">=">>=</option>
+              <option value="<"><</option>
+              <option value="<="><=</option>
+              <option value="==">==</option>
+              <option value="!=">!=</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="endValue">Value *</label>
+            <input type="number" id="endValue" step="0.1" placeholder="0.5">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+          <div class="form-group">
+            <label for="endSamples">Consecutive Samples</label>
+            <input type="number" id="endSamples" value="6" min="1">
+          </div>
+          <div class="form-group">
+            <label for="endDuration">Within Duration (s)</label>
+            <input type="number" id="endDuration" value="300" min="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="deleteDetectorBtn" class="btn btn-danger" onclick="deleteCurrentDetector()" style="display: none; margin-right: auto;">
+          <i class="fas fa-trash"></i> Delete
+        </button>
+        <button class="btn btn-secondary" onclick="closeDetectorEditor()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveDetector()">Save</button>
       </div>
     </div>
   </div>
@@ -581,14 +749,155 @@
       editingDetectorIndex = index;
       
       if (index !== null && fullConfig) {
-        // Edit existing - show simplified view
+        // Edit existing
         const detector = fullConfig.enhancedEventDetectors[index];
-        alert(`Viewing ${detector.name}\n\nFor complex edits, please use the API or edit config.json directly.\nSimplified editor coming soon!`);
+        document.getElementById('detectorModalTitle').textContent = 'Edit Event Detector';
+        document.getElementById('detectorId').value = detector.detectorId;
+        document.getElementById('detectorName').value = detector.name;
+        document.getElementById('detectorDescription').value = detector.description || '';
+        document.getElementById('detectorCategory').value = detector.category || 'general';
+        document.getElementById('detectorNotifications').checked = detector.notifications?.enabled || false;
+        
+        // Start conditions (simplified - first rule only)
+        const startRule = detector.startConditions?.rules?.[0];
+        if (startRule) {
+          document.getElementById('startPath').value = startRule.path;
+          document.getElementById('startOperator').value = startRule.operator;
+          document.getElementById('startValue').value = startRule.value;
+        }
+        document.getElementById('startSamples').value = detector.stability?.start?.consecutiveSamples || 3;
+        document.getElementById('startDuration').value = detector.stability?.start?.withinDuration || 60;
+        
+        // End conditions (simplified - first rule only)
+        const endRule = detector.endConditions?.rules?.[0];
+        if (endRule) {
+          document.getElementById('endPath').value = endRule.path;
+          document.getElementById('endOperator').value = endRule.operator;
+          document.getElementById('endValue').value = endRule.value;
+        }
+        document.getElementById('endSamples').value = detector.stability?.end?.consecutiveSamples || 6;
+        document.getElementById('endDuration').value = detector.stability?.end?.withinDuration || 300;
+        
+        document.getElementById('deleteDetectorBtn').style.display = 'block';
       } else {
         // Add new
-        alert('Add detector functionality coming soon!\nFor now, use the API or edit config.json directly.');
+        document.getElementById('detectorModalTitle').textContent = 'Add Event Detector';
+        document.getElementById('detectorId').value = '';
+        document.getElementById('detectorName').value = '';
+        document.getElementById('detectorDescription').value = '';
+        document.getElementById('detectorCategory').value = 'navigation';
+        document.getElementById('detectorNotifications').checked = true;
+        document.getElementById('startPath').value = '';
+        document.getElementById('startOperator').value = '>';
+        document.getElementById('startValue').value = '';
+        document.getElementById('startSamples').value = '3';
+        document.getElementById('startDuration').value = '60';
+        document.getElementById('endPath').value = '';
+        document.getElementById('endOperator').value = '<=';
+        document.getElementById('endValue').value = '';
+        document.getElementById('endSamples').value = '6';
+        document.getElementById('endDuration').value = '300';
+        document.getElementById('deleteDetectorBtn').style.display = 'none';
+      }
+      
+      document.getElementById('detectorModal').classList.add('active');
+    }
+
+    function closeDetectorEditor() {
+      document.getElementById('detectorModal').classList.remove('active');
+      editingDetectorIndex = null;
+    }
+
+    async function saveDetector() {
+      const detectorId = document.getElementById('detectorId').value.trim();
+      const name = document.getElementById('detectorName').value.trim();
+      const startPath = document.getElementById('startPath').value.trim();
+      const startValue = document.getElementById('startValue').value;
+      const endPath = document.getElementById('endPath').value.trim();
+      const endValue = document.getElementById('endValue').value;
+      
+      if (!detectorId || !name || !startPath || !startValue || !endPath || !endValue) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const detector = {
+        detectorId: detectorId,
+        name: name,
+        description: document.getElementById('detectorDescription').value.trim() || undefined,
+        type: 'duration',
+        category: document.getElementById('detectorCategory').value,
+        notifications: {
+          enabled: document.getElementById('detectorNotifications').checked
+        },
+        stability: {
+          start: {
+            consecutiveSamples: parseInt(document.getElementById('startSamples').value),
+            withinDuration: parseInt(document.getElementById('startDuration').value)
+          },
+          end: {
+            consecutiveSamples: parseInt(document.getElementById('endSamples').value),
+            withinDuration: parseInt(document.getElementById('endDuration').value)
+          }
+        },
+        startConditions: {
+          operator: 'AND',
+          rules: [{
+            path: startPath,
+            operator: document.getElementById('startOperator').value,
+            value: parseFloat(startValue)
+          }]
+        },
+        endConditions: {
+          operator: 'AND',
+          rules: [{
+            path: endPath,
+            operator: document.getElementById('endOperator').value,
+            value: parseFloat(endValue)
+          }]
+        }
+      };
+
+      if (editingDetectorIndex !== null) {
+        fullConfig.enhancedEventDetectors[editingDetectorIndex] = detector;
+      } else {
+        fullConfig.enhancedEventDetectors.push(detector);
+      }
+
+      await saveDetectorConfig();
+    }
+
+    async function deleteCurrentDetector() {
+      if (editingDetectorIndex === null) return;
+      const detector = fullConfig.enhancedEventDetectors[editingDetectorIndex];
+      if (!confirm(`Delete "${detector.name}"?`)) return;
+
+      fullConfig.enhancedEventDetectors.splice(editingDetectorIndex, 1);
+      closeDetectorEditor();
+      await saveDetectorConfig();
+    }
+
+    async function saveDetectorConfig() {
+      try {
+        const response = await fetch('api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fullConfig)
+        });
+
+        if (response.ok) {
+          closeDetectorEditor();
+          await loadDetectors();
+        } else {
+          alert('Failed to save detector');
+        }
+      } catch (error) {
+        console.error('Failed to save:', error);
+        alert('Failed to save detector');
       }
     }
+
+  <script>
 
     async function deleteDetector(index) {
       try {
@@ -897,10 +1206,16 @@
       }
     }, 10000);
 
-    // Close modal when clicking outside
+    // Close modals when clicking outside
     document.getElementById('reviewModal').addEventListener('click', (e) => {
       if (e.target.id === 'reviewModal') {
         closeModal();
+      }
+    });
+    
+    document.getElementById('detectorModal').addEventListener('click', (e) => {
+      if (e.target.id === 'detectorModal') {
+        closeDetectorEditor();
       }
     });
   </script>
