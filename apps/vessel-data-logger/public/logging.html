@@ -77,7 +77,13 @@
       </div>
 
       <div id="configuration-tab" class="tab-content active">
-        <iframe src="config-frame.html" id="config-frame"></iframe>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <p style="color: var(--text-secondary); margin: 0;">Configure which SignalK paths to log and their thresholds</p>
+          <button class="btn btn-primary" onclick="alert('Path editor coming soon - use original config page for now')">
+            <i class="fas fa-plus"></i> Add Path
+          </button>
+        </div>
+        <div id="config-list"></div>
       </div>
 
       <div id="viewer-tab" class="tab-content">
@@ -142,9 +148,79 @@
       // Update tab content
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
       document.getElementById(tab + '-tab').classList.add('active');
+      
+      // Load configuration if switching to that tab
+      if (tab === 'configuration') {
+        loadConfig();
+      }
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('api/config');
+        const config = await response.json();
+        renderConfig(config.subscriptions || []);
+      } catch (error) {
+        console.error('Failed to load config:', error);
+        document.getElementById('config-list').innerHTML = `
+          <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+            <p>Failed to load configuration</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderConfig(subscriptions) {
+      const container = document.getElementById('config-list');
+      
+      if (subscriptions.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+            <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px;"></i>
+            <p>No logging paths configured</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px;">Enabled</th>
+              <th>Path</th>
+              <th style="text-align: right;">Interval (s)</th>
+              <th style="text-align: right;">Max Interval (s)</th>
+              <th style="text-align: right;">Delta</th>
+              <th>Condition</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${subscriptions.map((sub, index) => `
+              <tr style="cursor: pointer;" onclick="alert('Edit coming soon - use /data-logger/config.html for now')">
+                <td style="text-align: center;">
+                  ${sub.enabled ? 
+                    '<span style="color: #10b981;"><i class="fas fa-check-circle"></i></span>' : 
+                    '<span style="color: #6b7280;"><i class="fas fa-times-circle"></i></span>'
+                  }
+                </td>
+                <td style="font-family: monospace; font-size: 0.9rem;">${sub.path}</td>
+                <td style="text-align: right;">${sub.logInterval || '-'}</td>
+                <td style="text-align: right;">${sub.maxInterval || '-'}</td>
+                <td style="text-align: right;">${sub.deltaThreshold || '-'}</td>
+                <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">
+                  ${sub.condition || '-'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
     }
 
     initTheme();
+    loadConfig();
   </script>
 </body>
 </html>
