@@ -391,6 +391,129 @@ export class MongoStorage {
     }
   }
 
+  /**
+   * Write or update a rich event (duration events with state)
+   */
+  async writeRichEvent(event) {
+    if (!this.eventsCollection) {
+      return;
+    }
+
+    const document = {
+      eventId: event.eventId,
+      detectorId: event.detectorId,
+      name: event.name,
+      description: event.description,
+      type: event.type,
+      state: event.state,
+      category: event.category,
+      tags: event.tags,
+      
+      startTime: new Date(event.startTime),
+      endTime: event.endTime ? new Date(event.endTime) : null,
+      duration: event.duration,
+      
+      startData: event.startData,
+      endData: event.endData,
+      
+      userNotes: event.userNotes || '',
+      userFields: event.userFields || {},
+      
+      notifications: event.notifications || { enabled: false, sent: [] },
+      
+      createdAt: new Date(event.createdAt),
+      updatedAt: new Date(event.updatedAt)
+    };
+
+    try {
+      // Use upsert to handle both inserts and updates
+      await this.eventsCollection.updateOne(
+        { eventId: event.eventId },
+        { $set: document },
+        { upsert: true }
+      );
+    } catch (error) {
+      console.error('Failed to write rich event:', error.message);
+    }
+  }
+
+  /**
+   * Update event fields (for user confirmation, notes, etc.)
+   */
+  async updateEventFields(eventId, updates) {
+    if (!this.eventsCollection) {
+      return;
+    }
+
+    try {
+      const updateDoc = {
+        ...updates,
+        updatedAt: new Date()
+      };
+
+      await this.eventsCollection.updateOne(
+        { eventId },
+        { $set: updateDoc }
+      );
+    } catch (error) {
+      console.error('Failed to update event:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Query events by state
+   */
+  async queryEventsByState(state, limit = 100) {
+    if (!this.eventsCollection) {
+      return [];
+    }
+
+    try {
+      const events = await this.eventsCollection
+        .find({ state })
+        .sort({ startTime: -1 })
+        .limit(limit)
+        .toArray();
+
+      return events;
+    } catch (error) {
+      console.error('Failed to query events by state:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get active events (no end time)
+   */
+  async getActiveEvents() {
+    if (!this.eventsCollection) {
+      return [];
+    }
+
+    try {
+      const events = await this.eventsCollection
+        .find({ 
+          state: 'active',
+          endTime: null
+        })
+        .sort({ startTime: -1 })
+        .toArray();
+
+      return events;
+    } catch (error) {
+      console.error('Failed to get active events:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get pending events (awaiting user review)
+   */
+  async getPendingEvents(limit = 50) {
+    return this.queryEventsByState('pending', limit);
+  }
+
   async queryEvents(startTime, endTime, eventName = null, limit = 1000) {
     if (!this.eventsCollection) {
       throw new Error('Not connected to MongoDB');
