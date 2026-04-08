@@ -46,8 +46,8 @@ export class ApiServer {
     this.app.get('/api/openapi.json', (req, res) => this.handleOpenAPI(req, res));
     
     // Swagger UI for API documentation
-    this.app.use('/api/docs', swaggerUi.serve, async (req, res, next) => {
-      const spec = await this.getOpenAPISpec();
+    this.app.use('/api/docs', swaggerUi.serve, (req, res, next) => {
+      const spec = this.getOpenAPISpec();
       swaggerUi.setup(spec, {
         customCss: '.swagger-ui .topbar { display: none }',
         customSiteTitle: 'Vessel Data Logger API'
@@ -715,7 +715,6 @@ export class ApiServer {
             }
           }
         }
-      }
     };
   }
 
