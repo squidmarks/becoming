@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Vessel Data Logger</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .page-tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border-color);
+    }
+    .page-tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+    .page-tab:hover {
+      color: var(--text-primary);
+    }
+    .page-tab.active {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    iframe {
+      width: 100%;
+      border: none;
+      min-height: calc(100vh - 250px);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1><i class="fas fa-ship"></i> Vessel Data Logger</h1>
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-tabs">
+      <a href="./">Dashboard</a>
+      <a href="logging.html">Logging</a>
+      <a href="events.html">Events</a>
+      <a href="settings.html" class="active">Settings</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2><i class="fas fa-sliders-h"></i> System Settings</h2>
+      
+      <div class="page-tabs">
+        <button class="page-tab active" onclick="switchPageTab('retention')">
+          <i class="fas fa-database"></i> Retention
+        </button>
+        <button class="page-tab" onclick="switchPageTab('notifications')">
+          <i class="fas fa-bell"></i> Notifications
+        </button>
+      </div>
+
+      <div id="retention-tab" class="tab-content active">
+        <iframe src="retention.html" id="retention-frame"></iframe>
+      </div>
+
+      <div id="notifications-tab" class="tab-content">
+        <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
+          <i class="fas fa-bell" style="font-size: 3rem; opacity: 0.5; margin-bottom: 20px;"></i>
+          <h3>Notification Settings</h3>
+          <p>Coming soon: Configure notification preferences and transports</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+      const frames = document.querySelectorAll('iframe');
+      frames.forEach(frame => {
+        frame.addEventListener('load', () => {
+          try {
+            frame.contentDocument.documentElement.setAttribute('data-theme', theme);
+          } catch (e) {}
+        });
+      });
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+      
+      const frames = document.querySelectorAll('iframe');
+      frames.forEach(frame => {
+        try {
+          frame.contentDocument.documentElement.setAttribute('data-theme', newTheme);
+        } catch (e) {}
+      });
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const icon = document.querySelector('.theme-toggle i');
+      const text = document.getElementById('theme-text');
+      
+      if (theme === 'dark') {
+        icon.className = 'fas fa-sun';
+        text.textContent = 'Light Mode';
+      } else {
+        icon.className = 'fas fa-moon';
+        text.textContent = 'Dark Mode';
+      }
+    }
+
+    function switchPageTab(tab) {
+      document.querySelectorAll('.page-tab').forEach(btn => btn.classList.remove('active'));
+      event.target.closest('.page-tab').classList.add('active');
+      
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(tab + '-tab').classList.add('active');
+    }
+
+    initTheme();
+  </script>
+</body>
+</html>

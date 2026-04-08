@@ -351,11 +351,9 @@
   <nav>
     <div class="nav-tabs">
       <a href="./">Dashboard</a>
-      <a href="config.html">Log Configuration</a>
-      <a href="event-config.html">Event Configuration</a>
-      <a href="viewer.html">Data Viewer</a>
-      <a href="retention.html">Retention</a>
+      <a href="logging.html">Logging</a>
       <a href="events.html" class="active">Events</a>
+      <a href="settings.html">Settings</a>
     </div>
   </nav>
 
@@ -364,7 +362,10 @@
       <h2><i class="fas fa-calendar-alt"></i> Events</h2>
       
       <div class="event-tabs">
-        <button class="event-tab active" onclick="switchTab('active')">
+        <button class="event-tab active" onclick="switchTab('detectors')">
+          <i class="fas fa-cog"></i> Detectors
+        </button>
+        <button class="event-tab" onclick="switchTab('active')">
           <i class="fas fa-play-circle"></i> Active
           <span class="badge" id="active-count">0</span>
         </button>
@@ -377,7 +378,11 @@
         </button>
       </div>
 
-      <div id="active-events" class="tab-content">
+      <div id="detectors-events" class="tab-content">
+        <iframe src="event-config.html" style="width:100%; border:none; min-height:600px;"></iframe>
+      </div>
+
+      <div id="active-events" class="tab-content" style="display: none;">
         <div class="empty-state">
           <i class="fas fa-inbox"></i>
           <p>No active events</p>
