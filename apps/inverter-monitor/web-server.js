@@ -37,6 +37,24 @@ export class WebServer {
       });
     });
 
+    // Get register definitions for frontend
+    this.app.get('/api/registers/:category', async (req, res) => {
+      try {
+        const category = req.params.category.toUpperCase();
+        const { CONFIG_REGISTERS } = await import('./registers.js');
+        const settings = CONFIG_REGISTERS[category];
+        
+        if (!settings) {
+          return res.status(404).json({ error: 'Category not found' });
+        }
+        
+        res.json(settings);
+      } catch (error) {
+        console.error('Error fetching register definitions:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     // Batch read settings for a category (much faster than individual reads)
     this.app.get('/api/settings/batch/:category', async (req, res) => {
       try {

@@ -226,6 +226,12 @@ export const REGISTER_GROUPS = {
 };
 
 // Configuration registers (R/W) grouped by category
+//
+// ⚠️ IMPORTANT: After modifying these register definitions, run:
+//    node sync-registers.js
+// This will update the frontend (public/index.html) to match these definitions.
+// Verify sync with: node verify-registers-sync.js
+//
 export const CONFIG_REGISTERS = {
   BASIC: [
     { id: '01', address: 0xE204, name: 'AC Output Mode', key: 'outputPriority', scale: 1, unit: '', min: 0, max: 3, description: 'Output priority mode',
