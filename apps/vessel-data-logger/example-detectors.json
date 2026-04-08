@@ -1,0 +1,186 @@
+{
+  "eventDetectors": [
+    {
+      "id": "vessel_underway",
+      "name": "Vessel Underway",
+      "description": "Vessel moving at cruising speed with engines running",
+      "type": "duration",
+      "enabled": true,
+      "category": "navigation",
+      "tags": ["transit", "navigation"],
+      
+      "startConditions": {
+        "operator": "AND",
+        "stability": {
+          "consecutiveSamples": 3,
+          "withinDuration": 60
+        },
+        "rules": [
+          {
+            "path": "navigation.speedOverGround",
+            "operator": ">",
+            "value": 1.5
+          },
+          {
+            "operator": "OR",
+            "rules": [
+              {
+                "path": "propulsion.port.revolutions",
+                "operator": ">",
+                "value": 300
+              },
+              {
+                "path": "propulsion.starboard.revolutions",
+                "operator": ">",
+                "value": 300
+              }
+            ]
+          }
+        ]
+      },
+      
+      "endConditions": {
+        "operator": "AND",
+        "stability": {
+          "consecutiveSamples": 6,
+          "withinDuration": 300
+        },
+        "rules": [
+          {
+            "path": "navigation.speedOverGround",
+            "operator": "<",
+            "value": 0.3
+          },
+          {
+            "path": "propulsion.port.revolutions",
+            "operator": "<",
+            "value": 50
+          },
+          {
+            "path": "propulsion.starboard.revolutions",
+            "operator": "<",
+            "value": 50
+          }
+        ]
+      },
+      
+      "captureData": "navigation.position,navigation.speedOverGround,navigation.courseOverGroundTrue,propulsion.*.revolutions",
+      
+      "autoConfirm": false,
+      
+      "notifications": {
+        "enabled": true,
+        "onStart": true,
+        "onEnd": true
+      }
+    },
+    
+    {
+      "id": "engine_running",
+      "name": "Engine Running",
+      "description": "Port or starboard engine running above idle",
+      "type": "duration",
+      "enabled": true,
+      "category": "maintenance",
+      "tags": ["engine", "hours"],
+      
+      "startConditions": {
+        "operator": "OR",
+        "stability": {
+          "consecutiveSamples": 2,
+          "withinDuration": 20
+        },
+        "rules": [
+          {
+            "path": "propulsion.port.revolutions",
+            "operator": ">",
+            "value": 100
+          },
+          {
+            "path": "propulsion.starboard.revolutions",
+            "operator": ">",
+            "value": 100
+          }
+        ]
+      },
+      
+      "endConditions": {
+        "operator": "AND",
+        "stability": {
+          "consecutiveSamples": 3,
+          "withinDuration": 60
+        },
+        "rules": [
+          {
+            "path": "propulsion.port.revolutions",
+            "operator": "<",
+            "value": 50
+          },
+          {
+            "path": "propulsion.starboard.revolutions",
+            "operator": "<",
+            "value": 50
+          }
+        ]
+      },
+      
+      "captureData": "propulsion.*.revolutions,propulsion.*.temperature,propulsion.*.runTime",
+      
+      "autoConfirm": true,
+      
+      "notifications": {
+        "enabled": false
+      }
+    },
+    
+    {
+      "id": "low_battery",
+      "name": "Low Battery Alert",
+      "description": "Battery state of charge below 50%",
+      "type": "duration",
+      "enabled": true,
+      "category": "electrical",
+      "tags": ["battery", "alert"],
+      
+      "startConditions": {
+        "operator": "AND",
+        "stability": {
+          "consecutiveSamples": 2,
+          "withinDuration": 30
+        },
+        "rules": [
+          {
+            "path": "electrical.batteries.0.capacity.stateOfCharge",
+            "operator": "<",
+            "value": 0.50
+          }
+        ]
+      },
+      
+      "endConditions": {
+        "operator": "AND",
+        "stability": {
+          "consecutiveSamples": 2,
+          "withinDuration": 30
+        },
+        "rules": [
+          {
+            "path": "electrical.batteries.0.capacity.stateOfCharge",
+            "operator": ">",
+            "value": 0.60
+          }
+        ]
+      },
+      
+      "captureData": "electrical.batteries.0.capacity.stateOfCharge,electrical.batteries.0.voltage,electrical.batteries.0.current",
+      
+      "autoConfirm": false,
+      
+      "notifications": {
+        "enabled": true,
+        "onStart": true,
+        "onEnd": false
+      }
+    }
+  ]
+}

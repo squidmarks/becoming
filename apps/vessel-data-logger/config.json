@@ -154,5 +154,6 @@
         "description": "Battery started discharging"
       }
     ]
-  }
+  },
+  "enhancedEventDetectors": []
 }

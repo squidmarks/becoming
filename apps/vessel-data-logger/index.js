@@ -5,6 +5,7 @@ import { SignalKClient } from './signalk-client.js';
 import { MongoStorage } from './mongo-storage.js';
 import { ApiServer } from './api-server.js';
 import { EventDetector } from './event-detector.js';
+import { EnhancedEventDetector } from './enhanced-event-detector.js';
 
 dotenv.config();
 
@@ -22,13 +23,15 @@ class VesselDataLogger {
     );
     this.storage = new MongoStorage(process.env.MONGO_URI);
     this.eventDetector = new EventDetector();
+    this.enhancedEventDetector = new EnhancedEventDetector([], this.cache);
     this.apiServer = new ApiServer(
       parseInt(process.env.WEB_PORT) || 3200,
       this.cache,
       this.storage,
       this.configManager,
       this.signalkClient,
-      this.eventDetector
+      this.eventDetector,
+      this.enhancedEventDetector
     );
 
     this.lastWriteTimes = new Map();
@@ -53,7 +56,12 @@ class VesselDataLogger {
       
       if (config.eventDetection && config.eventDetection.enabled) {
         this.eventDetector.updateRules(config.eventDetection.rules || []);
-        console.log(`  Event Detection: ${config.eventDetection.rules?.length || 0} rules configured\n`);
+        console.log(`  Event Detection: ${config.eventDetection.rules?.length || 0} rules configured`);
+      }
+      
+      if (config.enhancedEventDetectors) {
+        this.enhancedEventDetector.updateDetectors(config.enhancedEventDetectors);
+        console.log(`  Enhanced Event Detection: ${config.enhancedEventDetectors.length} detectors configured\n`);
       }
     } catch (error) {
       console.error('Failed to load configuration:', error.message);
@@ -85,6 +93,11 @@ class VesselDataLogger {
 
     this.configManager.watch();
 
+    // Start periodic enhanced event evaluation (every 5 seconds)
+    this.enhancedEventEvaluator = setInterval(() => {
+      this.evaluateEnhancedEvents();
+    }, 5000);
+    
     console.log('\n✓ Vessel Data Logger is running\n');
   }
 
@@ -113,6 +126,11 @@ class VesselDataLogger {
         console.log(`Event detection rules updated: ${config.eventDetection.rules?.length || 0} rules`);
       }
       
+      if (config.enhancedEventDetectors) {
+        this.enhancedEventDetector.updateDetectors(config.enhancedEventDetectors);
+        console.log(`Enhanced event detectors updated: ${config.enhancedEventDetectors.length} detectors`);
+      }
+      
       this.apiServer.broadcastSSE('config-changed', {});
     });
 
@@ -132,6 +150,7 @@ class VesselDataLogger {
 
     this.cache.set(path, value, timestamp, source);
 
+    // Simple event detection (backward compatibility)
     const events = this.eventDetector.detectEvents(path, value, timestamp, source);
     if (events.length > 0 && this.storage.connected) {
       for (const event of events) {
@@ -152,6 +171,36 @@ class VesselDataLogger {
     }
 
     this.apiServer.broadcastSSE('delta', { path, value, timestamp, source });
+  }
+
+  evaluateEnhancedEvents() {
+    // Get all current cache values
+    const currentValues = this.cache.getAll();
+    
+    // Convert to simple path -> value map
+    const valueMap = {};
+    for (const [path, entry] of Object.entries(currentValues)) {
+      valueMap[path] = entry.value;
+    }
+    
+    // Evaluate all detectors
+    const events = this.enhancedEventDetector.evaluateAll(valueMap, new Date());
+    
+    // Handle detected events
+    if (events.length > 0 && this.storage.connected) {
+      for (const event of events) {
+        const action = event.endTime ? 'ended' : 'started';
+        console.log(`📌 Enhanced event ${action}: ${event.name}`);
+        
+        // Write/update rich event
+        this.storage.writeRichEvent(event);
+        
+        // Broadcast to web UI
+        this.apiServer.broadcastSSE('rich-event', event);
+        
+        // TODO: Send notifications if configured
+      }
+    }
   }
 
   shouldWriteToStorage(path, value, timestamp, subscription) {
@@ -277,6 +326,10 @@ class VesselDataLogger {
   async shutdown(signal) {
     console.log(`\n\nReceived ${signal}, shutting down gracefully...`);
 
+    if (this.enhancedEventEvaluator) {
+      clearInterval(this.enhancedEventEvaluator);
+    }
+    
     this.configManager.stopWatching();
     this.signalkClient.disconnect();
     await this.storage.disconnect();
