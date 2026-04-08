@@ -381,7 +381,7 @@
       <div id="detectors-events" class="tab-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <p style="color: var(--text-secondary); margin: 0;">Configure event detectors to automatically track vessel activities</p>
-          <button class="btn btn-primary" onclick="alert('Detector editor coming soon!')">
+          <button class="btn btn-primary" onclick="openDetectorEditor()">
             <i class="fas fa-plus"></i> Add Detector
           </button>
         </div>
@@ -500,8 +500,8 @@
     async function loadDetectors() {
       try {
         const response = await fetch('api/config');
-        const config = await response.json();
-        const detectors = config.enhancedEventDetectors || [];
+        fullConfig = await response.json();
+        const detectors = fullConfig.enhancedEventDetectors || [];
         renderDetectors(detectors);
       } catch (error) {
         console.error('Failed to load detectors:', error);
@@ -570,26 +570,41 @@
       `;
     }
 
+    let editingDetectorIndex = null;
+    let fullConfig = null;
+
     function viewDetector(index) {
-      alert('Detector editor coming soon! For now, edit via API or config.json');
+      openDetectorEditor(index);
+    }
+
+    function openDetectorEditor(index = null) {
+      editingDetectorIndex = index;
+      
+      if (index !== null && fullConfig) {
+        // Edit existing - show simplified view
+        const detector = fullConfig.enhancedEventDetectors[index];
+        alert(`Viewing ${detector.name}\n\nFor complex edits, please use the API or edit config.json directly.\nSimplified editor coming soon!`);
+      } else {
+        // Add new
+        alert('Add detector functionality coming soon!\nFor now, use the API or edit config.json directly.');
+      }
     }
 
     async function deleteDetector(index) {
       try {
-        const response = await fetch('api/config');
-        const config = await response.json();
-        const detectors = config.enhancedEventDetectors || [];
-        const detector = detectors[index];
+        if (!fullConfig) {
+          await loadDetectors();
+        }
         
+        const detector = fullConfig.enhancedEventDetectors[index];
         if (!confirm(`Delete "${detector.name}"?`)) return;
         
-        detectors.splice(index, 1);
-        config.enhancedEventDetectors = detectors;
+        fullConfig.enhancedEventDetectors.splice(index, 1);
         
         const saveResponse = await fetch('api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(config)
+          body: JSON.stringify(fullConfig)
         });
         
         if (saveResponse.ok) {
