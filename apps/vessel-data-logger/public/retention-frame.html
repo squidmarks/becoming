@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vessel Data Logger - Retention Policy</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body style="margin:0; padding:20px; background:transparent;">
+
+
+  <main>
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Data Retention Policy</h2>
+        <button class="btn btn-primary" onclick="saveRetention()"><i class="fas fa-save"></i> Save Changes</button>
+      </div>
+
+      <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+        Configure how long data is retained in MongoDB Atlas and when to downsample for storage optimization.
+      </p>
+
+      <div class="form-group">
+        <label>High Resolution Days</label>
+        <input type="number" id="highResolutionDays" min="1" max="365">
+        <small style="color: var(--text-secondary);">Keep full resolution data for this many days</small>
+      </div>
+
+      <div class="form-group">
+        <label>Downsample After Days</label>
+        <input type="number" id="downsampleAfterDays" min="1" max="365">
+        <small style="color: var(--text-secondary);">Aggregate data older than this to reduce storage</small>
+      </div>
+
+      <div class="form-group">
+        <label>Delete After Days</label>
+        <input type="number" id="deleteAfterDays" min="1" max="3650">
+        <small style="color: var(--text-secondary);">Permanently delete data older than this (up to 10 years)</small>
+      </div>
+
+      <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
+        <h3 style="margin-top: 0;">Retention Strategy</h3>
+        <p style="color: var(--text-secondary); margin: 0.5rem 0;">
+          <strong>Day 0-30:</strong> Full resolution (every data point)<br>
+          <strong>Day 30+:</strong> Downsampled (hourly aggregates)<br>
+          <strong>Day 365+:</strong> Deleted
+        </p>
+        <p style="color: var(--text-secondary); margin: 0.5rem 0; font-size: 0.875rem;">
+          <i class="fas fa-info-circle"></i> Note: Retention policies are not yet automatically enforced. This is a placeholder for future implementation.
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="connection-status">
+      <span>Retention policy settings</span>
+    </div>
+  </footer>
+
+  <script>
+    let config = null;
+
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const icon = document.querySelector('.theme-toggle i');
+      const text = document.getElementById('theme-text');
+      
+      if (theme === 'dark') {
+        icon.className = 'fas fa-sun';
+        text.textContent = 'Light Mode';
+      } else {
+        icon.className = 'fas fa-moon';
+        text.textContent = 'Dark Mode';
+      }
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('api/config');
+        config = await response.json();
+        
+        document.getElementById('highResolutionDays').value = config.retention?.highResolutionDays || 30;
+        document.getElementById('downsampleAfterDays').value = config.retention?.downsampleAfterDays || 30;
+        document.getElementById('deleteAfterDays').value = config.retention?.deleteAfterDays || 365;
+      } catch (error) {
+        console.error('Failed to load config:', error);
+        alert('Failed to load configuration');
+      }
+    }
+
+    async function saveRetention() {
+      if (!config) {
+        alert('Configuration not loaded');
+        return;
+      }
+
+      config.retention = {
+        highResolutionDays: parseInt(document.getElementById('highResolutionDays').value),
+        downsampleAfterDays: parseInt(document.getElementById('downsampleAfterDays').value),
+        deleteAfterDays: parseInt(document.getElementById('deleteAfterDays').value)
+      };
+
+      try {
+        const response = await fetch('api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+
+        if (response.ok) {
+          alert('✓ Retention policy saved successfully');
+          loadConfig();
+        } else {
+          const error = await response.json();
+          alert(`Failed to save: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Failed to save:', error);
+        alert('Failed to save retention policy');
+      }
+    }
+
+    initTheme();
+    loadConfig();
+  </script>
+</body>
+</html>

@@ -41,11 +41,6 @@
       border: none;
       min-height: calc(100vh - 250px);
     }
-    /* Hide header and nav in iframes to prevent duplication */
-    iframe {
-      margin-top: -140px;
-      min-height: calc(100vh - 110px);
-    }
   </style>
 </head>
 <body>
@@ -81,11 +76,11 @@
       </div>
 
       <div id="configuration-tab" class="tab-content active">
-        <iframe src="config.html" id="config-frame"></iframe>
+        <iframe src="config-frame.html" id="config-frame"></iframe>
       </div>
 
       <div id="viewer-tab" class="tab-content">
-        <iframe src="viewer.html" id="viewer-frame"></iframe>
+        <iframe src="viewer-frame.html" id="viewer-frame"></iframe>
       </div>
     </div>
   </main>

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vessel Data Logger - Configuration</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      overflow: auto;
+    }
+    
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 2rem;
+      max-width: 800px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h2 {
+      margin: 0;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .close-btn:hover {
+      color: var(--text-primary);
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .switch-label {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .switch-label:hover {
+      background: var(--border-color);
+    }
+    
+    .switch-label input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+    
+    .switch-label-text {
+      flex: 1;
+      font-weight: 500;
+    }
+    
+    .switch-label-hint {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+    
+    .condition-section {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .autocomplete {
+      position: relative;
+    }
+    
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .autocomplete-item {
+      padding: 0.5rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: monospace;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .autocomplete-item:hover {
+      background: var(--bg-secondary);
+    }
+    
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+    
+    tbody tr {
+      cursor: pointer;
+    }
+    
+    tbody tr:hover {
+      background: var(--bg-secondary);
+    }
+    
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+  </style>
+</head>
+<body style="margin:0; padding:20px; background:transparent;">
+
+
+  <main>
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Logging Configuration</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" onclick="openEditor()"><i class="fas fa-plus"></i> Add Path</button>
+          <button class="btn btn-primary" onclick="saveConfig()"><i class="fas fa-save"></i> Save Changes</button>
+        </div>
+      </div>
+
+      <div id="subscriptions-list"></div>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="connection-status">
+      <span>Configuration changes will be applied immediately</span>
+    </div>
+  </footer>
+
+  <!-- Edit/Add Modal -->
+  <div id="editorModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Logging Path</h2>
+        <button class="close-btn" onclick="closeEditor()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group autocomplete" style="grid-column: 1 / -1;">
+          <label>SignalK Path *</label>
+          <input type="text" id="editPath" placeholder="Start typing to search paths..." oninput="handlePathInput()" onfocus="handlePathInput()">
+          <div id="pathAutocomplete" class="autocomplete-list" style="display: none;"></div>
+          <small style="color: var(--text-secondary);">Type to search available SignalK paths</small>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Description (optional)</label>
+        <input type="text" id="editDescription" placeholder="e.g., GPS position">
+      </div>
+
+      <div class="form-row-3">
+        <div class="form-group">
+          <label>Log Interval (seconds) *</label>
+          <input type="number" id="editInterval" min="1" max="3600" value="60">
+          <small style="color: var(--text-secondary);">Normal write interval</small>
+        </div>
+
+        <div class="form-group">
+          <label>Max Interval (seconds)</label>
+          <input type="number" id="editMaxInterval" min="0" max="86400" placeholder="None">
+          <small style="color: var(--text-secondary);">Heartbeat interval</small>
+        </div>
+
+        <div class="form-group">
+          <label>Delta Threshold</label>
+          <input type="number" id="editDeltaThreshold" step="0.01" placeholder="None">
+          <small style="color: var(--text-secondary);">Min change to log</small>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="switch-label">
+          <input type="checkbox" id="editEnabled" checked>
+          <div>
+            <div class="switch-label-text">Enable Logging</div>
+            <div class="switch-label-hint">Start logging this path immediately</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="condition-section">
+        <h3 style="margin-bottom: 1rem;">Conditional Logging</h3>
+        
+        <div class="form-group">
+          <label class="switch-label">
+            <input type="checkbox" id="hasCondition" onchange="toggleConditionFields()">
+            <div>
+              <div class="switch-label-text">Enable Condition</div>
+              <div class="switch-label-hint">Only log when specified condition is met</div>
+            </div>
+          </label>
+        </div>
+
+        <div id="conditionFields" style="display: none;">
+          <div class="form-group autocomplete">
+            <label>Condition Path *</label>
+            <input type="text" id="editConditionPath" placeholder="Start typing to search paths..." oninput="handleConditionPathInput()" onfocus="handleConditionPathInput()">
+            <div id="conditionPathAutocomplete" class="autocomplete-list" style="display: none;"></div>
+            <small style="color: var(--text-secondary);">Type to search available SignalK paths</small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Operator *</label>
+              <select id="editConditionOperator">
+                <option value=">">Greater than (>)</option>
+                <option value=">=">Greater or equal (>=)</option>
+                <option value="<">Less than (<)</option>
+                <option value="<=">Less or equal (<=)</option>
+                <option value="==">Equal (==)</option>
+                <option value="!=">Not equal (!=)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Value *</label>
+              <input type="number" id="editConditionValue" step="0.01" placeholder="e.g., 0">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="deleteBtn" class="btn btn-danger" onclick="deleteEntry()" style="display: none; margin-right: auto;"><i class="fas fa-trash"></i> Delete</button>
+        <button class="btn btn-secondary" onclick="closeEditor()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEntry()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let config = null;
+    let editingIndex = null;
+    let allPaths = [];
+
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const button = document.querySelector('.theme-toggle');
+      button.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('api/config');
+        config = await response.json();
+        renderConfig();
+      } catch (error) {
+        console.error('Failed to load config:', error);
+        alert('Failed to load configuration');
+      }
+    }
+
+    async function loadAllPaths() {
+      try {
+        const response = await fetch('api/paths?limit=1000');
+        const data = await response.json();
+        allPaths = data.paths.map(p => p.path);
+      } catch (error) {
+        console.error('Failed to load paths:', error);
+      }
+    }
+
+    function handlePathInput() {
+      const input = document.getElementById('editPath');
+      const value = input.value.toLowerCase();
+      const list = document.getElementById('pathAutocomplete');
+      
+      if (!value || input.disabled) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      const filtered = allPaths.filter(p => p.toLowerCase().includes(value)).slice(0, 20);
+      
+      if (filtered.length === 0) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      list.innerHTML = filtered.map(path => 
+        `<div class="autocomplete-item" onclick="selectPath('${path}')">${path}</div>`
+      ).join('');
+      
+      list.style.display = 'block';
+    }
+
+    function selectPath(path) {
+      document.getElementById('editPath').value = path;
+      document.getElementById('pathAutocomplete').style.display = 'none';
+    }
+
+    function handleConditionPathInput() {
+      const input = document.getElementById('editConditionPath');
+      const value = input.value.toLowerCase();
+      const list = document.getElementById('conditionPathAutocomplete');
+      
+      if (!value) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      const filtered = allPaths.filter(p => p.toLowerCase().includes(value)).slice(0, 20);
+      
+      if (filtered.length === 0) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      list.innerHTML = filtered.map(path => 
+        `<div class="autocomplete-item" onclick="selectConditionPath('${path}')">${path}</div>`
+      ).join('');
+      
+      list.style.display = 'block';
+    }
+
+    function selectConditionPath(path) {
+      document.getElementById('editConditionPath').value = path;
+      document.getElementById('conditionPathAutocomplete').style.display = 'none';
+    }
+
+    function renderConfig() {
+      const container = document.getElementById('subscriptions-list');
+      
+      if (!config.subscriptions || config.subscriptions.length === 0) {
+        container.innerHTML = '<div class="empty-state"><h3>No paths configured</h3><p>Add a path to start logging data</p></div>';
+        return;
+      }
+
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Enabled</th>
+            <th>Path</th>
+            <th>Interval (s)</th>
+            <th>Max Interval (s)</th>
+            <th>Delta</th>
+            <th>Condition</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${config.subscriptions.map((sub, index) => {
+            const conditionText = sub.condition 
+              ? `${sub.condition.path} ${sub.condition.operator} ${sub.condition.value}`
+              : '-';
+            const maxIntervalText = sub.maxInterval ? sub.maxInterval : '-';
+            const deltaText = sub.deltaThreshold !== null && sub.deltaThreshold !== undefined ? sub.deltaThreshold : '-';
+            return `
+            <tr onclick="openEditor(${index})">
+              <td onclick="event.stopPropagation()">
+                <label class="toggle-switch">
+                  <input type="checkbox" ${sub.enabled ? 'checked' : ''} onchange="toggleEnabled(${index})">
+                  <span class="slider"></span>
+                </label>
+              </td>
+              <td style="font-family: monospace; font-size: 0.75rem;">${sub.path}</td>
+              <td>${sub.logInterval}</td>
+              <td>${maxIntervalText}</td>
+              <td>${deltaText}</td>
+              <td style="font-size: 0.75rem; font-family: monospace;">${conditionText}</td>
+            </tr>
+          `;}).join('')}
+        </tbody>
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(table);
+    }
+
+    function openEditor(index = null) {
+      editingIndex = index;
+      const modal = document.getElementById('editorModal');
+      const title = document.getElementById('modalTitle');
+      const deleteBtn = document.getElementById('deleteBtn');
+      
+      if (index !== null) {
+        title.textContent = 'Edit Logging Path';
+        deleteBtn.style.display = 'block';
+        const sub = config.subscriptions[index];
+        
+        document.getElementById('editPath').value = sub.path;
+        document.getElementById('editPath').disabled = true;
+        document.getElementById('editDescription').value = sub.description || '';
+        document.getElementById('editInterval').value = sub.logInterval;
+        document.getElementById('editMaxInterval').value = sub.maxInterval || '';
+        document.getElementById('editDeltaThreshold').value = sub.deltaThreshold !== null && sub.deltaThreshold !== undefined ? sub.deltaThreshold : '';
+        document.getElementById('editEnabled').checked = sub.enabled;
+        
+        if (sub.condition) {
+          document.getElementById('hasCondition').checked = true;
+          document.getElementById('conditionFields').style.display = 'block';
+          document.getElementById('editConditionPath').value = sub.condition.path;
+          document.getElementById('editConditionOperator').value = sub.condition.operator;
+          document.getElementById('editConditionValue').value = sub.condition.value;
+        } else {
+          document.getElementById('hasCondition').checked = false;
+          document.getElementById('conditionFields').style.display = 'none';
+        }
+      } else {
+        title.textContent = 'Add Logging Path';
+        deleteBtn.style.display = 'none';
+        document.getElementById('editPath').disabled = false;
+        document.getElementById('editPath').value = '';
+        document.getElementById('editDescription').value = '';
+        document.getElementById('editInterval').value = 60;
+        document.getElementById('editMaxInterval').value = '';
+        document.getElementById('editDeltaThreshold').value = '';
+        document.getElementById('editEnabled').checked = true;
+        document.getElementById('hasCondition').checked = false;
+        document.getElementById('conditionFields').style.display = 'none';
+        document.getElementById('editConditionPath').value = '';
+        document.getElementById('editConditionOperator').value = '>';
+        document.getElementById('editConditionValue').value = '';
+      }
+      
+      modal.classList.add('active');
+    }
+
+    function closeEditor() {
+      document.getElementById('editorModal').classList.remove('active');
+      editingIndex = null;
+    }
+
+    function toggleConditionFields() {
+      const checked = document.getElementById('hasCondition').checked;
+      document.getElementById('conditionFields').style.display = checked ? 'block' : 'none';
+    }
+
+    function saveEntry() {
+      const path = document.getElementById('editPath').value.trim();
+      const description = document.getElementById('editDescription').value.trim();
+      const logInterval = parseInt(document.getElementById('editInterval').value);
+      const maxInterval = document.getElementById('editMaxInterval').value.trim();
+      const deltaThreshold = document.getElementById('editDeltaThreshold').value.trim();
+      const enabled = document.getElementById('editEnabled').checked;
+      const hasCondition = document.getElementById('hasCondition').checked;
+      
+      if (!path) {
+        alert('Path is required');
+        return;
+      }
+      
+      if (!logInterval || logInterval < 1) {
+        alert('Log interval must be at least 1 second');
+        return;
+      }
+      
+      if (editingIndex === null) {
+        const exists = config.subscriptions.some(sub => sub.path === path);
+        if (exists) {
+          alert('Path already exists in configuration');
+          return;
+        }
+      }
+      
+      const entry = {
+        path,
+        enabled,
+        logInterval,
+        deltaThreshold: deltaThreshold ? parseFloat(deltaThreshold) : null,
+        description: description || ''
+      };
+      
+      if (maxInterval) {
+        entry.maxInterval = parseInt(maxInterval);
+      }
+      
+      if (hasCondition) {
+        const condPath = document.getElementById('editConditionPath').value.trim();
+        const condOp = document.getElementById('editConditionOperator').value;
+        const condValue = document.getElementById('editConditionValue').value.trim();
+        
+        if (!condPath || !condValue) {
+          alert('Condition path and value are required when condition is enabled');
+          return;
+        }
+        
+        entry.condition = {
+          path: condPath,
+          operator: condOp,
+          value: parseFloat(condValue)
+        };
+      }
+      
+      if (editingIndex !== null) {
+        config.subscriptions[editingIndex] = entry;
+      } else {
+        config.subscriptions.push(entry);
+      }
+      
+      closeEditor();
+      renderConfig();
+    }
+
+    function toggleEnabled(index) {
+      config.subscriptions[index].enabled = !config.subscriptions[index].enabled;
+    }
+
+    function deleteEntry() {
+      if (editingIndex === null) return;
+      
+      const path = config.subscriptions[editingIndex].path;
+      if (confirm(`Remove ${path}?`)) {
+        config.subscriptions.splice(editingIndex, 1);
+        closeEditor();
+        renderConfig();
+      }
+    }
+
+    async function saveConfig() {
+      try {
+        const response = await fetch('api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+
+        if (response.ok) {
+          alert('✓ Configuration saved successfully');
+          loadConfig();
+        } else {
+          const error = await response.json();
+          alert(`Failed to save: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Failed to save config:', error);
+        alert('Failed to save configuration');
+      }
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      const modal = document.getElementById('editorModal');
+      if (event.target === modal) {
+        closeEditor();
+      }
+    }
+
+    initTheme();
+    loadConfig();
+    loadAllPaths();
+    
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.autocomplete')) {
+        document.getElementById('pathAutocomplete').style.display = 'none';
+        document.getElementById('conditionPathAutocomplete').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
