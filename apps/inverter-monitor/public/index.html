@@ -2364,8 +2364,10 @@
         { id: '28', address: 0xE205, name: 'Grid Charge Current', key: 'acChgLimit', scale: 0.1, unit: 'A', min: 0, max: 80, description: 'Max current from AC/grid' },
         { id: '06', address: 0xE20F, name: 'Battery Charge Mode', key: 'chgSourcePriority', scale: 1, unit: '', min: 0, max: 3, description: 'Charge source priority',
           options: [
-            { value: 0, label: 'SNU (PV First, Grid Supplement)' },
-            { value: 1, label: 'OSO (PV Only, No Grid Charge)' }
+            { value: 0, label: 'PV Priority (Grid charges when PV fails)' },
+            { value: 1, label: 'Grid Priority (PV charges when Grid fails)' },
+            { value: 2, label: 'SNU (Hybrid: PV + Grid, PV priority)' },
+            { value: 3, label: 'OSO (PV Only, No Grid Charge)' }
           ]
         },
         { id: '39', address: 0xE025, name: 'Charge Limit (BMS Mode)', key: 'bmsChgMode', scale: 1, unit: '', min: 0, max: 2, description: 'Charge current limit source',
