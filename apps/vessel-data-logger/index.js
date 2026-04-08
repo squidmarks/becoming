@@ -6,6 +6,8 @@ import { MongoStorage } from './mongo-storage.js';
 import { ApiServer } from './api-server.js';
 import { EventDetector } from './event-detector.js';
 import { EnhancedEventDetector } from './enhanced-event-detector.js';
+import { NotificationManager } from './notification-manager.js';
+import { TelegramTransport } from './telegram-transport.js';
 
 dotenv.config();
 
@@ -24,6 +26,14 @@ class VesselDataLogger {
     this.storage = new MongoStorage(process.env.MONGO_URI);
     this.eventDetector = new EventDetector();
     this.enhancedEventDetector = new EnhancedEventDetector([], this.cache);
+    
+    // Initialize notification system
+    this.notificationManager = new NotificationManager();
+    const telegramTransport = new TelegramTransport();
+    if (telegramTransport.isEnabled()) {
+      this.notificationManager.addTransport(telegramTransport);
+    }
+    
     this.apiServer = new ApiServer(
       parseInt(process.env.WEB_PORT) || 3200,
       this.cache,
@@ -198,7 +208,12 @@ class VesselDataLogger {
         // Broadcast to web UI
         this.apiServer.broadcastSSE('rich-event', event);
         
-        // TODO: Send notifications if configured
+        // Send notifications if enabled for this event
+        if (event.notifications && event.notifications.enabled) {
+          this.notificationManager.sendEventNotification(event).catch(err => {
+            console.error('Notification error:', err);
+          });
+        }
       }
     }
   }

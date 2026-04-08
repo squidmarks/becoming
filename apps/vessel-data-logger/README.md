@@ -586,6 +586,83 @@ See `.env.example` for full list. Key variables:
 - View current values and sources
 - Quick-add paths to logging configuration
 
+## Notifications
+
+The vessel data logger includes a pluggable notification system that can alert you to important events via multiple channels.
+
+### Supported Transports
+
+- **Telegram** - Bot notifications via Telegram Messenger
+- **Email** - Coming soon
+- **SMS** - Coming soon
+- **Webhook** - Coming soon
+
+### Setup Telegram Notifications
+
+See [docs/telegram-setup.md](docs/telegram-setup.md) for detailed setup instructions.
+
+**Quick Start:**
+
+1. Create a Telegram bot via `@BotFather`
+2. Get your bot token and chat ID
+3. Add to `.env`:
+   ```bash
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   TELEGRAM_CHAT_ID=your_chat_id_here
+   ```
+4. Restart the service:
+   ```bash
+   sudo systemctl restart vessel-data-logger
+   ```
+
+### Enable Notifications for Events
+
+In your event detector configuration, set `notifications.enabled`:
+
+```json
+{
+  "detectorId": "vessel_underway",
+  "name": "Vessel Underway",
+  "notifications": {
+    "enabled": true
+  },
+  "startConditions": { ... },
+  "endConditions": { ... }
+}
+```
+
+### Notification Format
+
+Notifications include:
+- **Title**: Event name with priority emoji (ℹ️/🔔/⚠️/🚨)
+- **Message**: Event description
+- **Details**: Captured data from event start/end
+- **Timestamp**: When the event occurred
+
+**Example Telegram Message:**
+```
+🔔 Vessel Underway Started
+
+Vessel motion detected - underway
+
+Details:
+• Speed Over Ground: 4.50 kts
+• Course Over Ground: 135.2°
+• Position: 32.785724, -79.909782
+• Duration: 2h 15m
+• Event Id: vessel_underway_20260408_145623
+
+4/8/26, 2:56 PM
+```
+
+### Priority Levels
+
+Events are automatically prioritized:
+- **Urgent** (🚨): Safety/alarm events
+- **High** (⚠️): Navigation/engine events
+- **Normal** (🔔): General operational events
+- **Low** (ℹ️): Informational events
+
 ## REST API
 
 Base URL: `http://becoming-hub:3200/api` (or `/data-logger/api` via nginx)
