@@ -124,7 +124,7 @@
 
     async function loadConfiguredPaths() {
       try {
-        const response = await fetch('/api/config');
+        const response = await fetch('api/config');
         config = await response.json();
         
         const select = document.getElementById('path-select');

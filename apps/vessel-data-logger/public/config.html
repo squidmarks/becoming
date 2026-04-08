@@ -89,7 +89,7 @@
 
     async function loadConfig() {
       try {
-        const response = await fetch('/api/config');
+        const response = await fetch('api/config');
         config = await response.json();
         renderConfig();
       } catch (error) {
@@ -250,7 +250,7 @@
       };
 
       try {
-        const response = await fetch('/api/config', {
+        const response = await fetch('api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config)

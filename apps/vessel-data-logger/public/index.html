@@ -127,7 +127,7 @@
 
     async function loadStatus() {
       try {
-        const response = await fetch('/api/status');
+        const response = await fetch('api/status');
         const data = await response.json();
 
         document.getElementById('signalk-status').textContent = data.signalk.connected ? 'Connected' : 'Disconnected';
@@ -165,7 +165,7 @@
 
     async function loadRecentEvents() {
       try {
-        const response = await fetch('/api/events/recent?limit=20');
+        const response = await fetch('api/events/recent?limit=20');
         const data = await response.json();
         
         eventsLog.length = 0;
@@ -181,7 +181,7 @@
     }
 
     function connectSSE() {
-      eventSource = new EventSource('/api/events/stream');
+      eventSource = new EventSource('api/events/stream');
 
       eventSource.addEventListener('message', (event) => {
         const data = JSON.parse(event.data);
