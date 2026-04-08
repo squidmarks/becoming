@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Events - Vessel Data Logger</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .event-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .event-tab {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .event-tab:hover {
+      color: var(--text-primary);
+    }
+
+    .event-tab.active {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+    }
+
+    .event-tab .badge {
+      display: inline-block;
+      background: var(--primary-color);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      margin-left: 8px;
+    }
+
+    .event-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 15px;
+      transition: all 0.2s;
+    }
+
+    .event-card:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+
+    .event-card.active {
+      border-left: 4px solid #10b981;
+    }
+
+    .event-card.pending {
+      border-left: 4px solid #f59e0b;
+    }
+
+    .event-card.confirmed {
+      border-left: 4px solid #3b82f6;
+    }
+
+    .event-card.dismissed {
+      opacity: 0.6;
+      border-left: 4px solid #6b7280;
+    }
+
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 15px;
+    }
+
+    .event-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 5px 0;
+    }
+
+    .event-description {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .event-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .event-status.active {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .event-status.pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .event-status.confirmed {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .event-status.dismissed {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .event-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+      padding: 15px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+
+    .event-meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .event-meta-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .event-meta-value {
+      font-size: 1rem;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .event-data {
+      margin-top: 15px;
+    }
+
+    .event-data-section {
+      margin-bottom: 10px;
+    }
+
+    .event-data-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .event-data-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 8px;
+    }
+
+    .event-data-item {
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+
+    .event-data-item strong {
+      color: var(--text-secondary);
+    }
+
+    .event-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .event-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+    }
+
+    .event-notes {
+      margin-top: 15px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-style: italic;
+      color: var(--text-secondary);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: var(--bg-primary);
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+      margin: 0 0 20px 0;
+      color: var(--text-primary);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 1rem;
+    }
+
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .tag-input-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-primary);
+    }
+
+    .tag-input-container input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 4px;
+      min-width: 120px;
+      background: transparent;
+    }
+
+    .tag-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--primary-color);
+      color: white;
+      border-radius: 12px;
+      font-size: 0.85rem;
+    }
+
+    .tag-item button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0;
+      font-size: 1rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 25px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1><i class="fas fa-ship"></i> Vessel Data Logger</h1>
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-tabs">
+      <a href="./">Dashboard</a>
+      <a href="config.html">Configuration</a>
+      <a href="viewer.html">Data Viewer</a>
+      <a href="retention.html">Retention</a>
+      <a href="events.html" class="active">Events</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2><i class="fas fa-calendar-alt"></i> Events</h2>
+      
+      <div class="event-tabs">
+        <button class="event-tab active" onclick="switchTab('active')">
+          <i class="fas fa-play-circle"></i> Active
+          <span class="badge" id="active-count">0</span>
+        </button>
+        <button class="event-tab" onclick="switchTab('pending')">
+          <i class="fas fa-clock"></i> Pending Review
+          <span class="badge" id="pending-count">0</span>
+        </button>
+        <button class="event-tab" onclick="switchTab('history')">
+          <i class="fas fa-history"></i> History
+        </button>
+      </div>
+
+      <div id="active-events" class="tab-content">
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No active events</p>
+        </div>
+      </div>
+
+      <div id="pending-events" class="tab-content" style="display: none;">
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No events pending review</p>
+        </div>
+      </div>
+
+      <div id="history-events" class="tab-content" style="display: none;">
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No event history</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Review Modal -->
+  <div id="reviewModal" class="modal">
+    <div class="modal-content">
+      <h2 class="modal-title" id="modalTitle">Review Event</h2>
+      
+      <div class="form-group">
+        <label for="eventNotes">Notes</label>
+        <textarea id="eventNotes" placeholder="Add any notes about this event..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="eventTags">Tags</label>
+        <div class="tag-input-container" id="tagContainer">
+          <input type="text" id="tagInput" placeholder="Add tag and press Enter">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="dismissEvent()">Dismiss</button>
+        <button class="btn btn-primary" onclick="confirmEvent()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 'active';
+    let currentEventId = null;
+    let eventTags = [];
+    let activeEvents = [];
+    let pendingEvents = [];
+
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const icon = document.querySelector('.theme-toggle i');
+      const text = document.getElementById('theme-text');
+      
+      if (theme === 'dark') {
+        icon.className = 'fas fa-sun';
+        text.textContent = 'Light Mode';
+      } else {
+        icon.className = 'fas fa-moon';
+        text.textContent = 'Dark Mode';
+      }
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      
+      // Update tab buttons
+      document.querySelectorAll('.event-tab').forEach(btn => btn.classList.remove('active'));
+      event.target.closest('.event-tab').classList.add('active');
+      
+      // Hide all content
+      document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+      
+      // Show selected content
+      if (tab === 'active') {
+        document.getElementById('active-events').style.display = 'block';
+        loadActiveEvents();
+      } else if (tab === 'pending') {
+        document.getElementById('pending-events').style.display = 'block';
+        loadPendingEvents();
+      } else if (tab === 'history') {
+        document.getElementById('history-events').style.display = 'block';
+        loadHistoryEvents();
+      }
+    }
+
+    async function loadActiveEvents() {
+      try {
+        const response = await fetch('api/events/active');
+        const data = await response.json();
+        activeEvents = data.events || [];
+        
+        document.getElementById('active-count').textContent = activeEvents.length;
+        renderEvents(activeEvents, 'active-events', false);
+      } catch (error) {
+        console.error('Failed to load active events:', error);
+      }
+    }
+
+    async function loadPendingEvents() {
+      try {
+        const response = await fetch('api/events/pending?limit=50');
+        const data = await response.json();
+        pendingEvents = data.events || [];
+        
+        document.getElementById('pending-count').textContent = pendingEvents.length;
+        renderEvents(pendingEvents, 'pending-events', true);
+      } catch (error) {
+        console.error('Failed to load pending events:', error);
+      }
+    }
+
+    async function loadHistoryEvents() {
+      // TODO: Implement history query with filters
+      const container = document.getElementById('history-events');
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>History view coming soon</p></div>';
+    }
+
+    function renderEvents(events, containerId, showReviewButton) {
+      const container = document.getElementById(containerId);
+      
+      if (events.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No events found</p></div>';
+        return;
+      }
+
+      container.innerHTML = events.map(event => `
+        <div class="event-card ${event.state}">
+          <div class="event-header">
+            <div>
+              <h3 class="event-title">${event.name}</h3>
+              <p class="event-description">${event.description || ''}</p>
+            </div>
+            <span class="event-status ${event.state}">${formatState(event.state)}</span>
+          </div>
+
+          <div class="event-meta">
+            <div class="event-meta-item">
+              <span class="event-meta-label">Started</span>
+              <span class="event-meta-value">${formatDateTime(event.startTime)}</span>
+            </div>
+            ${event.endTime ? `
+              <div class="event-meta-item">
+                <span class="event-meta-label">Ended</span>
+                <span class="event-meta-value">${formatDateTime(event.endTime)}</span>
+              </div>
+              <div class="event-meta-item">
+                <span class="event-meta-label">Duration</span>
+                <span class="event-meta-value">${formatDuration(event.duration)}</span>
+              </div>
+            ` : `
+              <div class="event-meta-item">
+                <span class="event-meta-label">Duration</span>
+                <span class="event-meta-value">${formatDuration(Math.floor((Date.now() - new Date(event.startTime).getTime()) / 1000))}</span>
+              </div>
+            `}
+            <div class="event-meta-item">
+              <span class="event-meta-label">Category</span>
+              <span class="event-meta-value">${event.category || 'General'}</span>
+            </div>
+          </div>
+
+          ${renderEventData(event)}
+
+          ${event.tags && event.tags.length > 0 ? `
+            <div class="event-tags">
+              ${event.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+            </div>
+          ` : ''}
+
+          ${event.userNotes ? `
+            <div class="event-notes">
+              <i class="fas fa-sticky-note"></i> ${event.userNotes}
+            </div>
+          ` : ''}
+
+          ${showReviewButton ? `
+            <div class="event-actions">
+              <button class="btn btn-primary" onclick="openReviewModal('${event.eventId}')">
+                <i class="fas fa-check"></i> Review Event
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderEventData(event) {
+      let html = '<div class="event-data">';
+      
+      if (event.startData && Object.keys(event.startData).length > 0) {
+        html += '<div class="event-data-section">';
+        html += '<div class="event-data-title">Start Data</div>';
+        html += '<div class="event-data-grid">';
+        for (const [key, value] of Object.entries(event.startData)) {
+          html += `<div class="event-data-item"><strong>${formatKey(key)}:</strong> ${formatValue(value)}</div>`;
+        }
+        html += '</div></div>';
+      }
+      
+      if (event.endData && Object.keys(event.endData).length > 0) {
+        html += '<div class="event-data-section">';
+        html += '<div class="event-data-title">End Data</div>';
+        html += '<div class="event-data-grid">';
+        for (const [key, value] of Object.entries(event.endData)) {
+          html += `<div class="event-data-item"><strong>${formatKey(key)}:</strong> ${formatValue(value)}</div>`;
+        }
+        html += '</div></div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+    function formatState(state) {
+      const states = {
+        active: 'Active',
+        pending: 'Pending Review',
+        confirmed: 'Confirmed',
+        dismissed: 'Dismissed',
+        auto_confirmed: 'Auto Confirmed'
+      };
+      return states[state] || state;
+    }
+
+    function formatDateTime(timestamp) {
+      return new Date(timestamp).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function formatDuration(seconds) {
+      if (!seconds) return '-';
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      }
+      return `${minutes}m`;
+    }
+
+    function formatKey(key) {
+      return key.split('.').pop().replace(/([A-Z])/g, ' $1').trim()
+        .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
+    function formatValue(value) {
+      if (typeof value === 'object' && value !== null) {
+        if (value.latitude !== undefined && value.longitude !== undefined) {
+          return `${value.latitude.toFixed(6)}, ${value.longitude.toFixed(6)}`;
+        }
+        return JSON.stringify(value);
+      }
+      if (typeof value === 'number') {
+        return value.toFixed(2);
+      }
+      return String(value);
+    }
+
+    function openReviewModal(eventId) {
+      currentEventId = eventId;
+      eventTags = [];
+      document.getElementById('eventNotes').value = '';
+      renderTags();
+      document.getElementById('reviewModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('reviewModal').classList.remove('active');
+      currentEventId = null;
+      eventTags = [];
+    }
+
+    function renderTags() {
+      const container = document.getElementById('tagContainer');
+      const input = document.getElementById('tagInput');
+      
+      container.innerHTML = eventTags.map(tag => `
+        <div class="tag-item">
+          ${tag}
+          <button onclick="removeTag('${tag}')">×</button>
+        </div>
+      `).join('');
+      
+      container.appendChild(input);
+    }
+
+    function removeTag(tag) {
+      eventTags = eventTags.filter(t => t !== tag);
+      renderTags();
+    }
+
+    document.getElementById('tagInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = e.target.value.trim();
+        if (value && !eventTags.includes(value)) {
+          eventTags.push(value);
+          e.target.value = '';
+          renderTags();
+        }
+      }
+    });
+
+    async function confirmEvent() {
+      if (!currentEventId) return;
+      
+      try {
+        const notes = document.getElementById('eventNotes').value;
+        const response = await fetch(`api/events/${currentEventId}/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notes: notes || undefined,
+            tags: eventTags.length > 0 ? eventTags : undefined
+          })
+        });
+        
+        if (response.ok) {
+          closeModal();
+          loadPendingEvents();
+        }
+      } catch (error) {
+        console.error('Failed to confirm event:', error);
+        alert('Failed to confirm event');
+      }
+    }
+
+    async function dismissEvent() {
+      if (!currentEventId) return;
+      if (!confirm('Are you sure you want to dismiss this event?')) return;
+      
+      try {
+        const reason = document.getElementById('eventNotes').value || 'User dismissed';
+        const response = await fetch(`api/events/${currentEventId}/dismiss`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason })
+        });
+        
+        if (response.ok) {
+          closeModal();
+          loadPendingEvents();
+        }
+      } catch (error) {
+        console.error('Failed to dismiss event:', error);
+        alert('Failed to dismiss event');
+      }
+    }
+
+    // Initialize
+    initTheme();
+    loadActiveEvents();
+    
+    // Refresh active events every 10 seconds
+    setInterval(() => {
+      if (currentTab === 'active') {
+        loadActiveEvents();
+      }
+    }, 10000);
+
+    // Close modal when clicking outside
+    document.getElementById('reviewModal').addEventListener('click', (e) => {
+      if (e.target.id === 'reviewModal') {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>
