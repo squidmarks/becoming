@@ -379,7 +379,13 @@
       </div>
 
       <div id="detectors-events" class="tab-content">
-        <iframe src="event-config.html" style="width:100%; border:none; min-height:600px;"></iframe>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <p style="color: var(--text-secondary); margin: 0;">Configure event detectors to automatically track vessel activities</p>
+          <button class="btn btn-primary" onclick="alert('Detector editor coming soon!')">
+            <i class="fas fa-plus"></i> Add Detector
+          </button>
+        </div>
+        <div id="detectors-list"></div>
       </div>
 
       <div id="active-events" class="tab-content" style="display: none;">
@@ -431,7 +437,7 @@
   </div>
 
   <script>
-    let currentTab = 'active';
+    let currentTab = 'detectors';
     let currentEventId = null;
     let eventTags = [];
     let activeEvents = [];
@@ -476,7 +482,10 @@
       document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
       
       // Show selected content
-      if (tab === 'active') {
+      if (tab === 'detectors') {
+        document.getElementById('detectors-events').style.display = 'block';
+        loadDetectors();
+      } else if (tab === 'active') {
         document.getElementById('active-events').style.display = 'block';
         loadActiveEvents();
       } else if (tab === 'pending') {
@@ -485,6 +494,112 @@
       } else if (tab === 'history') {
         document.getElementById('history-events').style.display = 'block';
         loadHistoryEvents();
+      }
+    }
+
+    async function loadDetectors() {
+      try {
+        const response = await fetch('api/config');
+        const config = await response.json();
+        const detectors = config.enhancedEventDetectors || [];
+        renderDetectors(detectors);
+      } catch (error) {
+        console.error('Failed to load detectors:', error);
+        document.getElementById('detectors-list').innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Failed to load event detectors</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderDetectors(detectors) {
+      const container = document.getElementById('detectors-list');
+      
+      if (detectors.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-bell-slash"></i>
+            <p>No event detectors configured</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Render as table like log configuration
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Category</th>
+              <th>Start Condition</th>
+              <th>Notifications</th>
+              <th style="text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${detectors.map((detector, index) => `
+              <tr onclick="viewDetector(${index})" style="cursor: pointer;">
+                <td>
+                  <strong>${detector.name}</strong><br>
+                  <span style="font-size: 0.85rem; color: var(--text-secondary);">${detector.detectorId}</span>
+                </td>
+                <td>${detector.type || 'duration'}</td>
+                <td>${detector.category || 'general'}</td>
+                <td style="font-family: monospace; font-size: 0.85rem;">
+                  ${detector.startConditions.rules[0].path} ${detector.startConditions.rules[0].operator} ${detector.startConditions.rules[0].value}
+                </td>
+                <td>
+                  ${detector.notifications && detector.notifications.enabled ? 
+                    '<span style="color: #10b981;"><i class="fas fa-bell"></i> Enabled</span>' : 
+                    '<span style="color: #6b7280;"><i class="fas fa-bell-slash"></i> Disabled</span>'
+                  }
+                </td>
+                <td style="text-align: center;" onclick="event.stopPropagation();">
+                  <button class="btn btn-sm btn-danger" onclick="deleteDetector(${index})">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function viewDetector(index) {
+      alert('Detector editor coming soon! For now, edit via API or config.json');
+    }
+
+    async function deleteDetector(index) {
+      try {
+        const response = await fetch('api/config');
+        const config = await response.json();
+        const detectors = config.enhancedEventDetectors || [];
+        const detector = detectors[index];
+        
+        if (!confirm(`Delete "${detector.name}"?`)) return;
+        
+        detectors.splice(index, 1);
+        config.enhancedEventDetectors = detectors;
+        
+        const saveResponse = await fetch('api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+        
+        if (saveResponse.ok) {
+          loadDetectors();
+        } else {
+          alert('Failed to delete detector');
+        }
+      } catch (error) {
+        console.error('Failed to delete detector:', error);
+        alert('Failed to delete detector');
       }
     }
 
@@ -758,7 +873,7 @@
 
     // Initialize
     initTheme();
-    loadActiveEvents();
+    loadDetectors(); // Load detectors since it's the default tab
     
     // Refresh active events every 10 seconds
     setInterval(() => {

@@ -41,6 +41,11 @@
       border: none;
       min-height: calc(100vh - 250px);
     }
+    /* Hide header and nav in iframes to prevent duplication */
+    iframe {
+      margin-top: -140px;
+      min-height: calc(100vh - 110px);
+    }
   </style>
 </head>
 <body>
