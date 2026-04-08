@@ -374,12 +374,12 @@ export const CONFIG_REGISTERS = {
     { id: '—', address: 0xE001, name: 'PV Charge Current', key: 'pvChgCurr', scale: 0.1, unit: 'A', min: 0, max: 150, description: 'Max current from solar' },
     { id: '07', address: 0xE20A, name: 'Battery Charge Current', key: 'maxChgCurr', scale: 0.1, unit: 'A', min: 0, max: 140, description: 'Total max battery charge current' },
     { id: '28', address: 0xE205, name: 'Grid Charge Current', key: 'acChgLimit', scale: 0.1, unit: 'A', min: 0, max: 80, description: 'Max current from AC/grid' },
-    { id: '06', address: 0xE20F, name: 'Battery Charge Mode', key: 'chgSourcePriority', scale: 1, unit: '', min: 0, max: 3, description: 'Charge source priority',
+    { id: '06', address: 0xE20F, name: 'Battery Charge Mode', key: 'chgSourcePriority', scale: 1, unit: '', min: 0, max: 1, description: 'Charge source priority',
+      // NOTE: Tested with actual inverter panel - manuals are WRONG!
+      // Physical panel shows only SNU/OSO, which map to:
       options: [
-        { value: 0, label: 'PV Priority (Grid charges when PV fails)' },
-        { value: 1, label: 'Grid Priority (PV charges when Grid fails)' },
-        { value: 2, label: 'SNU (Hybrid: PV + Grid, PV priority)' },
-        { value: 3, label: 'OSO (PV Only, No Grid Charge)' }
+        { value: 0, label: 'OSO (PV Only, No Grid Charge)' },
+        { value: 1, label: 'SNU (Hybrid: PV + Grid, PV priority)' }
       ]
     },
     { id: '39', address: 0xE025, name: 'Charge Limit (BMS Mode)', key: 'bmsChgMode', scale: 1, unit: '', min: 0, max: 2, description: 'Charge current limit source',

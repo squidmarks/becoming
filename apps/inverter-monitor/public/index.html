@@ -2821,24 +2821,16 @@
                   scale: 1,
                   unit: "",
                   min: 0,
-                  max: 3,
+                  max: 1,
                   description: 'Charge source priority',
                   options: [
                         {
                               value: 0,
-                              label: 'PV Priority (Grid charges when PV fails)'
+                              label: 'OSO (PV Only, No Grid Charge)'
                         },
                         {
                               value: 1,
-                              label: 'Grid Priority (PV charges when Grid fails)'
-                        },
-                        {
-                              value: 2,
                               label: 'SNU (Hybrid: PV + Grid, PV priority)'
-                        },
-                        {
-                              value: 3,
-                              label: 'OSO (PV Only, No Grid Charge)'
                         }
                   ]
             },
