@@ -163,6 +163,23 @@
     .autocomplete-item:last-child {
       border-bottom: none;
     }
+    
+    tbody tr {
+      cursor: pointer;
+    }
+    
+    tbody tr:hover {
+      background: var(--bg-secondary);
+    }
+    
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
   </style>
 </head>
 <body>
@@ -300,6 +317,7 @@
       </div>
 
       <div class="modal-actions">
+        <button id="deleteBtn" class="btn btn-danger" onclick="deleteEntry()" style="display: none; margin-right: auto;"><i class="fas fa-trash"></i> Delete</button>
         <button class="btn btn-secondary" onclick="closeEditor()">Cancel</button>
         <button class="btn btn-primary" onclick="saveEntry()">Save</button>
       </div>
@@ -428,7 +446,6 @@
             <th>Max Interval (s)</th>
             <th>Delta</th>
             <th>Condition</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -439,8 +456,8 @@
             const maxIntervalText = sub.maxInterval ? sub.maxInterval : '-';
             const deltaText = sub.deltaThreshold !== null && sub.deltaThreshold !== undefined ? sub.deltaThreshold : '-';
             return `
-            <tr>
-              <td>
+            <tr onclick="openEditor(${index})">
+              <td onclick="event.stopPropagation()">
                 <label class="toggle-switch">
                   <input type="checkbox" ${sub.enabled ? 'checked' : ''} onchange="toggleEnabled(${index})">
                   <span class="slider"></span>
@@ -451,10 +468,6 @@
               <td>${maxIntervalText}</td>
               <td>${deltaText}</td>
               <td style="font-size: 0.75rem; font-family: monospace;">${conditionText}</td>
-              <td>
-                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="openEditor(${index})"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-danger" style="padding: 0.25rem 0.5rem;" onclick="removePath(${index})"><i class="fas fa-trash"></i></button>
-              </td>
             </tr>
           `;}).join('')}
         </tbody>
@@ -468,9 +481,11 @@
       editingIndex = index;
       const modal = document.getElementById('editorModal');
       const title = document.getElementById('modalTitle');
+      const deleteBtn = document.getElementById('deleteBtn');
       
       if (index !== null) {
         title.textContent = 'Edit Logging Path';
+        deleteBtn.style.display = 'block';
         const sub = config.subscriptions[index];
         
         document.getElementById('editPath').value = sub.path;
@@ -493,6 +508,7 @@
         }
       } else {
         title.textContent = 'Add Logging Path';
+        deleteBtn.style.display = 'none';
         document.getElementById('editPath').disabled = false;
         document.getElementById('editPath').value = '';
         document.getElementById('editDescription').value = '';
@@ -590,9 +606,13 @@
       config.subscriptions[index].enabled = !config.subscriptions[index].enabled;
     }
 
-    function removePath(index) {
-      if (confirm(`Remove ${config.subscriptions[index].path}?`)) {
-        config.subscriptions.splice(index, 1);
+    function deleteEntry() {
+      if (editingIndex === null) return;
+      
+      const path = config.subscriptions[editingIndex].path;
+      if (confirm(`Remove ${path}?`)) {
+        config.subscriptions.splice(editingIndex, 1);
+        closeEditor();
         renderConfig();
       }
     }
