@@ -128,6 +128,41 @@
       gap: 0.5rem;
       margin-bottom: 1rem;
     }
+    
+    .autocomplete {
+      position: relative;
+    }
+    
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .autocomplete-item {
+      padding: 0.5rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: monospace;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .autocomplete-item:hover {
+      background: var(--bg-secondary);
+    }
+    
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
   </style>
 </head>
 <body>
@@ -145,7 +180,7 @@
       <a href="./">Dashboard</a>
       <a href="config.html" class="active">Configuration</a>
       <a href="viewer.html">Data Viewer</a>
-      <a href="paths.html">Available Paths</a>
+      <a href="retention.html">Retention</a>
     </div>
   </nav>
 
@@ -162,24 +197,6 @@
       <div id="subscriptions-list"></div>
     </div>
 
-    <div class="card">
-      <h2>Retention Policy</h2>
-      <div class="form-group">
-        <label>High Resolution Days</label>
-        <input type="number" id="highResolutionDays" min="1" max="365">
-        <small style="color: var(--text-secondary);">Keep full resolution data for this many days</small>
-      </div>
-      <div class="form-group">
-        <label>Downsample After Days</label>
-        <input type="number" id="downsampleAfterDays" min="1" max="365">
-        <small style="color: var(--text-secondary);">Aggregate data older than this</small>
-      </div>
-      <div class="form-group">
-        <label>Delete After Days</label>
-        <input type="number" id="deleteAfterDays" min="1" max="3650">
-        <small style="color: var(--text-secondary);">Permanently delete data older than this</small>
-      </div>
-    </div>
   </main>
 
   <footer>
@@ -197,10 +214,11 @@
       </div>
 
       <div class="form-row">
-        <div class="form-group" style="grid-column: 1 / -1;">
+        <div class="form-group autocomplete" style="grid-column: 1 / -1;">
           <label>SignalK Path *</label>
-          <input type="text" id="editPath" placeholder="e.g., navigation.position">
-          <small style="color: var(--text-secondary);">The SignalK data path to log</small>
+          <input type="text" id="editPath" placeholder="Start typing to search paths..." oninput="handlePathInput()" onfocus="handlePathInput()">
+          <div id="pathAutocomplete" class="autocomplete-list" style="display: none;"></div>
+          <small style="color: var(--text-secondary);">Type to search available SignalK paths</small>
         </div>
       </div>
 
@@ -253,10 +271,11 @@
         </div>
 
         <div id="conditionFields" style="display: none;">
-          <div class="form-group">
+          <div class="form-group autocomplete">
             <label>Condition Path *</label>
-            <input type="text" id="editConditionPath" placeholder="e.g., propulsion.port.revolutions">
-            <small style="color: var(--text-secondary);">SignalK path to evaluate</small>
+            <input type="text" id="editConditionPath" placeholder="Start typing to search paths..." oninput="handleConditionPathInput()" onfocus="handleConditionPathInput()">
+            <div id="conditionPathAutocomplete" class="autocomplete-list" style="display: none;"></div>
+            <small style="color: var(--text-secondary);">Type to search available SignalK paths</small>
           </div>
 
           <div class="form-row">
@@ -290,6 +309,7 @@
   <script>
     let config = null;
     let editingIndex = null;
+    let allPaths = [];
 
     function initTheme() {
       const theme = localStorage.getItem('theme') || 'light';
@@ -320,6 +340,74 @@
         console.error('Failed to load config:', error);
         alert('Failed to load configuration');
       }
+    }
+
+    async function loadAllPaths() {
+      try {
+        const response = await fetch('api/paths?limit=1000');
+        const data = await response.json();
+        allPaths = data.paths.map(p => p.path);
+      } catch (error) {
+        console.error('Failed to load paths:', error);
+      }
+    }
+
+    function handlePathInput() {
+      const input = document.getElementById('editPath');
+      const value = input.value.toLowerCase();
+      const list = document.getElementById('pathAutocomplete');
+      
+      if (!value || input.disabled) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      const filtered = allPaths.filter(p => p.toLowerCase().includes(value)).slice(0, 20);
+      
+      if (filtered.length === 0) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      list.innerHTML = filtered.map(path => 
+        `<div class="autocomplete-item" onclick="selectPath('${path}')">${path}</div>`
+      ).join('');
+      
+      list.style.display = 'block';
+    }
+
+    function selectPath(path) {
+      document.getElementById('editPath').value = path;
+      document.getElementById('pathAutocomplete').style.display = 'none';
+    }
+
+    function handleConditionPathInput() {
+      const input = document.getElementById('editConditionPath');
+      const value = input.value.toLowerCase();
+      const list = document.getElementById('conditionPathAutocomplete');
+      
+      if (!value) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      const filtered = allPaths.filter(p => p.toLowerCase().includes(value)).slice(0, 20);
+      
+      if (filtered.length === 0) {
+        list.style.display = 'none';
+        return;
+      }
+      
+      list.innerHTML = filtered.map(path => 
+        `<div class="autocomplete-item" onclick="selectConditionPath('${path}')">${path}</div>`
+      ).join('');
+      
+      list.style.display = 'block';
+    }
+
+    function selectConditionPath(path) {
+      document.getElementById('editConditionPath').value = path;
+      document.getElementById('conditionPathAutocomplete').style.display = 'none';
     }
 
     function renderConfig() {
@@ -374,10 +462,6 @@
 
       container.innerHTML = '';
       container.appendChild(table);
-
-      document.getElementById('highResolutionDays').value = config.retention?.highResolutionDays || 30;
-      document.getElementById('downsampleAfterDays').value = config.retention?.downsampleAfterDays || 30;
-      document.getElementById('deleteAfterDays').value = config.retention?.deleteAfterDays || 365;
     }
 
     function openEditor(index = null) {
@@ -514,12 +598,6 @@
     }
 
     async function saveConfig() {
-      config.retention = {
-        highResolutionDays: parseInt(document.getElementById('highResolutionDays').value),
-        downsampleAfterDays: parseInt(document.getElementById('downsampleAfterDays').value),
-        deleteAfterDays: parseInt(document.getElementById('deleteAfterDays').value)
-      };
-
       try {
         const response = await fetch('api/config', {
           method: 'POST',
@@ -550,6 +628,14 @@
 
     initTheme();
     loadConfig();
+    loadAllPaths();
+    
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.autocomplete')) {
+        document.getElementById('pathAutocomplete').style.display = 'none';
+        document.getElementById('conditionPathAutocomplete').style.display = 'none';
+      }
+    });
   </script>
 </body>
 </html>
