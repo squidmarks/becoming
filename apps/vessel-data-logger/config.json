@@ -5,8 +5,8 @@
       "enabled": true,
       "logInterval": 10,
       "maxInterval": 1800,
-      "deltaThreshold": 0.0001,
-      "description": "GPS position"
+      "deltaThreshold": 10,
+      "description": "GPS position (threshold in meters)"
     },
     {
       "path": "navigation.speedOverGround",

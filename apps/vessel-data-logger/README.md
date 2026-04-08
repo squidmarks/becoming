@@ -180,6 +180,9 @@ User-editable configuration file that controls what data is logged:
 - `logInterval`: Seconds between writes (time-based logging)
 - `maxInterval` (optional): Maximum seconds between writes, even if no change (heartbeat)
 - `deltaThreshold`: Minimum change to trigger write (null = disabled)
+  - For numbers: absolute difference
+  - For `navigation.position`: distance in meters (Haversine formula)
+  - For other objects: JSON equality comparison
 - `description`: Human-readable label for UI
 - `condition` (optional): Conditional logging - only write to storage if condition is met
   - `path`: SignalK path to check
@@ -207,6 +210,35 @@ Use the `condition` field to only log data when specific criteria are met. This 
 
 **Note:** The condition is checked against cached values. The condition path must be actively subscribed (or have recent data in cache) for the condition to evaluate properly.
 
+### Delta Threshold for Object Values
+
+The service intelligently handles different data types when comparing values:
+
+**1. Numeric Values (e.g., temperature, voltage)**
+- Delta = absolute difference: `|newValue - oldValue|`
+- Example: `52.3 → 52.8` = delta of `0.5`
+
+**2. Position Objects (`navigation.position`)**
+- Delta = geographic distance in meters (Haversine formula)
+- Calculates great-circle distance between coordinates
+- Example: Moving 5 meters at dock triggers if threshold is 10m? No. Moving 15m? Yes.
+```json
+{
+  "latitude": 32.7857236,
+  "longitude": -79.9097818
+}
+```
+
+**3. Other Objects**
+- Delta = JSON string comparison
+- Returns `0` if identical, `null` if different
+- No threshold-based logging (logs on any change or interval)
+
+**Why this matters:**
+- GPS at dock: Small coordinate drift (~0.00001° ≈ 1 meter) won't trigger logging
+- Underway: Significant movement triggers logging immediately
+- Storage optimization: No unnecessary logs for GPS noise at anchor
+
 ### Max Interval (Heartbeat Logging)
 
 Use `maxInterval` to ensure data is logged periodically even when unchanged. This solves two problems:
@@ -219,8 +251,8 @@ Use `maxInterval` to ensure data is logged periodically even when unchanged. Thi
   "path": "navigation.position",
   "logInterval": 10,
   "maxInterval": 1800,
-  "deltaThreshold": 0.0001,
-  "description": "GPS position"
+  "deltaThreshold": 10,
+  "description": "GPS position (threshold in meters)"
 }
 ```
 
@@ -228,6 +260,8 @@ Behavior:
 - Normal operation: Logs every 10s when position changes >10m
 - When stationary: Logs every 30min (1800s) as heartbeat
 - Result: Not logging every 10s at dock, but still proving GPS is working
+
+**Note:** For `navigation.position`, the threshold is in **meters** (calculated using Haversine formula for geographic distance). For numeric values, it's the absolute difference. For other objects, changes are detected via JSON comparison.
 
 ### Event Detection
 
