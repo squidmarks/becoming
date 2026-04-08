@@ -230,13 +230,35 @@ export class ApiServer {
     for (const key in obj) {
       if (key === 'value' && 'timestamp' in obj) {
         const path = prefix.slice(0, -1);
+        const value = obj.value;
+        
+        // Add the main path
         results.push({
           path,
-          currentValue: obj.value,
+          currentValue: value,
           lastUpdate: obj.timestamp,
           source: obj.$source || obj.source || 'unknown',
           meta: obj.meta || {}
         });
+        
+        // If value is an object with scalar properties, also add nested paths
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          for (const nestedKey in value) {
+            const nestedValue = value[nestedKey];
+            // Only add nested paths for scalar values (numbers, strings, booleans)
+            if (typeof nestedValue !== 'object' || nestedValue === null) {
+              results.push({
+                path: `${path}.${nestedKey}`,
+                currentValue: nestedValue,
+                lastUpdate: obj.timestamp,
+                source: obj.$source || obj.source || 'unknown',
+                meta: obj.meta || {},
+                isNested: true,
+                parentPath: path
+              });
+            }
+          }
+        }
       } else if (typeof obj[key] === 'object' && obj[key] !== null) {
         this.extractPaths(obj[key], `${prefix}${key}.`, results);
       }

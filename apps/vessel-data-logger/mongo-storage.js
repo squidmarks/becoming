@@ -115,13 +115,61 @@ export class MongoStorage {
     }
   }
 
+  /**
+   * Extract nested property from object using dot notation
+   * e.g., extractNestedValue({a: {b: 5}}, 'a.b') => 5
+   */
+  extractNestedValue(obj, nestedPath) {
+    if (!nestedPath) return obj;
+    
+    const parts = nestedPath.split('.');
+    let current = obj;
+    
+    for (const part of parts) {
+      if (current && typeof current === 'object' && part in current) {
+        current = current[part];
+      } else {
+        return undefined;
+      }
+    }
+    
+    return current;
+  }
+
+  /**
+   * Parse a path that might contain nested property access
+   * e.g., 'navigation.position.longitude' => { basePath: 'navigation.position', nestedPath: 'longitude' }
+   */
+  parseNestedPath(fullPath) {
+    // Try to find a valid base path by checking progressively shorter prefixes
+    // This is necessary because we don't know a priori which part is the stored path
+    // For now, we'll use a simpler approach: check if the path contains more than 2 dots
+    // and assume the last segment(s) might be nested properties
+    
+    const parts = fullPath.split('.');
+    
+    // Try different split points, starting from the end
+    for (let i = parts.length - 1; i > 0; i--) {
+      const basePath = parts.slice(0, i).join('.');
+      const nestedPath = parts.slice(i).join('.');
+      
+      // Return the first split - we'll check if data exists at query time
+      return { basePath, nestedPath, originalPath: fullPath };
+    }
+    
+    // No nested path, return as-is
+    return { basePath: fullPath, nestedPath: null, originalPath: fullPath };
+  }
+
   async query(path, startTime, endTime, limit = 1000) {
     if (!this.collection) {
       throw new Error('Not connected to MongoDB');
     }
 
+    const { basePath, nestedPath } = this.parseNestedPath(path);
+
     const query = {
-      path,
+      path: basePath,
       timestamp: {
         $gte: new Date(startTime),
         $lte: new Date(endTime)
@@ -135,11 +183,36 @@ export class MongoStorage {
         .limit(limit)
         .toArray();
 
-      return documents.map(doc => ({
-        timestamp: doc.timestamp.toISOString(),
-        value: doc.value,
-        source: doc.source
-      }));
+      // If no documents found with basePath, try the original path
+      if (documents.length === 0 && nestedPath) {
+        query.path = path;
+        const directDocs = await this.collection
+          .find(query)
+          .sort({ timestamp: 1 })
+          .limit(limit)
+          .toArray();
+        
+        return directDocs.map(doc => ({
+          timestamp: doc.timestamp.toISOString(),
+          value: doc.value,
+          source: doc.source
+        }));
+      }
+
+      return documents.map(doc => {
+        let value = doc.value;
+        
+        // Extract nested property if specified
+        if (nestedPath && typeof value === 'object' && value !== null) {
+          value = this.extractNestedValue(value, nestedPath);
+        }
+        
+        return {
+          timestamp: doc.timestamp.toISOString(),
+          value,
+          source: doc.source
+        };
+      }).filter(doc => doc.value !== undefined); // Filter out undefined values
     } catch (error) {
       console.error('Query failed:', error.message);
       throw error;
@@ -151,8 +224,18 @@ export class MongoStorage {
       throw new Error('Not connected to MongoDB');
     }
 
+    // Parse all paths to separate base paths and nested paths
+    const pathMap = new Map();
+    const basePaths = new Set();
+    
+    for (const fullPath of paths) {
+      const { basePath, nestedPath } = this.parseNestedPath(fullPath);
+      pathMap.set(fullPath, { basePath, nestedPath });
+      basePaths.add(basePath);
+    }
+
     const query = {
-      path: { $in: paths },
+      path: { $in: Array.from(basePaths) },
       timestamp: {
         $gte: new Date(startTime),
         $lte: new Date(endTime)
@@ -172,12 +255,25 @@ export class MongoStorage {
       }
 
       for (const doc of documents) {
-        if (result[doc.path]) {
-          result[doc.path].push({
-            timestamp: doc.timestamp.toISOString(),
-            value: doc.value,
-            source: doc.source
-          });
+        // Check which requested paths match this document
+        for (const [fullPath, { basePath, nestedPath }] of pathMap) {
+          if (doc.path === basePath) {
+            let value = doc.value;
+            
+            // Extract nested property if specified
+            if (nestedPath && typeof value === 'object' && value !== null) {
+              value = this.extractNestedValue(value, nestedPath);
+            }
+            
+            // Only add if value is defined
+            if (value !== undefined) {
+              result[fullPath].push({
+                timestamp: doc.timestamp.toISOString(),
+                value,
+                source: doc.source
+              });
+            }
+          }
         }
       }
 
