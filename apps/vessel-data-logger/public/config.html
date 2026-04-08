@@ -5,6 +5,91 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vessel Data Logger - Configuration</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      overflow: auto;
+    }
+    
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 2rem;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h2 {
+      margin: 0;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .close-btn:hover {
+      color: var(--text-primary);
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .condition-section {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -30,7 +115,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2>Logging Configuration</h2>
         <div style="display: flex; gap: 0.5rem;">
-          <button class="btn btn-secondary" onclick="addNewPath()">➕ Add Path</button>
+          <button class="btn btn-secondary" onclick="openEditor()">➕ Add Path</button>
           <button class="btn btn-primary" onclick="saveConfig()">💾 Save Changes</button>
         </div>
       </div>
@@ -64,8 +149,102 @@
     </div>
   </footer>
 
+  <!-- Edit/Add Modal -->
+  <div id="editorModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Logging Path</h2>
+        <button class="close-btn" onclick="closeEditor()">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label>SignalK Path *</label>
+        <input type="text" id="editPath" placeholder="e.g., navigation.position">
+        <small style="color: var(--text-secondary);">The SignalK data path to log</small>
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="editDescription" placeholder="e.g., GPS position">
+        <small style="color: var(--text-secondary);">Human-readable description</small>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Log Interval (seconds) *</label>
+          <input type="number" id="editInterval" min="1" max="3600" value="60">
+          <small style="color: var(--text-secondary);">Time between writes</small>
+        </div>
+
+        <div class="form-group">
+          <label>Max Interval (seconds)</label>
+          <input type="number" id="editMaxInterval" min="0" max="86400" placeholder="Optional">
+          <small style="color: var(--text-secondary);">Heartbeat (0 = disabled)</small>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Delta Threshold</label>
+        <input type="number" id="editDeltaThreshold" step="0.01" placeholder="Optional (e.g., 0.5)">
+        <small style="color: var(--text-secondary);">Minimum change to trigger write (leave empty for none)</small>
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox-group">
+          <input type="checkbox" id="editEnabled" checked>
+          <label for="editEnabled" style="margin: 0;">Enabled</label>
+        </div>
+      </div>
+
+      <div class="condition-section">
+        <h3 style="margin-bottom: 1rem;">Conditional Logging (Optional)</h3>
+        
+        <div class="form-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="hasCondition" onchange="toggleConditionFields()">
+            <label for="hasCondition" style="margin: 0;">Enable Condition</label>
+          </div>
+          <small style="color: var(--text-secondary);">Only log when condition is met</small>
+        </div>
+
+        <div id="conditionFields" style="display: none;">
+          <div class="form-group">
+            <label>Condition Path *</label>
+            <input type="text" id="editConditionPath" placeholder="e.g., propulsion.port.revolutions">
+            <small style="color: var(--text-secondary);">Path to check for condition</small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Operator *</label>
+              <select id="editConditionOperator">
+                <option value=">">Greater than (>)</option>
+                <option value=">=">Greater or equal (>=)</option>
+                <option value="<">Less than (<)</option>
+                <option value="<=">Less or equal (<=)</option>
+                <option value="==">Equal (==)</option>
+                <option value="!=">Not equal (!=)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Value *</label>
+              <input type="number" id="editConditionValue" step="0.01" placeholder="e.g., 0">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeEditor()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEntry()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let config = null;
+    let editingIndex = null;
 
     function initTheme() {
       const theme = localStorage.getItem('theme') || 'light';
@@ -114,7 +293,8 @@
             <th>Path</th>
             <th>Description</th>
             <th>Interval (s)</th>
-            <th>Delta Threshold</th>
+            <th>Max Interval (s)</th>
+            <th>Delta</th>
             <th>Condition</th>
             <th>Actions</th>
           </tr>
@@ -124,6 +304,8 @@
             const conditionText = sub.condition 
               ? `${sub.condition.path} ${sub.condition.operator} ${sub.condition.value}`
               : '-';
+            const maxIntervalText = sub.maxInterval ? sub.maxInterval : '-';
+            const deltaText = sub.deltaThreshold !== null && sub.deltaThreshold !== undefined ? sub.deltaThreshold : '-';
             return `
             <tr>
               <td>
@@ -133,20 +315,13 @@
                 </label>
               </td>
               <td style="font-family: monospace; font-size: 0.75rem;">${sub.path}</td>
+              <td>${sub.description || '-'}</td>
+              <td>${sub.logInterval}</td>
+              <td>${maxIntervalText}</td>
+              <td>${deltaText}</td>
+              <td style="font-size: 0.75rem; font-family: monospace;">${conditionText}</td>
               <td>
-                <input type="text" value="${sub.description || ''}" onchange="updateDescription(${index}, this.value)" style="width: 100%; padding: 0.25rem;">
-              </td>
-              <td>
-                <input type="number" value="${sub.logInterval}" min="1" max="3600" onchange="updateInterval(${index}, this.value)" style="width: 80px; padding: 0.25rem;">
-              </td>
-              <td>
-                <input type="number" value="${sub.deltaThreshold || ''}" step="0.1" onchange="updateThreshold(${index}, this.value)" style="width: 80px; padding: 0.25rem;" placeholder="None">
-              </td>
-              <td style="font-size: 0.75rem; font-family: monospace;">
-                ${conditionText}
-                <button class="btn btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-left: 0.25rem;" onclick="editCondition(${index})">✏️</button>
-              </td>
-              <td>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="openEditor(${index})">✏️</button>
                 <button class="btn btn-danger" style="padding: 0.25rem 0.5rem;" onclick="removePath(${index})">🗑️</button>
               </td>
             </tr>
@@ -162,20 +337,130 @@
       document.getElementById('deleteAfterDays').value = config.retention?.deleteAfterDays || 365;
     }
 
+    function openEditor(index = null) {
+      editingIndex = index;
+      const modal = document.getElementById('editorModal');
+      const title = document.getElementById('modalTitle');
+      
+      if (index !== null) {
+        title.textContent = 'Edit Logging Path';
+        const sub = config.subscriptions[index];
+        
+        document.getElementById('editPath').value = sub.path;
+        document.getElementById('editPath').disabled = true;
+        document.getElementById('editDescription').value = sub.description || '';
+        document.getElementById('editInterval').value = sub.logInterval;
+        document.getElementById('editMaxInterval').value = sub.maxInterval || '';
+        document.getElementById('editDeltaThreshold').value = sub.deltaThreshold !== null && sub.deltaThreshold !== undefined ? sub.deltaThreshold : '';
+        document.getElementById('editEnabled').checked = sub.enabled;
+        
+        if (sub.condition) {
+          document.getElementById('hasCondition').checked = true;
+          document.getElementById('conditionFields').style.display = 'block';
+          document.getElementById('editConditionPath').value = sub.condition.path;
+          document.getElementById('editConditionOperator').value = sub.condition.operator;
+          document.getElementById('editConditionValue').value = sub.condition.value;
+        } else {
+          document.getElementById('hasCondition').checked = false;
+          document.getElementById('conditionFields').style.display = 'none';
+        }
+      } else {
+        title.textContent = 'Add Logging Path';
+        document.getElementById('editPath').disabled = false;
+        document.getElementById('editPath').value = '';
+        document.getElementById('editDescription').value = '';
+        document.getElementById('editInterval').value = 60;
+        document.getElementById('editMaxInterval').value = '';
+        document.getElementById('editDeltaThreshold').value = '';
+        document.getElementById('editEnabled').checked = true;
+        document.getElementById('hasCondition').checked = false;
+        document.getElementById('conditionFields').style.display = 'none';
+        document.getElementById('editConditionPath').value = '';
+        document.getElementById('editConditionOperator').value = '>';
+        document.getElementById('editConditionValue').value = '';
+      }
+      
+      modal.classList.add('active');
+    }
+
+    function closeEditor() {
+      document.getElementById('editorModal').classList.remove('active');
+      editingIndex = null;
+    }
+
+    function toggleConditionFields() {
+      const checked = document.getElementById('hasCondition').checked;
+      document.getElementById('conditionFields').style.display = checked ? 'block' : 'none';
+    }
+
+    function saveEntry() {
+      const path = document.getElementById('editPath').value.trim();
+      const description = document.getElementById('editDescription').value.trim();
+      const logInterval = parseInt(document.getElementById('editInterval').value);
+      const maxInterval = document.getElementById('editMaxInterval').value.trim();
+      const deltaThreshold = document.getElementById('editDeltaThreshold').value.trim();
+      const enabled = document.getElementById('editEnabled').checked;
+      const hasCondition = document.getElementById('hasCondition').checked;
+      
+      if (!path) {
+        alert('Path is required');
+        return;
+      }
+      
+      if (!logInterval || logInterval < 1) {
+        alert('Log interval must be at least 1 second');
+        return;
+      }
+      
+      if (editingIndex === null) {
+        const exists = config.subscriptions.some(sub => sub.path === path);
+        if (exists) {
+          alert('Path already exists in configuration');
+          return;
+        }
+      }
+      
+      const entry = {
+        path,
+        enabled,
+        logInterval,
+        deltaThreshold: deltaThreshold ? parseFloat(deltaThreshold) : null,
+        description: description || ''
+      };
+      
+      if (maxInterval) {
+        entry.maxInterval = parseInt(maxInterval);
+      }
+      
+      if (hasCondition) {
+        const condPath = document.getElementById('editConditionPath').value.trim();
+        const condOp = document.getElementById('editConditionOperator').value;
+        const condValue = document.getElementById('editConditionValue').value.trim();
+        
+        if (!condPath || !condValue) {
+          alert('Condition path and value are required when condition is enabled');
+          return;
+        }
+        
+        entry.condition = {
+          path: condPath,
+          operator: condOp,
+          value: parseFloat(condValue)
+        };
+      }
+      
+      if (editingIndex !== null) {
+        config.subscriptions[editingIndex] = entry;
+      } else {
+        config.subscriptions.push(entry);
+      }
+      
+      closeEditor();
+      renderConfig();
+    }
+
     function toggleEnabled(index) {
       config.subscriptions[index].enabled = !config.subscriptions[index].enabled;
-    }
-
-    function updateDescription(index, value) {
-      config.subscriptions[index].description = value;
-    }
-
-    function updateInterval(index, value) {
-      config.subscriptions[index].logInterval = parseInt(value);
-    }
-
-    function updateThreshold(index, value) {
-      config.subscriptions[index].deltaThreshold = value === '' ? null : parseFloat(value);
     }
 
     function removePath(index) {
@@ -183,63 +468,6 @@
         config.subscriptions.splice(index, 1);
         renderConfig();
       }
-    }
-
-    function editCondition(index) {
-      const sub = config.subscriptions[index];
-      const hasCondition = sub.condition ? 'yes' : 'no';
-      
-      const enable = confirm(
-        sub.condition 
-          ? `Current condition: ${sub.condition.path} ${sub.condition.operator} ${sub.condition.value}\n\nDo you want to edit or remove this condition?` 
-          : 'No condition set. Add a condition?'
-      );
-      
-      if (!enable) {
-        if (sub.condition) {
-          sub.condition = null;
-          renderConfig();
-        }
-        return;
-      }
-
-      const condPath = prompt('Condition path (e.g., propulsion.port.revolutions):', sub.condition?.path || '');
-      if (!condPath) return;
-
-      const operator = prompt('Operator (>, >=, <, <=, ==, !=):', sub.condition?.operator || '>');
-      if (!operator) return;
-
-      const value = prompt('Value to compare:', sub.condition?.value || '0');
-      if (value === null) return;
-
-      config.subscriptions[index].condition = {
-        path: condPath,
-        operator,
-        value: parseFloat(value) || value
-      };
-
-      renderConfig();
-    }
-
-    function addNewPath() {
-      const path = prompt('Enter SignalK path (e.g., navigation.position):');
-      if (!path) return;
-
-      const exists = config.subscriptions.some(sub => sub.path === path);
-      if (exists) {
-        alert('Path already exists in configuration');
-        return;
-      }
-
-      config.subscriptions.push({
-        path,
-        enabled: true,
-        logInterval: 60,
-        deltaThreshold: null,
-        description: ''
-      });
-
-      renderConfig();
     }
 
     async function saveConfig() {
@@ -266,6 +494,14 @@
       } catch (error) {
         console.error('Failed to save config:', error);
         alert('Failed to save configuration');
+      }
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      const modal = document.getElementById('editorModal');
+      if (event.target === modal) {
+        closeEditor();
       }
     }
 
