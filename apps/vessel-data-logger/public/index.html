@@ -77,13 +77,6 @@
         <p class="empty-state">Waiting for events...</p>
       </div>
     </div>
-
-    <div class="card">
-      <h2>Recent Activity</h2>
-      <div id="activity-log">
-        <p class="empty-state">Waiting for data...</p>
-      </div>
-    </div>
   </main>
 
   <footer>
@@ -101,11 +94,8 @@
 
   <script>
     let eventSource = null;
-    const activityLog = [];
     const eventsLog = [];
-    const maxLogEntries = 20; // Reduced to prevent overwhelming display
     const maxEventsEntries = 20;
-    let activityRenderTimeout = null;
 
     function initTheme() {
       const theme = localStorage.getItem('theme') || 'light';
@@ -206,9 +196,7 @@
     }
 
     function handleSSEEvent(data) {
-      if (data.type === 'delta') {
-        addToActivityLog(data.data);
-      } else if (data.type === 'event') {
+      if (data.type === 'event') {
         addToEventsLog(data.data);
       } else if (data.type === 'signalk-connected' || data.type === 'signalk-disconnected') {
         loadStatus();
@@ -260,72 +248,6 @@
 
       container.innerHTML = '';
       container.appendChild(table);
-    }
-
-    function addToActivityLog(delta) {
-      activityLog.unshift({
-        timestamp: new Date(delta.timestamp),
-        path: delta.path,
-        value: delta.value,
-        source: delta.source
-      });
-
-      if (activityLog.length > maxLogEntries) {
-        activityLog.pop();
-      }
-
-      // Throttle rendering to avoid rapid scrolling when many updates arrive
-      if (activityRenderTimeout) {
-        clearTimeout(activityRenderTimeout);
-      }
-      activityRenderTimeout = setTimeout(() => {
-        renderActivityLog();
-        activityRenderTimeout = null;
-      }, 250); // Batch updates within 250ms window
-    }
-
-    function renderActivityLog() {
-      const container = document.getElementById('activity-log');
-      
-      if (activityLog.length === 0) {
-        container.innerHTML = '<p class="empty-state">Waiting for data...</p>';
-        return;
-      }
-
-      const table = document.createElement('table');
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Path</th>
-            <th>Value</th>
-            <th>Source</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${activityLog.map(entry => `
-            <tr>
-              <td>${entry.timestamp.toLocaleTimeString()}</td>
-              <td style="font-family: monospace; font-size: 0.75rem;">${entry.path}</td>
-              <td>${formatValue(entry.value)}</td>
-              <td>${entry.source}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      `;
-
-      container.innerHTML = '';
-      container.appendChild(table);
-    }
-
-    function formatValue(value) {
-      if (typeof value === 'object' && value !== null) {
-        return JSON.stringify(value);
-      }
-      if (typeof value === 'number') {
-        return value.toFixed(2);
-      }
-      return String(value);
     }
 
     initTheme();
