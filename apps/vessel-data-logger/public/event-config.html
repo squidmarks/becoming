@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Configuration - Vessel Data Logger</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .detector-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 15px;
+      transition: all 0.2s;
+    }
+
+    .detector-card:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+
+    .detector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 15px;
+    }
+
+    .detector-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 5px 0;
+    }
+
+    .detector-id {
+      font-size: 0.85rem;
+      font-family: monospace;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .detector-description {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin: 10px 0;
+    }
+
+    .detector-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+      padding: 15px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+
+    .detector-meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .detector-meta-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .detector-meta-value {
+      font-size: 1rem;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .detector-conditions {
+      margin: 15px 0;
+    }
+
+    .condition-section {
+      margin-bottom: 15px;
+    }
+
+    .condition-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .condition-rules {
+      padding: 12px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      border-left: 3px solid var(--primary-color);
+    }
+
+    .condition-rule {
+      font-family: monospace;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      padding: 4px 0;
+    }
+
+    .condition-operator {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--primary-color);
+      color: white;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin: 0 4px;
+    }
+
+    .detector-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .badge.enabled {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .badge.disabled {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .badge.notifications {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      opacity: 0.5;
+    }
+
+    .stability-info {
+      display: flex;
+      gap: 20px;
+      margin-top: 10px;
+    }
+
+    .stability-box {
+      flex: 1;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+
+    .stability-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .stability-value {
+      font-size: 0.9rem;
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1><i class="fas fa-ship"></i> Vessel Data Logger</h1>
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-tabs">
+      <a href="./">Dashboard</a>
+      <a href="config.html">Log Configuration</a>
+      <a href="event-config.html" class="active">Event Configuration</a>
+      <a href="viewer.html">Data Viewer</a>
+      <a href="retention.html">Retention</a>
+      <a href="events.html">Events</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2><i class="fas fa-bell"></i> Event Detector Configuration</h2>
+        <button class="btn btn-primary" onclick="alert('Detector editor coming soon!')">
+          <i class="fas fa-plus"></i> Add Detector
+        </button>
+      </div>
+
+      <div id="detectors-container">
+        <div class="empty-state">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>Loading event detectors...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let detectors = [];
+
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const icon = document.querySelector('.theme-toggle i');
+      const text = document.getElementById('theme-text');
+      
+      if (theme === 'dark') {
+        icon.className = 'fas fa-sun';
+        text.textContent = 'Light Mode';
+      } else {
+        icon.className = 'fas fa-moon';
+        text.textContent = 'Dark Mode';
+      }
+    }
+
+    async function loadDetectors() {
+      try {
+        const response = await fetch('api/config');
+        const config = await response.json();
+        detectors = config.enhancedEventDetectors || [];
+        
+        renderDetectors();
+      } catch (error) {
+        console.error('Failed to load detectors:', error);
+        document.getElementById('detectors-container').innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Failed to load event detectors</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderDetectors() {
+      const container = document.getElementById('detectors-container');
+      
+      if (detectors.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-bell-slash"></i>
+            <p>No event detectors configured</p>
+            <p style="font-size: 0.9rem; margin-top: 10px;">Click "Add Detector" to create your first event detector</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = detectors.map((detector, index) => `
+        <div class="detector-card">
+          <div class="detector-header">
+            <div>
+              <h3 class="detector-title">${detector.name}</h3>
+              <p class="detector-id">${detector.detectorId}</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              ${detector.notifications && detector.notifications.enabled ? 
+                '<span class="badge notifications"><i class="fas fa-bell"></i> Notifications</span>' : 
+                '<span class="badge disabled"><i class="fas fa-bell-slash"></i> No Notifications</span>'
+              }
+            </div>
+          </div>
+
+          ${detector.description ? `
+            <p class="detector-description">${detector.description}</p>
+          ` : ''}
+
+          <div class="detector-meta">
+            <div class="detector-meta-item">
+              <span class="detector-meta-label">Type</span>
+              <span class="detector-meta-value">${detector.type || 'duration'}</span>
+            </div>
+            <div class="detector-meta-item">
+              <span class="detector-meta-label">Category</span>
+              <span class="detector-meta-value">${detector.category || 'General'}</span>
+            </div>
+            ${detector.autoConfirm ? `
+              <div class="detector-meta-item">
+                <span class="detector-meta-label">Auto Confirm</span>
+                <span class="detector-meta-value"><i class="fas fa-check"></i> Yes</span>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="detector-conditions">
+            ${renderConditions(detector.startConditions, 'Start Conditions', 'success')}
+            ${detector.endConditions ? renderConditions(detector.endConditions, 'End Conditions', 'danger') : ''}
+          </div>
+
+          ${detector.stability ? `
+            <div class="stability-info">
+              <div class="stability-box">
+                <div class="stability-label"><i class="fas fa-play"></i> Start Stability</div>
+                <div class="stability-value">
+                  ${detector.stability.start.consecutiveSamples} samples within ${detector.stability.start.withinDuration}s
+                </div>
+              </div>
+              ${detector.stability.end ? `
+                <div class="stability-box">
+                  <div class="stability-label"><i class="fas fa-stop"></i> End Stability</div>
+                  <div class="stability-value">
+                    ${detector.stability.end.consecutiveSamples} samples within ${detector.stability.end.withinDuration}s
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+
+          ${detector.captureData ? `
+            <div style="margin-top: 15px;">
+              <div class="condition-title"><i class="fas fa-database"></i> Captured Data</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin-top: 8px;">
+                ${detector.captureData.onStart ? `
+                  <div style="padding: 10px; background: var(--bg-secondary); border-radius: 6px;">
+                    <strong style="font-size: 0.85rem; color: var(--text-secondary);">On Start:</strong>
+                    <div style="font-family: monospace; font-size: 0.85rem; margin-top: 5px;">
+                      ${detector.captureData.onStart.map(p => `<div>• ${p}</div>`).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+                ${detector.captureData.onEnd ? `
+                  <div style="padding: 10px; background: var(--bg-secondary); border-radius: 6px;">
+                    <strong style="font-size: 0.85rem; color: var(--text-secondary);">On End:</strong>
+                    <div style="font-family: monospace; font-size: 0.85rem; margin-top: 5px;">
+                      ${detector.captureData.onEnd.map(p => `<div>• ${p}</div>`).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="detector-actions">
+            <button class="btn btn-secondary" onclick="editDetector(${index})">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-danger" onclick="deleteDetector(${index})">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderConditions(conditions, title, type) {
+      if (!conditions) return '';
+      
+      let html = `
+        <div class="condition-section">
+          <div class="condition-title"><i class="fas fa-code-branch"></i> ${title}</div>
+          <div class="condition-rules">
+      `;
+
+      if (conditions.rules && conditions.rules.length > 0) {
+        html += conditions.rules.map((rule, idx) => {
+          let ruleHtml = `<div class="condition-rule">`;
+          
+          if (idx > 0 && conditions.operator) {
+            ruleHtml += `<span class="condition-operator">${conditions.operator}</span> `;
+          }
+          
+          ruleHtml += `${rule.path} <strong>${rule.operator}</strong> `;
+          
+          if (typeof rule.value === 'number') {
+            ruleHtml += `<strong style="color: var(--primary-color)">${rule.value}</strong>`;
+          } else if (typeof rule.value === 'string') {
+            ruleHtml += `<strong style="color: var(--primary-color)">"${rule.value}"</strong>`;
+          } else {
+            ruleHtml += `<strong style="color: var(--primary-color)">${JSON.stringify(rule.value)}</strong>`;
+          }
+          
+          ruleHtml += `</div>`;
+          return ruleHtml;
+        }).join('');
+      }
+
+      html += `
+          </div>
+        </div>
+      `;
+      
+      return html;
+    }
+
+    function editDetector(index) {
+      alert('Detector editor coming soon! For now, edit config.json directly or use the API.');
+    }
+
+    async function deleteDetector(index) {
+      const detector = detectors[index];
+      if (!confirm(`Are you sure you want to delete "${detector.name}"?`)) {
+        return;
+      }
+
+      try {
+        // Remove detector from array
+        const updatedDetectors = detectors.filter((_, i) => i !== index);
+        
+        // Fetch full config
+        const response = await fetch('api/config');
+        const config = await response.json();
+        
+        // Update detectors
+        config.enhancedEventDetectors = updatedDetectors;
+        
+        // Save
+        const saveResponse = await fetch('api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+        
+        if (saveResponse.ok) {
+          detectors = updatedDetectors;
+          renderDetectors();
+        } else {
+          alert('Failed to delete detector');
+        }
+      } catch (error) {
+        console.error('Failed to delete detector:', error);
+        alert('Failed to delete detector');
+      }
+    }
+
+    // Initialize
+    initTheme();
+    loadDetectors();
+  </script>
+</body>
+</html>
