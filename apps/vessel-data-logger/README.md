@@ -8,8 +8,11 @@ Cloud-backed data logging service for M/Y Becoming that subscribes to SignalK da
 - **Cloud storage** - MongoDB Atlas for unlimited retention
 - **In-memory cache** - Fast snapshot queries without database roundtrips
 - **Configurable logging** - Select which paths to log with custom intervals and thresholds
+- **Conditional logging** - Only log when specific conditions are met
+- **Max interval heartbeat** - Ensure data is logged periodically even when unchanged
+- **Event detection** - Automatic detection of state transitions (engine start/stop, vessel underway, etc.)
 - **Web UI** - Dashboard, configuration, data viewer, and path browser
-- **REST API** - Snapshot and historical queries for AI/MCP integration
+- **REST API** - Snapshot, historical, and event queries for AI/MCP integration
 - **Server-Sent Events** - Live updates in web UI
 - **Light/Dark mode** - User-selectable theme with persistence
 
@@ -175,6 +178,7 @@ User-editable configuration file that controls what data is logged:
 - `path`: SignalK path (supports wildcards: `electrical.batteries.0.*`)
 - `enabled`: Enable/disable logging
 - `logInterval`: Seconds between writes (time-based logging)
+- `maxInterval` (optional): Maximum seconds between writes, even if no change (heartbeat)
 - `deltaThreshold`: Minimum change to trigger write (null = disabled)
 - `description`: Human-readable label for UI
 - `condition` (optional): Conditional logging - only write to storage if condition is met
@@ -202,6 +206,94 @@ Use the `condition` field to only log data when specific criteria are met. This 
 ```
 
 **Note:** The condition is checked against cached values. The condition path must be actively subscribed (or have recent data in cache) for the condition to evaluate properly.
+
+### Max Interval (Heartbeat Logging)
+
+Use `maxInterval` to ensure data is logged periodically even when unchanged. This solves two problems:
+1. **Proof of life**: Confirms sensor is still working and value is stable
+2. **Storage optimization**: Balances frequent checks with storage efficiency
+
+**Example:** GPS position at dock
+```json
+{
+  "path": "navigation.position",
+  "logInterval": 10,
+  "maxInterval": 1800,
+  "deltaThreshold": 0.0001,
+  "description": "GPS position"
+}
+```
+
+Behavior:
+- Normal operation: Logs every 10s when position changes >10m
+- When stationary: Logs every 30min (1800s) as heartbeat
+- Result: Not logging every 10s at dock, but still proving GPS is working
+
+### Event Detection
+
+The service automatically detects and logs significant state transitions to a separate `vessel_events` collection.
+
+**Detected Event Types:**
+- **Threshold Crossings**: Value crosses a threshold (engine RPM: 0 → 650)
+- **Sign Changes**: Positive ↔ Negative (battery current)
+- **State Changes**: Boolean/enum transitions
+
+**Configuration:**
+```json
+{
+  "eventDetection": {
+    "enabled": true,
+    "rules": [
+      {
+        "name": "port_engine_started",
+        "path": "propulsion.port.revolutions",
+        "type": "threshold_crossing",
+        "threshold": 100,
+        "direction": "rising",
+        "description": "Port engine started"
+      },
+      {
+        "name": "vessel_underway",
+        "path": "navigation.speedOverGround",
+        "type": "threshold_crossing",
+        "threshold": 0.5,
+        "direction": "rising",
+        "description": "Vessel started moving"
+      },
+      {
+        "name": "battery_charging",
+        "path": "electrical.batteries.0.current",
+        "type": "sign_change",
+        "direction": "negative",
+        "description": "Battery started charging"
+      }
+    ]
+  }
+}
+```
+
+**Event Document Structure:**
+```json
+{
+  "name": "port_engine_started",
+  "type": "threshold_crossing",
+  "path": "propulsion.port.revolutions",
+  "description": "Port engine started",
+  "timestamp": "2026-04-08T14:30:15.123Z",
+  "source": "nmea.propulsion",
+  "fromValue": 0,
+  "toValue": 650,
+  "threshold": 100,
+  "direction": "rising"
+}
+```
+
+**Benefits:**
+- Queryable events ("show me all engine starts this month")
+- Rich context (from/to values, timestamps)
+- Foundation for alerts and notifications
+- AI-friendly semantic data
+- Separate from time-series data (cleaner queries)
 
 **Hot Reload:** The service automatically reloads when `config.json` changes (no restart required).
 
@@ -309,8 +401,32 @@ curl "http://localhost:3200/api/paths?filter=electrical."
 **GET `/api/status`**
 - Service health and statistics
 
-**GET `/api/events`**
-- Server-Sent Events stream for live updates
+### Event Endpoints
+
+**GET `/api/events/stream`**
+- Server-Sent Events stream for live updates (data + events)
+
+**GET `/api/events/recent`**
+- Get recent events
+- Parameters:
+  - `limit` (optional): Max events to return (default: 50, max: 500)
+
+**GET `/api/events/query`**
+- Query historical events
+- Parameters:
+  - `start` (required): ISO 8601 timestamp
+  - `end` (required): ISO 8601 timestamp
+  - `name` (optional): Filter by event name
+  - `limit` (optional): Max results (default: 1000, max: 10000)
+
+Example:
+```bash
+curl "http://localhost:3200/api/events/query?start=2026-04-08T00:00:00Z&end=2026-04-08T23:59:59Z&name=port_engine_started"
+```
+
+**GET `/api/events/states`**
+- Get current state of all tracked events
+- Returns which events are currently "active"
 
 ## Data Storage
 

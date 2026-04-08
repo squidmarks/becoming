@@ -4,13 +4,15 @@
       "path": "navigation.position",
       "enabled": true,
       "logInterval": 10,
-      "deltaThreshold": null,
+      "maxInterval": 1800,
+      "deltaThreshold": 0.0001,
       "description": "GPS position"
     },
     {
       "path": "navigation.speedOverGround",
       "enabled": true,
       "logInterval": 5,
+      "maxInterval": 1800,
       "deltaThreshold": 0.1,
       "description": "Speed over ground (knots)"
     },
@@ -85,5 +87,72 @@
     "highResolutionDays": 30,
     "downsampleAfterDays": 30,
     "deleteAfterDays": 365
+  },
+  "eventDetection": {
+    "enabled": true,
+    "rules": [
+      {
+        "name": "port_engine_started",
+        "path": "propulsion.port.revolutions",
+        "type": "threshold_crossing",
+        "threshold": 100,
+        "direction": "rising",
+        "description": "Port engine started"
+      },
+      {
+        "name": "port_engine_stopped",
+        "path": "propulsion.port.revolutions",
+        "type": "threshold_crossing",
+        "threshold": 100,
+        "direction": "falling",
+        "description": "Port engine stopped"
+      },
+      {
+        "name": "starboard_engine_started",
+        "path": "propulsion.starboard.revolutions",
+        "type": "threshold_crossing",
+        "threshold": 100,
+        "direction": "rising",
+        "description": "Starboard engine started"
+      },
+      {
+        "name": "starboard_engine_stopped",
+        "path": "propulsion.starboard.revolutions",
+        "type": "threshold_crossing",
+        "threshold": 100,
+        "direction": "falling",
+        "description": "Starboard engine stopped"
+      },
+      {
+        "name": "vessel_underway",
+        "path": "navigation.speedOverGround",
+        "type": "threshold_crossing",
+        "threshold": 0.5,
+        "direction": "rising",
+        "description": "Vessel started moving"
+      },
+      {
+        "name": "vessel_stopped",
+        "path": "navigation.speedOverGround",
+        "type": "threshold_crossing",
+        "threshold": 0.5,
+        "direction": "falling",
+        "description": "Vessel stopped"
+      },
+      {
+        "name": "battery_charging",
+        "path": "electrical.batteries.0.current",
+        "type": "sign_change",
+        "direction": "negative",
+        "description": "Battery started charging"
+      },
+      {
+        "name": "battery_discharging",
+        "path": "electrical.batteries.0.current",
+        "type": "sign_change",
+        "direction": "positive",
+        "description": "Battery started discharging"
+      }
+    ]
   }
 }

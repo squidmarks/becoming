@@ -6,12 +6,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export class ApiServer {
-  constructor(port, cache, storage, configManager, signalkClient) {
+  constructor(port, cache, storage, configManager, signalkClient, eventDetector) {
     this.port = port;
     this.cache = cache;
     this.storage = storage;
     this.configManager = configManager;
     this.signalkClient = signalkClient;
+    this.eventDetector = eventDetector;
     this.app = express();
     this.server = null;
     this.sseClients = [];
@@ -35,7 +36,10 @@ export class ApiServer {
     this.app.post('/api/config', (req, res) => this.handlePostConfig(req, res));
     this.app.get('/api/paths', (req, res) => this.handleGetPaths(req, res));
     this.app.get('/api/status', (req, res) => this.handleStatus(req, res));
-    this.app.get('/api/events', (req, res) => this.handleSSE(req, res));
+    this.app.get('/api/events/stream', (req, res) => this.handleSSE(req, res));
+    this.app.get('/api/events/query', (req, res) => this.handleEventsQuery(req, res));
+    this.app.get('/api/events/recent', (req, res) => this.handleRecentEvents(req, res));
+    this.app.get('/api/events/states', (req, res) => this.handleEventStates(req, res));
   }
 
   handleSnapshot(req, res) {
@@ -258,6 +262,56 @@ export class ApiServer {
         },
         cache: this.cache.stats()
       });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async handleEventsQuery(req, res) {
+    try {
+      const { start, end, name, limit } = req.query;
+
+      if (!start || !end) {
+        return res.status(400).json({ error: 'Missing required parameters: start, end' });
+      }
+
+      const limitNum = Math.min(parseInt(limit) || 1000, 10000);
+      const events = await this.storage.queryEvents(start, end, name || null, limitNum);
+
+      res.json({
+        start,
+        end,
+        name: name || 'all',
+        count: events.length,
+        events
+      });
+    } catch (error) {
+      console.error('Events query error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async handleRecentEvents(req, res) {
+    try {
+      const { limit } = req.query;
+      const limitNum = Math.min(parseInt(limit) || 50, 500);
+      
+      const events = await this.storage.getRecentEvents(limitNum);
+      
+      res.json({
+        count: events.length,
+        events
+      });
+    } catch (error) {
+      console.error('Recent events query error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  handleEventStates(req, res) {
+    try {
+      const states = this.eventDetector.getAllEventStates();
+      res.json({ states });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

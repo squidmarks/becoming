@@ -24,6 +24,7 @@ export class MongoStorage {
       
       this.db = this.client.db('becoming');
       this.collection = this.db.collection('vessel_data');
+      this.eventsCollection = this.db.collection('vessel_events');
       
       await this.ensureIndexes();
       
@@ -43,6 +44,12 @@ export class MongoStorage {
       await this.collection.createIndex({ timestamp: -1 });
       await this.collection.createIndex({ path: 1 });
       await this.collection.createIndex({ path: 1, timestamp: -1 });
+      
+      await this.eventsCollection.createIndex({ timestamp: -1 });
+      await this.eventsCollection.createIndex({ name: 1 });
+      await this.eventsCollection.createIndex({ name: 1, timestamp: -1 });
+      await this.eventsCollection.createIndex({ path: 1, timestamp: -1 });
+      
       console.log('✓ MongoDB indexes created');
     } catch (error) {
       console.error('Warning: Failed to create indexes:', error.message);
@@ -261,6 +268,102 @@ export class MongoStorage {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  async writeEvent(event) {
+    if (!this.eventsCollection) {
+      return;
+    }
+
+    const document = {
+      name: event.name,
+      type: event.type,
+      path: event.path,
+      description: event.description,
+      timestamp: new Date(event.timestamp),
+      source: event.source,
+      fromValue: event.fromValue,
+      toValue: event.toValue,
+      threshold: event.threshold,
+      direction: event.direction
+    };
+
+    try {
+      await this.eventsCollection.insertOne(document);
+    } catch (error) {
+      console.error('Failed to write event:', error.message);
+    }
+  }
+
+  async queryEvents(startTime, endTime, eventName = null, limit = 1000) {
+    if (!this.eventsCollection) {
+      throw new Error('Not connected to MongoDB');
+    }
+
+    const query = {
+      timestamp: {
+        $gte: new Date(startTime),
+        $lte: new Date(endTime)
+      }
+    };
+
+    if (eventName) {
+      query.name = eventName;
+    }
+
+    try {
+      const documents = await this.eventsCollection
+        .find(query)
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .toArray();
+
+      return documents.map(doc => ({
+        name: doc.name,
+        type: doc.type,
+        path: doc.path,
+        description: doc.description,
+        timestamp: doc.timestamp.toISOString(),
+        source: doc.source,
+        fromValue: doc.fromValue,
+        toValue: doc.toValue,
+        threshold: doc.threshold,
+        direction: doc.direction
+      }));
+    } catch (error) {
+      console.error('Event query failed:', error.message);
+      throw error;
+    }
+  }
+
+  async getRecentEvents(limit = 50) {
+    if (!this.eventsCollection) {
+      throw new Error('Not connected to MongoDB');
+    }
+
+    try {
+      const documents = await this.eventsCollection
+        .find({})
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .toArray();
+
+      return documents.map(doc => ({
+        name: doc.name,
+        type: doc.type,
+        path: doc.path,
+        description: doc.description,
+        timestamp: doc.timestamp.toISOString(),
+        source: doc.source,
+        fromValue: doc.fromValue,
+        toValue: doc.toValue,
+        threshold: doc.threshold,
+        direction: doc.direction
+      }));
+    } catch (error) {
+      console.error('Failed to get recent events:', error.message);
+      throw error;
+    }
   }
 
   get connected() {

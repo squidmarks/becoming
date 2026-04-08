@@ -4,6 +4,7 @@ import { DataCache } from './data-cache.js';
 import { SignalKClient } from './signalk-client.js';
 import { MongoStorage } from './mongo-storage.js';
 import { ApiServer } from './api-server.js';
+import { EventDetector } from './event-detector.js';
 
 dotenv.config();
 
@@ -20,12 +21,14 @@ class VesselDataLogger {
       process.env.SIGNALK_PROTOCOL || 'ws'
     );
     this.storage = new MongoStorage(process.env.MONGO_URI);
+    this.eventDetector = new EventDetector();
     this.apiServer = new ApiServer(
       parseInt(process.env.WEB_PORT) || 3200,
       this.cache,
       this.storage,
       this.configManager,
-      this.signalkClient
+      this.signalkClient,
+      this.eventDetector
     );
 
     this.lastWriteTimes = new Map();
@@ -45,7 +48,13 @@ class VesselDataLogger {
 
     try {
       this.configManager.load();
+      const config = this.configManager.config;
       console.log(`  Subscriptions: ${this.configManager.getEnabledSubscriptions().length} enabled\n`);
+      
+      if (config.eventDetection && config.eventDetection.enabled) {
+        this.eventDetector.updateRules(config.eventDetection.rules || []);
+        console.log(`  Event Detection: ${config.eventDetection.rules?.length || 0} rules configured\n`);
+      }
     } catch (error) {
       console.error('Failed to load configuration:', error.message);
       process.exit(1);
@@ -98,6 +107,12 @@ class VesselDataLogger {
     this.configManager.on('configChanged', (config) => {
       console.log('Configuration changed, updating subscriptions...');
       this.subscribeToSignalK();
+      
+      if (config.eventDetection && config.eventDetection.enabled) {
+        this.eventDetector.updateRules(config.eventDetection.rules || []);
+        console.log(`Event detection rules updated: ${config.eventDetection.rules?.length || 0} rules`);
+      }
+      
       this.apiServer.broadcastSSE('config-changed', {});
     });
 
@@ -116,6 +131,15 @@ class VesselDataLogger {
     const { path, value, timestamp, source } = data;
 
     this.cache.set(path, value, timestamp, source);
+
+    const events = this.eventDetector.detectEvents(path, value, timestamp, source);
+    if (events.length > 0 && this.storage.connected) {
+      for (const event of events) {
+        console.log(`📌 Event detected: ${event.name} - ${event.description}`);
+        this.storage.writeEvent(event);
+        this.apiServer.broadcastSSE('event', event);
+      }
+    }
 
     const subscription = this.configManager.getSubscriptionByPath(path);
     if (subscription && this.storage.connected) {
@@ -140,8 +164,27 @@ class VesselDataLogger {
     const timeSinceLastWrite = now - lastWriteTime;
     const intervalMs = subscription.logInterval * 1000;
 
+    if (subscription.maxInterval) {
+      const maxIntervalMs = subscription.maxInterval * 1000;
+      if (timeSinceLastWrite >= maxIntervalMs) {
+        return true;
+      }
+    }
+
     if (timeSinceLastWrite >= intervalMs) {
-      return true;
+      if (subscription.deltaThreshold !== null && subscription.deltaThreshold !== undefined) {
+        const lastValue = this.lastWriteValues.get(path);
+        if (lastValue !== undefined && typeof value === 'number' && typeof lastValue === 'number') {
+          const delta = Math.abs(value - lastValue);
+          if (delta >= subscription.deltaThreshold) {
+            return true;
+          }
+        } else {
+          return true;
+        }
+      } else {
+        return true;
+      }
     }
 
     if (subscription.deltaThreshold !== null && subscription.deltaThreshold !== undefined) {
