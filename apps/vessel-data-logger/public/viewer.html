@@ -199,11 +199,13 @@
 
     async function loadAllPaths() {
       try {
-        const response = await fetch('api/paths?limit=1000');
-        const data = await response.json();
-        allPaths = data.paths.map(p => p.path);
+        const response = await fetch('api/config');
+        const config = await response.json();
+        allPaths = config.subscriptions
+          .filter(sub => sub.enabled)
+          .map(sub => sub.path);
       } catch (error) {
-        console.error('Failed to load paths:', error);
+        console.error('Failed to load configured paths:', error);
       }
     }
 
