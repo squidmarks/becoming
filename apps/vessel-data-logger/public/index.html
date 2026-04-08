@@ -103,8 +103,9 @@
     let eventSource = null;
     const activityLog = [];
     const eventsLog = [];
-    const maxLogEntries = 50;
+    const maxLogEntries = 20; // Reduced to prevent overwhelming display
     const maxEventsEntries = 20;
+    let activityRenderTimeout = null;
 
     function initTheme() {
       const theme = localStorage.getItem('theme') || 'light';
@@ -273,7 +274,14 @@
         activityLog.pop();
       }
 
-      renderActivityLog();
+      // Throttle rendering to avoid rapid scrolling when many updates arrive
+      if (activityRenderTimeout) {
+        clearTimeout(activityRenderTimeout);
+      }
+      activityRenderTimeout = setTimeout(() => {
+        renderActivityLog();
+        activityRenderTimeout = null;
+      }, 250); // Batch updates within 250ms window
     }
 
     function renderActivityLog() {

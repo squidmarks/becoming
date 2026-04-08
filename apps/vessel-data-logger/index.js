@@ -167,10 +167,10 @@ class VesselDataLogger {
         this.storage.write(path, value, timestamp, source);
         this.lastWriteTimes.set(path, Date.now());
         this.lastWriteValues.set(path, value);
+        // Only broadcast activity for data that's actually being logged
+        this.apiServer.broadcastSSE('delta', { path, value, timestamp, source });
       }
     }
-
-    this.apiServer.broadcastSSE('delta', { path, value, timestamp, source });
   }
 
   evaluateEnhancedEvents() {
