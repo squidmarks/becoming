@@ -719,7 +719,7 @@
                 <td>${detector.category || 'general'}</td>
                 <td style="font-family: monospace; font-size: 0.85rem;">
                   ${detector.startConditions?.rules?.[0] ? 
-                    `${detector.startConditions.rules[0].path} ${detector.startConditions.rules[0].operator} ${detector.startConditions.rules[0].value}` :
+                    detector.startConditions.rules[0].path + ' ' + detector.startConditions.rules[0].operator + ' ' + detector.startConditions.rules[0].value :
                     '-'
                   }
                 </td>
