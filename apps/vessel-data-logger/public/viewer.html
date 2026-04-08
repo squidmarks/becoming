@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vessel Data Logger - Data Viewer</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 </head>
 <body>
   <header>
     <div class="header-content">
-      <h1>⚓ Vessel Data Logger</h1>
+      <h1><i class="fas fa-ship"></i> Vessel Data Logger</h1>
       <div class="header-controls">
-        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+        <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></button>
       </div>
     </div>
   </header>
@@ -61,8 +62,8 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" onclick="loadData()">📊 Load Data</button>
-      <button class="btn btn-secondary" onclick="exportCSV()">📥 Export CSV</button>
+      <button class="btn btn-primary" onclick="loadData()"><i class="fas fa-chart-line"></i> Load Data</button>
+      <button class="btn btn-secondary" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button>
     </div>
 
     <div class="card">
@@ -107,8 +108,16 @@
 
     function updateThemeButton() {
       const theme = document.documentElement.getAttribute('data-theme');
-      const button = document.querySelector('.theme-toggle');
-      button.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+      const icon = document.querySelector('.theme-toggle i');
+      const text = document.getElementById('theme-text');
+      
+      if (theme === 'dark') {
+        icon.className = 'fas fa-sun';
+        text.textContent = 'Light Mode';
+      } else {
+        icon.className = 'fas fa-moon';
+        text.textContent = 'Dark Mode';
+      }
     }
 
     function updateChartColors() {

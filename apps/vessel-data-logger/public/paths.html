@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vessel Data Logger - Available Paths</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <header>
     <div class="header-content">
-      <h1>⚓ Vessel Data Logger</h1>
+      <h1><i class="fas fa-ship"></i> Vessel Data Logger</h1>
       <div class="header-controls">
-        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+        <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></button>
       </div>
     </div>
   </header>
@@ -29,7 +30,7 @@
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
         <h2>Available SignalK Paths</h2>
-        <button class="btn btn-primary" onclick="loadPaths()">🔄 Refresh</button>
+        <button class="btn btn-primary" onclick="loadPaths()"><i class="fas fa-sync"></i> Refresh</button>
       </div>
 
       <div class="form-group">
@@ -39,11 +40,11 @@
       </div>
 
       <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
-        <button class="btn btn-secondary" onclick="applyFilter('electrical.')">⚡ Electrical</button>
-        <button class="btn btn-secondary" onclick="applyFilter('navigation.')">🧭 Navigation</button>
-        <button class="btn btn-secondary" onclick="applyFilter('environment.')">🌡️ Environment</button>
-        <button class="btn btn-secondary" onclick="applyFilter('propulsion.')">🚢 Propulsion</button>
-        <button class="btn btn-secondary" onclick="applyFilter('')">🔍 All</button>
+        <button class="btn btn-secondary" onclick="applyFilter('electrical.')"><i class="fas fa-bolt"></i> Electrical</button>
+        <button class="btn btn-secondary" onclick="applyFilter('navigation.')"><i class="fas fa-compass"></i> Navigation</button>
+        <button class="btn btn-secondary" onclick="applyFilter('environment.')"><i class="fas fa-temperature-high"></i> Environment</button>
+        <button class="btn btn-secondary" onclick="applyFilter('propulsion.')"><i class="fas fa-ship"></i> Propulsion</button>
+        <button class="btn btn-secondary" onclick="applyFilter('')"><i class="fas fa-list"></i> All</button>
       </div>
 
       <div id="paths-list">
@@ -78,8 +79,16 @@
 
     function updateThemeButton() {
       const theme = document.documentElement.getAttribute('data-theme');
-      const button = document.querySelector('.theme-toggle');
-      button.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+      const icon = document.querySelector('.theme-toggle i');
+      const text = document.getElementById('theme-text');
+      
+      if (theme === 'dark') {
+        icon.className = 'fas fa-sun';
+        text.textContent = 'Light Mode';
+      } else {
+        icon.className = 'fas fa-moon';
+        text.textContent = 'Dark Mode';
+      }
     }
 
     async function loadConfig() {
@@ -145,8 +154,8 @@
                 <td>${path.source}</td>
                 <td>
                   ${isLogged 
-                    ? '<span class="status-badge connected" style="font-size: 0.75rem;">✓ Logged</span>'
-                    : `<button class="btn btn-success" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="addToLogging('${path.path}')">➕ Add</button>`
+                    ? '<span class="status-badge connected" style="font-size: 0.75rem;"><i class="fas fa-check"></i> Logged</span>'
+                    : `<button class="btn btn-success" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="addToLogging('${path.path}')"><i class="fas fa-plus"></i> Add</button>`
                   }
                 </td>
               </tr>
