@@ -62,6 +62,30 @@ const defaultConfig = {
       logInterval: 60,
       deltaThreshold: 0.5,
       description: "Solar PV1 current"
+    },
+    {
+      path: "propulsion.port.temperature",
+      enabled: false,
+      logInterval: 10,
+      deltaThreshold: 2,
+      description: "Port engine temperature",
+      condition: {
+        path: "propulsion.port.revolutions",
+        operator: ">",
+        value: 0
+      }
+    },
+    {
+      path: "propulsion.port.runTime",
+      enabled: false,
+      logInterval: 300,
+      deltaThreshold: null,
+      description: "Port engine run time",
+      condition: {
+        path: "propulsion.port.revolutions",
+        operator: ">",
+        value: 0
+      }
     }
   ],
   retention: {

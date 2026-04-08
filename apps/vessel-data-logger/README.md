@@ -149,6 +149,18 @@ User-editable configuration file that controls what data is logged:
       "logInterval": 10,
       "deltaThreshold": null,
       "description": "GPS position"
+    },
+    {
+      "path": "propulsion.port.temperature",
+      "enabled": true,
+      "logInterval": 10,
+      "deltaThreshold": 2,
+      "description": "Port engine temperature",
+      "condition": {
+        "path": "propulsion.port.revolutions",
+        "operator": ">",
+        "value": 0
+      }
     }
   ],
   "retention": {
@@ -165,6 +177,31 @@ User-editable configuration file that controls what data is logged:
 - `logInterval`: Seconds between writes (time-based logging)
 - `deltaThreshold`: Minimum change to trigger write (null = disabled)
 - `description`: Human-readable label for UI
+- `condition` (optional): Conditional logging - only write to storage if condition is met
+  - `path`: SignalK path to check
+  - `operator`: Comparison operator (`>`, `>=`, `<`, `<=`, `==`, `!=`)
+  - `value`: Value to compare against
+
+**Conditional Logging:**
+
+Use the `condition` field to only log data when specific criteria are met. This is useful for:
+- Only logging engine data when engines are running (RPM > 0)
+- Only logging solar data when sun is up (solar voltage > threshold)
+- Only logging HVAC data when system is active
+
+**Example:** Log engine temperature only when engine is running:
+```json
+{
+  "path": "propulsion.port.temperature",
+  "condition": {
+    "path": "propulsion.port.revolutions",
+    "operator": ">",
+    "value": 0
+  }
+}
+```
+
+**Note:** The condition is checked against cached values. The condition path must be actively subscribed (or have recent data in cache) for the condition to evaluate properly.
 
 **Hot Reload:** The service automatically reloads when `config.json` changes (no restart required).
 

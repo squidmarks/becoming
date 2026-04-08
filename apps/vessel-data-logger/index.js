@@ -131,6 +131,10 @@ class VesselDataLogger {
   }
 
   shouldWriteToStorage(path, value, timestamp, subscription) {
+    if (subscription.condition && !this.evaluateCondition(subscription.condition)) {
+      return false;
+    }
+
     const now = Date.now();
     const lastWriteTime = this.lastWriteTimes.get(path) || 0;
     const timeSinceLastWrite = now - lastWriteTime;
@@ -151,6 +155,37 @@ class VesselDataLogger {
     }
 
     return false;
+  }
+
+  evaluateCondition(condition) {
+    const cachedEntry = this.cache.get(condition.path);
+    if (!cachedEntry) {
+      return false;
+    }
+
+    const actualValue = cachedEntry.value;
+    const expectedValue = condition.value;
+    const operator = condition.operator;
+
+    switch (operator) {
+      case '>':
+        return actualValue > expectedValue;
+      case '>=':
+        return actualValue >= expectedValue;
+      case '<':
+        return actualValue < expectedValue;
+      case '<=':
+        return actualValue <= expectedValue;
+      case '==':
+      case '===':
+        return actualValue === expectedValue;
+      case '!=':
+      case '!==':
+        return actualValue !== expectedValue;
+      default:
+        console.warn(`Unknown condition operator: ${operator}`);
+        return false;
+    }
   }
 
   async shutdown(signal) {

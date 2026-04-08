@@ -115,11 +115,16 @@
             <th>Description</th>
             <th>Interval (s)</th>
             <th>Delta Threshold</th>
+            <th>Condition</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          ${config.subscriptions.map((sub, index) => `
+          ${config.subscriptions.map((sub, index) => {
+            const conditionText = sub.condition 
+              ? `${sub.condition.path} ${sub.condition.operator} ${sub.condition.value}`
+              : '-';
+            return `
             <tr>
               <td>
                 <label class="toggle-switch">
@@ -137,11 +142,15 @@
               <td>
                 <input type="number" value="${sub.deltaThreshold || ''}" step="0.1" onchange="updateThreshold(${index}, this.value)" style="width: 80px; padding: 0.25rem;" placeholder="None">
               </td>
+              <td style="font-size: 0.75rem; font-family: monospace;">
+                ${conditionText}
+                <button class="btn btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-left: 0.25rem;" onclick="editCondition(${index})">✏️</button>
+              </td>
               <td>
                 <button class="btn btn-danger" style="padding: 0.25rem 0.5rem;" onclick="removePath(${index})">🗑️</button>
               </td>
             </tr>
-          `).join('')}
+          `;}).join('')}
         </tbody>
       `;
 
@@ -174,6 +183,42 @@
         config.subscriptions.splice(index, 1);
         renderConfig();
       }
+    }
+
+    function editCondition(index) {
+      const sub = config.subscriptions[index];
+      const hasCondition = sub.condition ? 'yes' : 'no';
+      
+      const enable = confirm(
+        sub.condition 
+          ? `Current condition: ${sub.condition.path} ${sub.condition.operator} ${sub.condition.value}\n\nDo you want to edit or remove this condition?` 
+          : 'No condition set. Add a condition?'
+      );
+      
+      if (!enable) {
+        if (sub.condition) {
+          sub.condition = null;
+          renderConfig();
+        }
+        return;
+      }
+
+      const condPath = prompt('Condition path (e.g., propulsion.port.revolutions):', sub.condition?.path || '');
+      if (!condPath) return;
+
+      const operator = prompt('Operator (>, >=, <, <=, ==, !=):', sub.condition?.operator || '>');
+      if (!operator) return;
+
+      const value = prompt('Value to compare:', sub.condition?.value || '0');
+      if (value === null) return;
+
+      config.subscriptions[index].condition = {
+        path: condPath,
+        operator,
+        value: parseFloat(value) || value
+      };
+
+      renderConfig();
     }
 
     function addNewPath() {
