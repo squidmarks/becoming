@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vessel Data Logger - Configuration</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>⚓ Vessel Data Logger</h1>
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-tabs">
+      <a href="/">Dashboard</a>
+      <a href="/config.html" class="active">Configuration</a>
+      <a href="/viewer.html">Data Viewer</a>
+      <a href="/paths.html">Available Paths</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Logging Configuration</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" onclick="addNewPath()">➕ Add Path</button>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 Save Changes</button>
+        </div>
+      </div>
+
+      <div id="subscriptions-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Retention Policy</h2>
+      <div class="form-group">
+        <label>High Resolution Days</label>
+        <input type="number" id="highResolutionDays" min="1" max="365">
+        <small style="color: var(--text-secondary);">Keep full resolution data for this many days</small>
+      </div>
+      <div class="form-group">
+        <label>Downsample After Days</label>
+        <input type="number" id="downsampleAfterDays" min="1" max="365">
+        <small style="color: var(--text-secondary);">Aggregate data older than this</small>
+      </div>
+      <div class="form-group">
+        <label>Delete After Days</label>
+        <input type="number" id="deleteAfterDays" min="1" max="3650">
+        <small style="color: var(--text-secondary);">Permanently delete data older than this</small>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="connection-status">
+      <span>Configuration changes will be applied immediately</span>
+    </div>
+  </footer>
+
+  <script>
+    let config = null;
+
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const button = document.querySelector('.theme-toggle');
+      button.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch('/api/config');
+        config = await response.json();
+        renderConfig();
+      } catch (error) {
+        console.error('Failed to load config:', error);
+        alert('Failed to load configuration');
+      }
+    }
+
+    function renderConfig() {
+      const container = document.getElementById('subscriptions-list');
+      
+      if (!config.subscriptions || config.subscriptions.length === 0) {
+        container.innerHTML = '<div class="empty-state"><h3>No paths configured</h3><p>Add a path to start logging data</p></div>';
+        return;
+      }
+
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Enabled</th>
+            <th>Path</th>
+            <th>Description</th>
+            <th>Interval (s)</th>
+            <th>Delta Threshold</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${config.subscriptions.map((sub, index) => `
+            <tr>
+              <td>
+                <label class="toggle-switch">
+                  <input type="checkbox" ${sub.enabled ? 'checked' : ''} onchange="toggleEnabled(${index})">
+                  <span class="slider"></span>
+                </label>
+              </td>
+              <td style="font-family: monospace; font-size: 0.75rem;">${sub.path}</td>
+              <td>
+                <input type="text" value="${sub.description || ''}" onchange="updateDescription(${index}, this.value)" style="width: 100%; padding: 0.25rem;">
+              </td>
+              <td>
+                <input type="number" value="${sub.logInterval}" min="1" max="3600" onchange="updateInterval(${index}, this.value)" style="width: 80px; padding: 0.25rem;">
+              </td>
+              <td>
+                <input type="number" value="${sub.deltaThreshold || ''}" step="0.1" onchange="updateThreshold(${index}, this.value)" style="width: 80px; padding: 0.25rem;" placeholder="None">
+              </td>
+              <td>
+                <button class="btn btn-danger" style="padding: 0.25rem 0.5rem;" onclick="removePath(${index})">🗑️</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(table);
+
+      document.getElementById('highResolutionDays').value = config.retention?.highResolutionDays || 30;
+      document.getElementById('downsampleAfterDays').value = config.retention?.downsampleAfterDays || 30;
+      document.getElementById('deleteAfterDays').value = config.retention?.deleteAfterDays || 365;
+    }
+
+    function toggleEnabled(index) {
+      config.subscriptions[index].enabled = !config.subscriptions[index].enabled;
+    }
+
+    function updateDescription(index, value) {
+      config.subscriptions[index].description = value;
+    }
+
+    function updateInterval(index, value) {
+      config.subscriptions[index].logInterval = parseInt(value);
+    }
+
+    function updateThreshold(index, value) {
+      config.subscriptions[index].deltaThreshold = value === '' ? null : parseFloat(value);
+    }
+
+    function removePath(index) {
+      if (confirm(`Remove ${config.subscriptions[index].path}?`)) {
+        config.subscriptions.splice(index, 1);
+        renderConfig();
+      }
+    }
+
+    function addNewPath() {
+      const path = prompt('Enter SignalK path (e.g., navigation.position):');
+      if (!path) return;
+
+      const exists = config.subscriptions.some(sub => sub.path === path);
+      if (exists) {
+        alert('Path already exists in configuration');
+        return;
+      }
+
+      config.subscriptions.push({
+        path,
+        enabled: true,
+        logInterval: 60,
+        deltaThreshold: null,
+        description: ''
+      });
+
+      renderConfig();
+    }
+
+    async function saveConfig() {
+      config.retention = {
+        highResolutionDays: parseInt(document.getElementById('highResolutionDays').value),
+        downsampleAfterDays: parseInt(document.getElementById('downsampleAfterDays').value),
+        deleteAfterDays: parseInt(document.getElementById('deleteAfterDays').value)
+      };
+
+      try {
+        const response = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+
+        if (response.ok) {
+          alert('✓ Configuration saved successfully');
+          loadConfig();
+        } else {
+          const error = await response.json();
+          alert(`Failed to save: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Failed to save config:', error);
+        alert('Failed to save configuration');
+      }
+    }
+
+    initTheme();
+    loadConfig();
+  </script>
+</body>
+</html>

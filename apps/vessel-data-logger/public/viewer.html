@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vessel Data Logger - Data Viewer</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>⚓ Vessel Data Logger</h1>
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-tabs">
+      <a href="/">Dashboard</a>
+      <a href="/config.html">Configuration</a>
+      <a href="/viewer.html" class="active">Data Viewer</a>
+      <a href="/paths.html">Available Paths</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2>Query Parameters</h2>
+      
+      <div class="form-group">
+        <label>Data Path(s)</label>
+        <select id="path-select" multiple style="height: 100px;">
+          <option value="">Loading...</option>
+        </select>
+        <small style="color: var(--text-secondary);">Hold Ctrl/Cmd to select multiple paths</small>
+      </div>
+
+      <div class="form-group">
+        <label>Time Range</label>
+        <select id="time-preset" onchange="applyTimePreset()">
+          <option value="1h">Last Hour</option>
+          <option value="6h">Last 6 Hours</option>
+          <option value="24h" selected>Last 24 Hours</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="custom">Custom Range</option>
+        </select>
+      </div>
+
+      <div id="custom-range" style="display: none;">
+        <div class="form-group">
+          <label>Start Time</label>
+          <input type="datetime-local" id="start-time">
+        </div>
+        <div class="form-group">
+          <label>End Time</label>
+          <input type="datetime-local" id="end-time">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="loadData()">📊 Load Data</button>
+      <button class="btn btn-secondary" onclick="exportCSV()">📥 Export CSV</button>
+    </div>
+
+    <div class="card">
+      <h2>Data Visualization</h2>
+      <div id="chart-container" style="position: relative; height: 400px;">
+        <canvas id="data-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Statistics</h2>
+      <div id="statistics"></div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="connection-status">
+      <span id="status-message">Select a path and time range to view data</span>
+    </div>
+  </footer>
+
+  <script>
+    let chart = null;
+    let currentData = null;
+    let config = null;
+
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+      updateChartColors();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+      updateChartColors();
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const button = document.querySelector('.theme-toggle');
+      button.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+
+    function updateChartColors() {
+      if (chart) {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        chart.options.scales.x.ticks.color = isDark ? '#a0a0a0' : '#666666';
+        chart.options.scales.y.ticks.color = isDark ? '#a0a0a0' : '#666666';
+        chart.options.scales.x.grid.color = isDark ? '#404040' : '#e0e0e0';
+        chart.options.scales.y.grid.color = isDark ? '#404040' : '#e0e0e0';
+        chart.update();
+      }
+    }
+
+    async function loadConfiguredPaths() {
+      try {
+        const response = await fetch('/api/config');
+        config = await response.json();
+        
+        const select = document.getElementById('path-select');
+        select.innerHTML = config.subscriptions
+          .filter(sub => sub.enabled)
+          .map(sub => `<option value="${sub.path}">${sub.description || sub.path}</option>`)
+          .join('');
+      } catch (error) {
+        console.error('Failed to load config:', error);
+      }
+    }
+
+    function applyTimePreset() {
+      const preset = document.getElementById('time-preset').value;
+      const customRange = document.getElementById('custom-range');
+      
+      if (preset === 'custom') {
+        customRange.style.display = 'block';
+        return;
+      }
+      
+      customRange.style.display = 'none';
+    }
+
+    function getTimeRange() {
+      const preset = document.getElementById('time-preset').value;
+      const now = new Date();
+      let start;
+
+      if (preset === 'custom') {
+        const startValue = document.getElementById('start-time').value;
+        const endValue = document.getElementById('end-time').value;
+        if (!startValue || !endValue) {
+          alert('Please select both start and end times');
+          return null;
+        }
+        return {
+          start: new Date(startValue).toISOString(),
+          end: new Date(endValue).toISOString()
+        };
+      }
+
+      const presets = {
+        '1h': 1 * 60 * 60 * 1000,
+        '6h': 6 * 60 * 60 * 1000,
+        '24h': 24 * 60 * 60 * 1000,
+        '7d': 7 * 24 * 60 * 60 * 1000,
+        '30d': 30 * 24 * 60 * 60 * 1000
+      };
+
+      start = new Date(now.getTime() - presets[preset]);
+      return {
+        start: start.toISOString(),
+        end: now.toISOString()
+      };
+    }
+
+    async function loadData() {
+      const select = document.getElementById('path-select');
+      const selectedPaths = Array.from(select.selectedOptions).map(opt => opt.value);
+      
+      if (selectedPaths.length === 0) {
+        alert('Please select at least one path');
+        return;
+      }
+
+      const timeRange = getTimeRange();
+      if (!timeRange) return;
+
+      document.getElementById('status-message').textContent = 'Loading data...';
+
+      try {
+        const params = new URLSearchParams({
+          path: selectedPaths.join(','),
+          start: timeRange.start,
+          end: timeRange.end,
+          limit: 10000
+        });
+
+        const response = await fetch(`/api/history?${params}`);
+        const data = await response.json();
+        
+        currentData = data;
+        renderChart(data);
+        renderStatistics(data);
+        
+        document.getElementById('status-message').textContent = `Loaded ${data.count || 0} data points`;
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        document.getElementById('status-message').textContent = 'Failed to load data';
+      }
+    }
+
+    function renderChart(data) {
+      const ctx = document.getElementById('data-chart').getContext('2d');
+      
+      if (chart) {
+        chart.destroy();
+      }
+
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const gridColor = isDark ? '#404040' : '#e0e0e0';
+      const textColor = isDark ? '#a0a0a0' : '#666666';
+
+      const colors = [
+        'rgb(37, 99, 235)',
+        'rgb(16, 185, 129)',
+        'rgb(245, 158, 11)',
+        'rgb(239, 68, 68)',
+        'rgb(139, 92, 246)',
+        'rgb(236, 72, 153)'
+      ];
+
+      let datasets = [];
+
+      if (data.data && Array.isArray(data.data)) {
+        datasets.push({
+          label: data.path,
+          data: data.data.map(point => ({
+            x: new Date(point.timestamp),
+            y: typeof point.value === 'object' ? JSON.stringify(point.value) : point.value
+          })),
+          borderColor: colors[0],
+          backgroundColor: colors[0] + '20',
+          tension: 0.1,
+          fill: false
+        });
+      } else if (data.data && typeof data.data === 'object') {
+        let colorIndex = 0;
+        for (const [path, points] of Object.entries(data.data)) {
+          if (Array.isArray(points) && points.length > 0) {
+            datasets.push({
+              label: path,
+              data: points.map(point => ({
+                x: new Date(point.timestamp),
+                y: typeof point.value === 'object' ? JSON.stringify(point.value) : point.value
+              })),
+              borderColor: colors[colorIndex % colors.length],
+              backgroundColor: colors[colorIndex % colors.length] + '20',
+              tension: 0.1,
+              fill: false
+            });
+            colorIndex++;
+          }
+        }
+      }
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                color: textColor
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                displayFormats: {
+                  hour: 'MMM d, HH:mm',
+                  day: 'MMM d'
+                }
+              },
+              ticks: { color: textColor },
+              grid: { color: gridColor }
+            },
+            y: {
+              ticks: { color: textColor },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    function renderStatistics(data) {
+      const container = document.getElementById('statistics');
+      
+      if (!data.data) {
+        container.innerHTML = '<p class="empty-state">No data to display</p>';
+        return;
+      }
+
+      const stats = {};
+
+      if (Array.isArray(data.data)) {
+        stats[data.path] = calculateStats(data.data);
+      } else {
+        for (const [path, points] of Object.entries(data.data)) {
+          if (Array.isArray(points) && points.length > 0) {
+            stats[path] = calculateStats(points);
+          }
+        }
+      }
+
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Count</th>
+            <th>Min</th>
+            <th>Max</th>
+            <th>Average</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.entries(stats).map(([path, s]) => `
+            <tr>
+              <td style="font-family: monospace; font-size: 0.75rem;">${path}</td>
+              <td>${s.count}</td>
+              <td>${s.min !== null ? s.min.toFixed(2) : 'N/A'}</td>
+              <td>${s.max !== null ? s.max.toFixed(2) : 'N/A'}</td>
+              <td>${s.avg !== null ? s.avg.toFixed(2) : 'N/A'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(table);
+    }
+
+    function calculateStats(points) {
+      const numericValues = points
+        .map(p => p.value)
+        .filter(v => typeof v === 'number' && !isNaN(v));
+
+      if (numericValues.length === 0) {
+        return { count: points.length, min: null, max: null, avg: null };
+      }
+
+      return {
+        count: points.length,
+        min: Math.min(...numericValues),
+        max: Math.max(...numericValues),
+        avg: numericValues.reduce((a, b) => a + b, 0) / numericValues.length
+      };
+    }
+
+    function exportCSV() {
+      if (!currentData || !currentData.data) {
+        alert('No data to export');
+        return;
+      }
+
+      let csv = 'Timestamp,Path,Value,Source\n';
+
+      if (Array.isArray(currentData.data)) {
+        for (const point of currentData.data) {
+          csv += `${point.timestamp},${currentData.path},${point.value},${point.source}\n`;
+        }
+      } else {
+        for (const [path, points] of Object.entries(currentData.data)) {
+          for (const point of points) {
+            csv += `${point.timestamp},${path},${point.value},${point.source}\n`;
+          }
+        }
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vessel-data-${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    initTheme();
+    loadConfiguredPaths();
+  </script>
+</body>
+</html>

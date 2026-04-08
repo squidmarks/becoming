@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vessel Data Logger - Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>⚓ Vessel Data Logger</h1>
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-tabs">
+      <a href="/" class="active">Dashboard</a>
+      <a href="/config.html">Configuration</a>
+      <a href="/viewer.html">Data Viewer</a>
+      <a href="/paths.html">Available Paths</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2>System Status</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <h3>SignalK Connection</h3>
+          <span id="signalk-status" class="status-badge disconnected">Disconnected</span>
+        </div>
+        <div class="status-item">
+          <h3>MongoDB Connection</h3>
+          <span id="mongodb-status" class="status-badge disconnected">Disconnected</span>
+        </div>
+        <div class="status-item">
+          <h3>Active Subscriptions</h3>
+          <div class="status-value" id="subscriptions-count">-</div>
+        </div>
+        <div class="status-item">
+          <h3>System Uptime</h3>
+          <div class="status-value" id="uptime">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Storage Statistics</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <h3>Documents Stored</h3>
+          <div class="status-value" id="doc-count">-</div>
+        </div>
+        <div class="status-item">
+          <h3>Storage Size</h3>
+          <div class="status-value" id="storage-size">-</div>
+        </div>
+        <div class="status-item">
+          <h3>Cache Entries</h3>
+          <div class="status-value" id="cache-entries">-</div>
+        </div>
+        <div class="status-item">
+          <h3>Index Size</h3>
+          <div class="status-value" id="index-size">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent Activity</h2>
+      <div id="activity-log">
+        <p class="empty-state">Waiting for data...</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="connection-status">
+      <div class="connection-indicator">
+        <span class="dot" id="signalk-dot"></span>
+        <span>SignalK</span>
+      </div>
+      <div class="connection-indicator">
+        <span class="dot" id="mongodb-dot"></span>
+        <span>MongoDB</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    let eventSource = null;
+    const activityLog = [];
+    const maxLogEntries = 50;
+
+    function initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeButton();
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton();
+    }
+
+    function updateThemeButton() {
+      const theme = document.documentElement.getAttribute('data-theme');
+      const button = document.querySelector('.theme-toggle');
+      button.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+
+    async function loadStatus() {
+      try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+
+        document.getElementById('signalk-status').textContent = data.signalk.connected ? 'Connected' : 'Disconnected';
+        document.getElementById('signalk-status').className = `status-badge ${data.signalk.connected ? 'connected' : 'disconnected'}`;
+        document.getElementById('signalk-dot').className = `dot ${data.signalk.connected ? 'connected' : ''}`;
+
+        document.getElementById('mongodb-status').textContent = data.mongodb.connected ? 'Connected' : 'Disconnected';
+        document.getElementById('mongodb-status').className = `status-badge ${data.mongodb.connected ? 'connected' : 'disconnected'}`;
+        document.getElementById('mongodb-dot').className = `dot ${data.mongodb.connected ? 'connected' : ''}`;
+
+        document.getElementById('subscriptions-count').textContent = data.signalk.subscriptions;
+        document.getElementById('uptime').textContent = formatUptime(data.uptime);
+
+        document.getElementById('cache-entries').textContent = data.cache.entries;
+
+        if (data.mongodb.documentsCount !== undefined) {
+          document.getElementById('doc-count').textContent = data.mongodb.documentsCount.toLocaleString();
+          document.getElementById('storage-size').textContent = data.mongodb.storageSize || '-';
+          document.getElementById('index-size').textContent = data.mongodb.indexSize || '-';
+        }
+      } catch (error) {
+        console.error('Failed to load status:', error);
+      }
+    }
+
+    function formatUptime(seconds) {
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    }
+
+    function connectSSE() {
+      eventSource = new EventSource('/api/events');
+
+      eventSource.addEventListener('message', (event) => {
+        const data = JSON.parse(event.data);
+        handleSSEEvent(data);
+      });
+
+      eventSource.addEventListener('error', (error) => {
+        console.error('SSE connection error:', error);
+        eventSource.close();
+        setTimeout(connectSSE, 5000);
+      });
+    }
+
+    function handleSSEEvent(data) {
+      if (data.type === 'delta') {
+        addToActivityLog(data.data);
+      } else if (data.type === 'signalk-connected' || data.type === 'signalk-disconnected') {
+        loadStatus();
+      }
+    }
+
+    function addToActivityLog(delta) {
+      activityLog.unshift({
+        timestamp: new Date(delta.timestamp),
+        path: delta.path,
+        value: delta.value,
+        source: delta.source
+      });
+
+      if (activityLog.length > maxLogEntries) {
+        activityLog.pop();
+      }
+
+      renderActivityLog();
+    }
+
+    function renderActivityLog() {
+      const container = document.getElementById('activity-log');
+      
+      if (activityLog.length === 0) {
+        container.innerHTML = '<p class="empty-state">Waiting for data...</p>';
+        return;
+      }
+
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Path</th>
+            <th>Value</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${activityLog.map(entry => `
+            <tr>
+              <td>${entry.timestamp.toLocaleTimeString()}</td>
+              <td style="font-family: monospace; font-size: 0.75rem;">${entry.path}</td>
+              <td>${formatValue(entry.value)}</td>
+              <td>${entry.source}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(table);
+    }
+
+    function formatValue(value) {
+      if (typeof value === 'object' && value !== null) {
+        return JSON.stringify(value);
+      }
+      if (typeof value === 'number') {
+        return value.toFixed(2);
+      }
+      return String(value);
+    }
+
+    initTheme();
+    loadStatus();
+    connectSSE();
+    setInterval(loadStatus, 30000);
+  </script>
+</body>
+</html>

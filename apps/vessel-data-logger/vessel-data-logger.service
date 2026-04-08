@@ -1,0 +1,17 @@
+[Unit]
+Description=Vessel Data Logger - SignalK data logging service
+After=network.target signalk.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=geoff
+WorkingDirectory=/home/geoff/becoming/apps/vessel-data-logger
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
