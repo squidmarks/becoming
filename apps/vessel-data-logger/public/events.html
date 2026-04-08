@@ -237,18 +237,68 @@
 
     .modal-content {
       background: var(--bg-primary);
-      padding: 30px;
       border-radius: 12px;
       max-width: 500px;
       width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 30px;
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
     }
 
     .modal-title {
       font-size: 1.5rem;
-      margin: 0 0 20px 0;
+      margin: 0;
       color: var(--text-primary);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .modal-close:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .modal-body {
+      padding: 30px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      padding: 20px 30px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    .modal-footer .btn-danger {
+      margin-right: auto;
     }
 
     .form-group {
@@ -318,12 +368,6 @@
       font-size: 1rem;
     }
 
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 25px;
-    }
 
     .empty-state {
       text-align: center;
@@ -482,9 +526,15 @@
   <!-- Detector Editor Modal -->
   <div id="detectorModal" class="modal">
     <div class="modal-content" style="max-width: 900px;">
-      <h2 class="modal-title" id="detectorModalTitle">Add Event Detector</h2>
+      <div class="modal-header">
+        <h2 class="modal-title" id="detectorModalTitle">Add Event Detector</h2>
+        <button class="modal-close" onclick="closeDetectorEditor()" aria-label="Close">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
       
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div class="form-group">
           <label for="detectorName">Name *</label>
           <input type="text" id="detectorName" placeholder="e.g., Vessel Underway">
@@ -593,9 +643,10 @@
           </div>
         </div>
       </div>
+      </div>
 
-      <div class="modal-actions">
-        <button id="deleteDetectorBtn" class="btn btn-danger" onclick="deleteCurrentDetector()" style="display: none; margin-right: auto;">
+      <div class="modal-footer">
+        <button id="deleteDetectorBtn" class="btn btn-danger" onclick="deleteCurrentDetector()" style="display: none;">
           <i class="fas fa-trash"></i> Delete
         </button>
         <button class="btn btn-secondary" onclick="closeDetectorEditor()">Cancel</button>
