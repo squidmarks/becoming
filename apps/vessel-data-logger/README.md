@@ -401,6 +401,146 @@ The service automatically detects and logs significant state transitions to a se
 - AI-friendly semantic data
 - Separate from time-series data (cleaner queries)
 
+### Enhanced Event Detection (Duration Events)
+
+The enhanced event detector supports **duration events** with complex conditions, debouncing, and rich data capture. This is ideal for tracking vessel activities, maintenance windows, and operational states.
+
+**Key Features:**
+- **Duration Events**: Track start and end times (e.g., "Vessel Underway" from departure to arrival)
+- **Complex Conditions**: AND/OR logic with nested rules
+- **Debouncing**: Requires N consecutive samples to prevent false triggers
+- **Data Capture**: Automatically capture relevant data at start/end
+- **User Review**: Events can be pending, confirmed, or dismissed
+- **Wildcards**: Match multiple paths (e.g., `propulsion.*.revolutions`)
+
+**Example Configuration:**
+```json
+{
+  "enhancedEventDetectors": [
+    {
+      "id": "vessel_underway",
+      "name": "Vessel Underway",
+      "description": "Vessel moving at cruising speed with engines running",
+      "type": "duration",
+      "enabled": true,
+      "category": "navigation",
+      "tags": ["transit", "navigation"],
+      
+      "startConditions": {
+        "operator": "AND",
+        "stability": {
+          "consecutiveSamples": 3,
+          "withinDuration": 60
+        },
+        "rules": [
+          {
+            "path": "navigation.speedOverGround",
+            "operator": ">",
+            "value": 1.5
+          },
+          {
+            "operator": "OR",
+            "rules": [
+              { "path": "propulsion.port.revolutions", "operator": ">", "value": 300 },
+              { "path": "propulsion.starboard.revolutions", "operator": ">", "value": 300 }
+            ]
+          }
+        ]
+      },
+      
+      "endConditions": {
+        "operator": "AND",
+        "stability": {
+          "consecutiveSamples": 6,
+          "withinDuration": 300
+        },
+        "rules": [
+          { "path": "navigation.speedOverGround", "operator": "<", "value": 0.3 },
+          { "path": "propulsion.port.revolutions", "operator": "<", "value": 50 },
+          { "path": "propulsion.starboard.revolutions", "operator": "<", "value": 50 }
+        ]
+      },
+      
+      "captureData": "navigation.position,navigation.speedOverGround,propulsion.*.revolutions",
+      "autoConfirm": false,
+      "notifications": {
+        "enabled": true,
+        "onStart": true,
+        "onEnd": true
+      }
+    }
+  ]
+}
+```
+
+**Stability/Debouncing:**
+- **consecutiveSamples**: Number of samples that must match consecutively
+- **withinDuration**: Maximum time span for those samples (seconds)
+- **Strict reset**: First false sample resets the counter
+- **Independent trackers**: Start and end have separate stability tracking
+- **Default**: 2 samples within 30 seconds
+
+**How It Works:**
+1. Evaluator runs every 5 seconds with all current cache values
+2. Each detector checks start conditions (if inactive) or end conditions (if active)
+3. StabilityTracker requires N consecutive true evaluations
+4. One false evaluation resets the counter (prevents noise)
+5. When stable, event starts/ends and is written to MongoDB
+6. Event state: `active` → `pending` → `confirmed` or `dismissed`
+
+**Example: Vessel Underway**
+- **Start**: SOG > 1.5kts AND (port OR starboard) > 300 RPM for 3 samples within 60s
+- **End**: SOG < 0.3kts AND both engines < 50 RPM for 6 samples within 5 minutes
+- **Asymmetric**: Easier to start (3 samples), harder to end (6 samples) prevents oscillation
+- **Captures**: Position, SOG, COG, engine RPM at start and end
+
+**Rich Event Schema:**
+```json
+{
+  "eventId": "vessel_underway_20260408T143022000Z",
+  "detectorId": "vessel_underway",
+  "name": "Vessel Underway",
+  "type": "duration",
+  "state": "pending",
+  "category": "navigation",
+  "tags": ["transit", "navigation"],
+  
+  "startTime": "2026-04-08T14:30:22Z",
+  "endTime": "2026-04-08T16:45:10Z",
+  "duration": 8088,
+  
+  "startData": {
+    "navigation.position": { "longitude": -79.909, "latitude": 32.785 },
+    "navigation.speedOverGround": 5.2,
+    "propulsion.port.revolutions": 1200,
+    "propulsion.starboard.revolutions": 1210
+  },
+  
+  "endData": {
+    "navigation.position": { "longitude": -79.932, "latitude": 32.774 },
+    "navigation.speedOverGround": 0.1
+  },
+  
+  "userNotes": "Ran to Charleston Harbor for fuel",
+  "userFields": { "destination": "Charleston Harbor" }
+}
+```
+
+**API Endpoints:**
+```bash
+# Event Management
+GET  /api/events/active          # Currently active duration events
+GET  /api/events/pending         # Events awaiting user review
+POST /api/events/:id/confirm     # Confirm event (add notes/tags)
+POST /api/events/:id/dismiss     # Dismiss false positive
+POST /api/events/:id/update      # Update notes/tags
+```
+
+**See `example-detectors.json` for complete configuration examples including:**
+- Vessel underway detection
+- Engine running tracker (with auto-confirm)
+- Low battery alert
+
 **Hot Reload:** The service automatically reloads when `config.json` changes (no restart required).
 
 ### Environment Variables
