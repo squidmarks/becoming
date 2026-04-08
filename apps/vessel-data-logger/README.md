@@ -11,6 +11,7 @@ Cloud-backed data logging service for M/Y Becoming that subscribes to SignalK da
 - **Conditional logging** - Only log when specific conditions are met
 - **Max interval heartbeat** - Ensure data is logged periodically even when unchanged
 - **Event detection** - Automatic detection of state transitions (engine start/stop, vessel underway, etc.)
+- **Nested object paths** - Query specific properties of object values (e.g., `navigation.position.longitude`)
 - **Web UI** - Dashboard, configuration, data viewer, and path browser
 - **REST API** - Snapshot, historical, and event queries for AI/MCP integration
 - **Server-Sent Events** - Live updates in web UI
@@ -262,6 +263,77 @@ Behavior:
 - Result: Not logging every 10s at dock, but still proving GPS is working
 
 **Note:** For `navigation.position`, the threshold is in **meters** (calculated using Haversine formula for geographic distance). For numeric values, it's the absolute difference. For other objects, changes are detected via JSON comparison.
+
+### Nested Object Property Paths
+
+When a SignalK path has an object value, you can query specific properties using dot notation. This makes object values useful for visualization by extracting scalar numeric or string values.
+
+**Example:** `navigation.position` stores this object:
+```json
+{
+  "longitude": -79.9097818,
+  "latitude": 32.7857236
+}
+```
+
+**Available paths:**
+- `navigation.position` - Returns the full object (not graphable)
+- `navigation.position.longitude` - Returns just the longitude number
+- `navigation.position.latitude` - Returns just the latitude number
+
+**How it works:**
+1. Subscribe to `navigation.position` in your configuration
+2. Data is stored as complete objects in MongoDB
+3. When querying, use nested paths like `navigation.position.longitude`
+4. The service extracts the nested property from each stored object
+5. Returns a time series of scalar values suitable for graphing
+
+**Benefits:**
+- **Efficient storage**: Store position once, query multiple properties
+- **Flexible queries**: Can graph longitude, latitude, or both on same chart
+- **Auto-discovery**: Paths API lists all available nested properties
+- **Backward compatible**: Non-nested paths work exactly as before
+
+**Path API example:**
+```bash
+GET /api/paths?filter=navigation.position
+```
+
+Returns:
+```json
+{
+  "paths": [
+    {
+      "path": "navigation.position",
+      "currentValue": {"longitude": -79.9097, "latitude": 32.7857}
+    },
+    {
+      "path": "navigation.position.longitude",
+      "currentValue": -79.9097,
+      "isNested": true,
+      "parentPath": "navigation.position"
+    },
+    {
+      "path": "navigation.position.latitude",
+      "currentValue": 32.7857,
+      "isNested": true,
+      "parentPath": "navigation.position"
+    }
+  ]
+}
+```
+
+**Multi-path query example:**
+```bash
+GET /api/history?path=navigation.position.longitude,navigation.position.latitude&start=...&end=...
+```
+
+Returns two separate time series from a single database query.
+
+**Other object paths this works with:**
+- `navigation.attitude.roll` / `.pitch` / `.yaw`
+- `environment.inside.temperature` (if it's nested)
+- Any SignalK path where the value is an object with scalar properties
 
 ### Event Detection
 
