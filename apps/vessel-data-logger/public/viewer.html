@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     .autocomplete {
       position: relative;
@@ -321,6 +322,12 @@
 
     async function loadData() {
       if (selectedPaths.length === 0) {
+        // Clear chart if no paths selected
+        if (chart) {
+          chart.destroy();
+          chart = null;
+        }
+        document.getElementById('status-message').textContent = '';
         return;
       }
 
@@ -338,16 +345,24 @@
         });
 
         const response = await fetch(`api/history?${params}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
+        
+        console.log('Loaded data:', data);
         
         currentData = data;
         renderChart(data);
         renderStatistics(data);
         
-        document.getElementById('status-message').textContent = `Loaded ${data.count || 0} data points`;
+        const totalPoints = data.count || (data.data ? Object.values(data.data).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0) : 0);
+        document.getElementById('status-message').textContent = `Loaded ${totalPoints} data points`;
       } catch (error) {
         console.error('Failed to load data:', error);
-        document.getElementById('status-message').textContent = 'Failed to load data';
+        document.getElementById('status-message').textContent = `Error: ${error.message}`;
       }
     }
 
@@ -374,17 +389,19 @@
       let datasets = [];
 
       if (data.data && Array.isArray(data.data)) {
-        datasets.push({
-          label: data.path,
-          data: data.data.map(point => ({
-            x: new Date(point.timestamp),
-            y: typeof point.value === 'object' ? JSON.stringify(point.value) : point.value
-          })),
-          borderColor: colors[0],
-          backgroundColor: colors[0] + '20',
-          tension: 0.1,
-          fill: false
-        });
+        if (data.data.length > 0) {
+          datasets.push({
+            label: data.path,
+            data: data.data.map(point => ({
+              x: new Date(point.timestamp),
+              y: typeof point.value === 'object' ? JSON.stringify(point.value) : point.value
+            })),
+            borderColor: colors[0],
+            backgroundColor: colors[0] + '20',
+            tension: 0.1,
+            fill: false
+          });
+        }
       } else if (data.data && typeof data.data === 'object') {
         let colorIndex = 0;
         for (const [path, points] of Object.entries(data.data)) {
@@ -404,6 +421,21 @@
           }
         }
       }
+
+      if (datasets.length === 0) {
+        // Show empty state message
+        const canvas = document.getElementById('data-chart');
+        const parent = canvas.parentElement;
+        const msg = document.createElement('div');
+        msg.style.cssText = 'padding: 2rem; text-align: center; color: var(--text-secondary);';
+        msg.textContent = 'No data available for the selected time range';
+        parent.insertBefore(msg, canvas);
+        canvas.style.display = 'none';
+        return;
+      }
+      
+      // Make sure canvas is visible
+      document.getElementById('data-chart').style.display = 'block';
 
       chart = new Chart(ctx, {
         type: 'line',
