@@ -296,6 +296,7 @@ module.exports = function(app) {
                       path: {
                         type: 'string',
                         title: 'SignalK Path',
+                        description: 'SignalK path to monitor (e.g., navigation.speedOverGround)',
                         example: 'navigation.speedOverGround'
                       },
                       operator: {
@@ -306,12 +307,8 @@ module.exports = function(app) {
                       },
                       value: {
                         title: 'Value',
-                        description: 'Value to compare against (number, string, or boolean)',
-                        oneOf: [
-                          { type: 'number' },
-                          { type: 'string' },
-                          { type: 'boolean' }
-                        ]
+                        description: 'Value in SI units: speed in m/s, revolutions in Hz (rev/s), temperature in K, etc. Examples: 0.257 m/s = 0.5kts, 300 Hz = 18000 RPM',
+                        type: 'number'
                       }
                     }
                   }
@@ -340,6 +337,7 @@ module.exports = function(app) {
                       path: {
                         type: 'string',
                         title: 'SignalK Path',
+                        description: 'SignalK path to monitor (e.g., navigation.speedOverGround)',
                         example: 'navigation.speedOverGround'
                       },
                       operator: {
@@ -350,12 +348,8 @@ module.exports = function(app) {
                       },
                       value: {
                         title: 'Value',
-                        description: 'Value to compare against (number, string, or boolean)',
-                        oneOf: [
-                          { type: 'number' },
-                          { type: 'string' },
-                          { type: 'boolean' }
-                        ]
+                        description: 'Value in SI units: speed in m/s, revolutions in Hz (rev/s), temperature in K, etc. Examples: 0.257 m/s = 0.5kts, 300 Hz = 18000 RPM',
+                        type: 'number'
                       }
                     }
                   }
@@ -420,15 +414,15 @@ module.exports = function(app) {
             startConditions: {
               operator: 'AND',
               rules: [
-                { path: 'navigation.speedOverGround', operator: '>', value: 0.5 },
-                { path: 'propulsion.port.revolutions', operator: '>', value: 300 }
+                { path: 'navigation.speedOverGround', operator: '>', value: 0.257 },
+                { path: 'propulsion.port.revolutions', operator: '>', value: 5 }
               ]
             },
             endConditions: {
               operator: 'OR',
               rules: [
-                { path: 'navigation.speedOverGround', operator: '<=', value: 0.3 },
-                { path: 'propulsion.port.revolutions', operator: '<=', value: 100 }
+                { path: 'navigation.speedOverGround', operator: '<=', value: 0.154 },
+                { path: 'propulsion.port.revolutions', operator: '<=', value: 1.67 }
               ]
             },
             stability: {
