@@ -572,8 +572,8 @@
       <div class="modal-header">
         <h2 class="modal-title" id="detectorModalTitle">Add Event Detector</h2>
         <label class="header-checkbox">
-          <input type="checkbox" id="detectorNotifications" checked>
-          <span>Enable Notifications</span>
+          <input type="checkbox" id="detectorEnabled" checked>
+          <span>Enable Detector</span>
         </label>
         <button class="modal-close" onclick="closeDetectorEditor()" aria-label="Close">
           <i class="fas fa-times"></i>
@@ -607,6 +607,13 @@
           <option value="maintenance">Maintenance</option>
           <option value="general">General</option>
         </select>
+      </div>
+
+      <div class="form-group">
+        <label class="header-checkbox">
+          <input type="checkbox" id="detectorNotifications" checked>
+          <span>Enable Notifications</span>
+        </label>
       </div>
 
       <div style="border-top: 1px solid var(--border-color); margin: 1.5rem 0; padding-top: 1.5rem;">
@@ -987,6 +994,7 @@
         document.getElementById('detectorName').value = detector.name;
         document.getElementById('detectorDescription').value = detector.description || '';
         document.getElementById('detectorCategory').value = detector.category || 'general';
+        document.getElementById('detectorEnabled').checked = detector.enabled !== false;
         document.getElementById('detectorNotifications').checked = detector.notifications?.enabled || false;
         
         // Load start conditions
@@ -1023,6 +1031,7 @@
         document.getElementById('detectorName').value = '';
         document.getElementById('detectorDescription').value = '';
         document.getElementById('detectorCategory').value = 'navigation';
+        document.getElementById('detectorEnabled').checked = true;
         document.getElementById('detectorNotifications').checked = true;
         
         // Initialize with one empty condition for each
@@ -1086,6 +1095,7 @@
         description: document.getElementById('detectorDescription').value.trim() || undefined,
         type: 'duration',
         category: document.getElementById('detectorCategory').value,
+        enabled: document.getElementById('detectorEnabled').checked,
         notifications: {
           enabled: document.getElementById('detectorNotifications').checked
         },
