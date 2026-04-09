@@ -54,7 +54,8 @@ class SignalKAutocomplete {
     try {
       const response = await fetch('api/paths?limit=1000');
       const data = await response.json();
-      this.paths = data.paths || [];
+      // Ensure all paths are strings
+      this.paths = (data.paths || []).filter(p => typeof p === 'string');
     } catch (error) {
       console.error('Failed to load SignalK paths:', error);
       this.paths = [];
@@ -90,10 +91,10 @@ class SignalKAutocomplete {
       return;
     }
 
-    // Filter paths
-    const filtered = this.paths.filter(path => 
-      path.toLowerCase().includes(query)
-    ).slice(0, 50); // Limit to 50 results
+    // Filter paths (with type safety check)
+    const filtered = this.paths
+      .filter(path => typeof path === 'string' && path.toLowerCase().includes(query))
+      .slice(0, 50); // Limit to 50 results
 
     if (filtered.length === 0) {
       this.hide();
