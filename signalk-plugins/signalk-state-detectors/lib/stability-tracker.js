@@ -2,7 +2,7 @@
  * Tracks condition stability over time with debouncing
  * Requires N consecutive samples to be true within a time window
  */
-export class StabilityTracker {
+class StabilityTracker {
   constructor(name, config = {}) {
     this.name = name;
     
@@ -124,3 +124,5 @@ export class StabilityTracker {
     };
   }
 }
+
+module.exports = { StabilityTracker };

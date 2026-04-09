@@ -3,8 +3,8 @@
  * Monitors vessel data and publishes derived state paths based on conditions
  */
 
-import { ConditionEvaluator } from './lib/condition-evaluator.js';
-import { StabilityTracker } from './lib/stability-tracker.js';
+const { ConditionEvaluator } = require('./lib/condition-evaluator.js');
+const { StabilityTracker } = require('./lib/stability-tracker.js');
 
 module.exports = function(app) {
   let plugin = {

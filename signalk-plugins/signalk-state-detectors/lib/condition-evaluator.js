@@ -1,7 +1,7 @@
 /**
  * Evaluates complex conditions with AND/OR logic
  */
-export class ConditionEvaluator {
+class ConditionEvaluator {
   /**
    * Evaluate a condition tree against current data
    * @param {Object} condition - Condition definition
@@ -128,3 +128,5 @@ export class ConditionEvaluator {
     }
   }
 }
+
+module.exports = { ConditionEvaluator };
