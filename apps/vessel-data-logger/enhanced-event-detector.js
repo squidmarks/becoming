@@ -30,14 +30,15 @@ export class EnhancedEventDetector {
     this.stabilityTrackers.clear();
     
     for (const detector of this.detectors) {
-      if (!detector.enabled) continue;
+      if (detector.enabled === false) continue; // Skip disabled detectors
       
-      const startConfig = detector.startConditions?.stability || {};
-      const endConfig = detector.endConditions?.stability || {};
+      const detectorId = detector.detectorId || detector.id;
+      const startConfig = detector.stability?.start || {};
+      const endConfig = detector.stability?.end || {};
       
-      this.stabilityTrackers.set(detector.id, {
-        start: new StabilityTracker(`${detector.id}_start`, startConfig),
-        end: new StabilityTracker(`${detector.id}_end`, endConfig)
+      this.stabilityTrackers.set(detectorId, {
+        start: new StabilityTracker(`${detectorId}_start`, startConfig),
+        end: new StabilityTracker(`${detectorId}_end`, endConfig)
       });
     }
   }
@@ -51,7 +52,7 @@ export class EnhancedEventDetector {
     const events = [];
     
     for (const detector of this.detectors) {
-      if (!detector.enabled) continue;
+      if (detector.enabled === false) continue; // Skip disabled detectors
       
       const result = this.evaluateDetector(detector, currentValues, timestamp);
       if (result) {
@@ -70,7 +71,7 @@ export class EnhancedEventDetector {
    * @returns {Object|null} - Event object if event started or ended, null otherwise
    */
   evaluateDetector(detector, currentValues, timestamp) {
-    const detectorId = detector.id;
+    const detectorId = detector.detectorId || detector.id;
     const isActive = this.activeEvents.has(detectorId);
     const trackers = this.stabilityTrackers.get(detectorId);
     
@@ -81,17 +82,17 @@ export class EnhancedEventDetector {
 
     if (!isActive) {
       // Check start conditions
-      return this.checkStartConditions(detector, currentValues, timestamp, trackers.start);
+      return this.checkStartConditions(detector, detectorId, currentValues, timestamp, trackers.start);
     } else {
       // Check end conditions
-      return this.checkEndConditions(detector, currentValues, timestamp, trackers.end);
+      return this.checkEndConditions(detector, detectorId, currentValues, timestamp, trackers.end);
     }
   }
 
   /**
    * Check if start conditions are met
    */
-  checkStartConditions(detector, currentValues, timestamp, startTracker) {
+  checkStartConditions(detector, detectorId, currentValues, timestamp, startTracker) {
     const startMatches = this.conditionEvaluator.evaluate(
       detector.startConditions,
       currentValues
@@ -101,11 +102,11 @@ export class EnhancedEventDetector {
     
     if (stability.justStabilized) {
       // Event started!
-      const event = this.createStartEvent(detector, currentValues, timestamp);
-      this.activeEvents.set(detector.id, event);
+      const event = this.createStartEvent(detector, detectorId, currentValues, timestamp);
+      this.activeEvents.set(detectorId, event);
       
       // Reset end tracker for next cycle
-      const endTracker = this.stabilityTrackers.get(detector.id)?.end;
+      const endTracker = this.stabilityTrackers.get(detectorId)?.end;
       if (endTracker) {
         endTracker.reset();
       }
@@ -119,7 +120,7 @@ export class EnhancedEventDetector {
   /**
    * Check if end conditions are met
    */
-  checkEndConditions(detector, currentValues, timestamp, endTracker) {
+  checkEndConditions(detector, detectorId, currentValues, timestamp, endTracker) {
     const endMatches = this.conditionEvaluator.evaluate(
       detector.endConditions,
       currentValues
@@ -129,11 +130,11 @@ export class EnhancedEventDetector {
     
     if (stability.justStabilized) {
       // Event ended!
-      const event = this.createEndEvent(detector, currentValues, timestamp);
-      this.activeEvents.delete(detector.id);
+      const event = this.createEndEvent(detector, detectorId, currentValues, timestamp);
+      this.activeEvents.delete(detectorId);
       
       // Reset start tracker for next cycle
-      const startTracker = this.stabilityTrackers.get(detector.id)?.start;
+      const startTracker = this.stabilityTrackers.get(detectorId)?.start;
       if (startTracker) {
         startTracker.reset();
       }
@@ -147,12 +148,12 @@ export class EnhancedEventDetector {
   /**
    * Create a new event object when event starts
    */
-  createStartEvent(detector, currentValues, timestamp) {
-    const eventId = `${detector.id}_${timestamp.toISOString().replace(/[:.]/g, '')}`;
+  createStartEvent(detector, detectorId, currentValues, timestamp) {
+    const eventId = `${detectorId}_${timestamp.toISOString().replace(/[:.]/g, '')}`;
     
     const event = {
       eventId,
-      detectorId: detector.id,
+      detectorId,
       name: detector.name,
       description: detector.description,
       type: detector.type || 'duration',
@@ -185,11 +186,11 @@ export class EnhancedEventDetector {
   /**
    * Update event when it ends
    */
-  createEndEvent(detector, currentValues, timestamp) {
-    const activeEvent = this.activeEvents.get(detector.id);
+  createEndEvent(detector, detectorId, currentValues, timestamp) {
+    const activeEvent = this.activeEvents.get(detectorId);
     
     if (!activeEvent) {
-      console.warn(`No active event found for detector: ${detector.id}`);
+      console.warn(`No active event found for detector: ${detectorId}`);
       return null;
     }
     

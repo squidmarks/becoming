@@ -773,6 +773,7 @@
               <th>Type</th>
               <th>Category</th>
               <th>Start Condition</th>
+              <th style="text-align: center;">Status</th>
               <th>Notifications</th>
               <th style="text-align: center;">Actions</th>
             </tr>
@@ -790,6 +791,12 @@
                   ${detector.startConditions?.rules?.length > 0 ? 
                     detector.startConditions.rules.map(r => r.path + ' ' + r.operator + ' ' + r.value).join('<br>AND ') :
                     '-'
+                  }
+                </td>
+                <td style="text-align: center;">
+                  ${detector.enabled !== false ? 
+                    '<span style="color: #10b981;"><i class="fas fa-check-circle"></i> Enabled<\/span>' : 
+                    '<span style="color: #ef4444;"><i class="fas fa-times-circle"></i> Disabled<\/span>'
                   }
                 </td>
                 <td>
