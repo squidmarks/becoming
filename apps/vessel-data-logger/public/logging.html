@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Logging - Vessel Data Logger</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="signalk-autocomplete.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="signalk-autocomplete.js"></script>
   <style>
     .page-tabs {
       display: flex;
@@ -220,10 +222,9 @@
       </div>
 
       <div class="form-row">
-        <div class="form-group autocomplete" style="grid-column: 1 / -1;">
+        <div class="form-group" style="grid-column: 1 / -1;">
           <label>SignalK Path *</label>
-          <input type="text" id="editPath" placeholder="Start typing to search paths..." oninput="handlePathInput()" onfocus="handlePathInput()">
-          <div id="pathAutocomplete" class="autocomplete-list" style="display: none;"></div>
+          <input type="text" id="editPath" placeholder="Start typing to search paths...">
           <small style="color: var(--text-secondary);">Type to search available SignalK paths</small>
         </div>
       </div>
@@ -272,10 +273,9 @@
         </div>
 
         <div id="conditionFields" style="display: none;">
-          <div class="form-group autocomplete">
+          <div class="form-group">
             <label>Condition Path *</label>
-            <input type="text" id="editConditionPath" placeholder="Start typing to search paths..." oninput="handleConditionPathInput()" onfocus="handleConditionPathInput()">
-            <div id="conditionPathAutocomplete" class="autocomplete-list" style="display: none;"></div>
+            <input type="text" id="editConditionPath" placeholder="Start typing to search paths...">
           </div>
 
           <div class="form-row">
@@ -437,10 +437,17 @@
     // Editor state
     let editingIndex = null;
     let fullConfig = null;
-    let allPaths = [];
+    let pathAutocomplete = null;
+    let conditionPathAutocomplete = null;
 
     function openEditor(index = null) {
       editingIndex = index;
+      
+      // Initialize autocomplete for path input (if not already initialized)
+      if (!pathAutocomplete) {
+        const pathInput = document.getElementById('editPath');
+        pathAutocomplete = new SignalKAutocomplete(pathInput);
+      }
       
       if (index !== null && fullConfig) {
         // Edit existing
@@ -486,6 +493,12 @@
     function toggleConditionFields() {
       const enabled = document.getElementById('hasCondition').checked;
       document.getElementById('conditionFields').style.display = enabled ? 'block' : 'none';
+      
+      // Initialize autocomplete for condition path when fields are shown
+      if (enabled && !conditionPathAutocomplete) {
+        const condPathInput = document.getElementById('editConditionPath');
+        conditionPathAutocomplete = new SignalKAutocomplete(condPathInput);
+      }
     }
 
     async function saveEntry() {
@@ -555,71 +568,6 @@
       }
     }
 
-    async function loadAllPaths() {
-      try {
-        const response = await fetch('api/paths?limit=1000');
-        const data = await response.json();
-        allPaths = data.paths || [];
-      } catch (error) {
-        console.error('Failed to load paths:', error);
-      }
-    }
-
-    function handlePathInput() {
-      const input = document.getElementById('editPath');
-      const list = document.getElementById('pathAutocomplete');
-      const query = input.value.toLowerCase();
-      
-      if (!query) {
-        list.style.display = 'none';
-        return;
-      }
-
-      const matches = allPaths.filter(p => p.toLowerCase().includes(query)).slice(0, 20);
-      
-      if (matches.length === 0) {
-        list.style.display = 'none';
-        return;
-      }
-
-      list.innerHTML = matches.map(path => 
-        `<div class="autocomplete-item" onclick="selectPath('${path}')">${path}</div>`
-      ).join('');
-      list.style.display = 'block';
-    }
-
-    function selectPath(path) {
-      document.getElementById('editPath').value = path;
-      document.getElementById('pathAutocomplete').style.display = 'none';
-    }
-
-    function handleConditionPathInput() {
-      const input = document.getElementById('editConditionPath');
-      const list = document.getElementById('conditionPathAutocomplete');
-      const query = input.value.toLowerCase();
-      
-      if (!query) {
-        list.style.display = 'none';
-        return;
-      }
-
-      const matches = allPaths.filter(p => p.toLowerCase().includes(query)).slice(0, 20);
-      
-      if (matches.length === 0) {
-        list.style.display = 'none';
-        return;
-      }
-
-      list.innerHTML = matches.map(path => 
-        `<div class="autocomplete-item" onclick="selectConditionPath('${path}')">${path}</div>`
-      ).join('');
-      list.style.display = 'block';
-    }
-
-    function selectConditionPath(path) {
-      document.getElementById('editConditionPath').value = path;
-      document.getElementById('conditionPathAutocomplete').style.display = 'none';
-    }
 
     async function loadConfig() {
       try {
@@ -655,7 +603,6 @@
 
     initTheme();
     loadConfig();
-    loadAllPaths();
   </script>
 </body>
 </html>

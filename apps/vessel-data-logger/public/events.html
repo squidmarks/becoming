@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Events - Vessel Data Logger</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="signalk-autocomplete.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="signalk-autocomplete.js"></script>
   <style>
     .event-tabs {
       display: flex;
@@ -790,6 +792,8 @@
     let fullConfig = null;
     let startConditions = [];
     let endConditions = [];
+    let startAutocompletes = [];
+    let endAutocompletes = [];
 
     function addStartCondition(path = '', operator = '>', value = '') {
       const index = startConditions.length;
@@ -815,6 +819,11 @@
 
     function renderStartConditions() {
       const container = document.getElementById('startConditionsList');
+      
+      // Destroy existing autocomplete instances
+      startAutocompletes.forEach(ac => ac.destroy());
+      startAutocompletes = [];
+      
       if (startConditions.length === 0) {
         container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No conditions. Click "Add Condition" to add one.</p>';
         return;
@@ -847,17 +856,30 @@
         </div>
       `).join('');
 
-      // Update conditions array when inputs change
+      // Initialize autocomplete and attach event listeners
       container.querySelectorAll('.start-path').forEach(input => {
+        const idx = input.dataset.index;
+        
+        // Initialize autocomplete
+        const autocomplete = new SignalKAutocomplete(input, {
+          onSelect: (path) => {
+            startConditions[idx].path = path;
+          }
+        });
+        startAutocompletes.push(autocomplete);
+        
+        // Also update on manual input
         input.addEventListener('input', (e) => {
-          startConditions[e.target.dataset.index].path = e.target.value;
+          startConditions[idx].path = e.target.value;
         });
       });
+      
       container.querySelectorAll('.start-operator').forEach(select => {
         select.addEventListener('change', (e) => {
           startConditions[e.target.dataset.index].operator = e.target.value;
         });
       });
+      
       container.querySelectorAll('.start-value').forEach(input => {
         input.addEventListener('input', (e) => {
           startConditions[e.target.dataset.index].value = e.target.value;
@@ -867,6 +889,11 @@
 
     function renderEndConditions() {
       const container = document.getElementById('endConditionsList');
+      
+      // Destroy existing autocomplete instances
+      endAutocompletes.forEach(ac => ac.destroy());
+      endAutocompletes = [];
+      
       if (endConditions.length === 0) {
         container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No conditions. Click "Add Condition" to add one.</p>';
         return;
@@ -899,17 +926,30 @@
         </div>
       `).join('');
 
-      // Update conditions array when inputs change
+      // Initialize autocomplete and attach event listeners
       container.querySelectorAll('.end-path').forEach(input => {
+        const idx = input.dataset.index;
+        
+        // Initialize autocomplete
+        const autocomplete = new SignalKAutocomplete(input, {
+          onSelect: (path) => {
+            endConditions[idx].path = path;
+          }
+        });
+        endAutocompletes.push(autocomplete);
+        
+        // Also update on manual input
         input.addEventListener('input', (e) => {
-          endConditions[e.target.dataset.index].path = e.target.value;
+          endConditions[idx].path = e.target.value;
         });
       });
+      
       container.querySelectorAll('.end-operator').forEach(select => {
         select.addEventListener('change', (e) => {
           endConditions[e.target.dataset.index].operator = e.target.value;
         });
       });
+      
       container.querySelectorAll('.end-value').forEach(input => {
         input.addEventListener('input', (e) => {
           endConditions[e.target.dataset.index].value = e.target.value;
