@@ -251,7 +251,7 @@
     .modal-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 20px;
       padding: 20px 30px;
       border-bottom: 1px solid var(--border-color);
       flex-shrink: 0;
@@ -261,6 +261,7 @@
       font-size: 1.5rem;
       margin: 0;
       color: var(--text-primary);
+      flex: 1;
     }
 
     .modal-close {
@@ -570,6 +571,10 @@
     <div class="modal-content" style="max-width: 900px;">
       <div class="modal-header">
         <h2 class="modal-title" id="detectorModalTitle">Add Event Detector</h2>
+        <label class="header-checkbox">
+          <input type="checkbox" id="detectorNotifications" checked>
+          <span>Enable Notifications</span>
+        </label>
         <button class="modal-close" onclick="closeDetectorEditor()" aria-label="Close">
           <i class="fas fa-times"></i>
         </button>
@@ -602,16 +607,6 @@
           <option value="maintenance">Maintenance</option>
           <option value="general">General</option>
         </select>
-      </div>
-
-      <div style="border-top: 1px solid var(--border-color); margin: 1.5rem 0; padding-top: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h3 style="margin: 0;">Notifications</h3>
-          <label class="header-checkbox">
-            <input type="checkbox" id="detectorNotifications" checked>
-            <span>Enable Notifications</span>
-          </label>
-        </div>
       </div>
 
       <div style="border-top: 1px solid var(--border-color); margin: 1.5rem 0; padding-top: 1.5rem;">
