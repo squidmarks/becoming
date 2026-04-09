@@ -70,10 +70,13 @@
     }
 
     function updateThemeButton() {
-      const theme = document.documentElement.getAttribute('data-theme');
+      // Frame version doesn't have theme button - skip update
       const icon = document.querySelector('.theme-toggle i');
       const text = document.getElementById('theme-text');
       
+      if (!icon || !text) return;
+      
+      const theme = document.documentElement.getAttribute('data-theme');
       if (theme === 'dark') {
         icon.className = 'fas fa-sun';
         text.textContent = 'Light Mode';

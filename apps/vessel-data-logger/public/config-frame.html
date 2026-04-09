@@ -321,8 +321,11 @@
     }
 
     function updateThemeButton() {
-      const theme = document.documentElement.getAttribute('data-theme');
+      // Frame version doesn't have theme button - skip update
       const button = document.querySelector('.theme-toggle');
+      if (!button) return;
+      
+      const theme = document.documentElement.getAttribute('data-theme');
       button.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
     }
 
