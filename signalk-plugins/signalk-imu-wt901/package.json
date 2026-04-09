@@ -1,0 +1,27 @@
+{
+  "name": "signalk-imu-wt901",
+  "version": "1.0.0",
+  "description": "SignalK plugin for WitMotion WT901BLECL IMU sensor with sea state analysis",
+  "main": "index.js",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk",
+    "imu",
+    "attitude",
+    "motion",
+    "sea-state",
+    "wt901"
+  ],
+  "author": "M/Y Becoming",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/geoffrey/becoming"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0"
+  }
+}
