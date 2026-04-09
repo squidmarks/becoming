@@ -1,6 +1,6 @@
 /**
  * Tracks condition stability over time with debouncing
- * Requires N consecutive samples to be true within a time window
+ * Requires N consecutive samples of the same value within a time window
  */
 class StabilityTracker {
   constructor(name, config = {}) {
@@ -12,48 +12,41 @@ class StabilityTracker {
     
     // State
     this.evaluations = []; // [{timestamp, result}]
-    this.isStable = false;
-    this.stableStartTime = null;
+    this.currentStableValue = null; // The currently stable boolean value (true/false/null)
   }
 
   /**
    * Evaluate current condition result
-   * @param {Boolean} currentResult - True if condition matches
+   * @param {Boolean} currentResult - True or false condition result
    * @param {Date} timestamp - Current timestamp
-   * @returns {Object} - {stable, justStabilized, justLost}
+   * @returns {Object} - {stable, stableValue, justStabilized, justLost}
    */
   evaluate(currentResult, timestamp = new Date()) {
     // Add current evaluation
     this.evaluations.push({
       timestamp,
-      result: currentResult
+      result: Boolean(currentResult)
     });
 
-    // If false, reset immediately (strict debouncing)
-    if (!currentResult) {
-      const wasStable = this.isStable;
-      this.reset();
-      
-      return {
-        stable: false,
-        justStabilized: false,
-        justLost: wasStable
-      };
-    }
+    // Keep only recent evaluations (within time window + buffer)
+    const cutoffTime = timestamp - (this.withinDuration * 2 * 1000);
+    this.evaluations = this.evaluations.filter(e => e.timestamp >= cutoffTime);
 
     // Check if we've achieved stability
-    return this.checkStability();
+    return this.checkStability(Boolean(currentResult));
   }
 
   /**
    * Check if conditions are stable
+   * @param {Boolean} currentResult - Current boolean result
    * @returns {Object} - Stability status
    */
-  checkStability() {
+  checkStability(currentResult) {
     // Need at least N consecutive samples
     if (this.evaluations.length < this.consecutiveSamples) {
       return {
         stable: false,
+        stableValue: this.currentStableValue,
         justStabilized: false,
         justLost: false
       };
@@ -62,11 +55,15 @@ class StabilityTracker {
     // Get last N samples
     const recentSamples = this.evaluations.slice(-this.consecutiveSamples);
 
-    // All must be true (already guaranteed by reset logic, but double-check)
-    const allTrue = recentSamples.every(e => e.result === true);
-    if (!allTrue) {
+    // Check if all are the same value
+    const firstValue = recentSamples[0].result;
+    const allSame = recentSamples.every(e => e.result === firstValue);
+    
+    if (!allSame) {
+      // Not stable - samples are mixed
       return {
         stable: false,
+        stableValue: this.currentStableValue,
         justStabilized: false,
         justLost: false
       };
@@ -81,23 +78,24 @@ class StabilityTracker {
       // Samples too spread out, not stable yet
       return {
         stable: false,
+        stableValue: this.currentStableValue,
         justStabilized: false,
         justLost: false
       };
     }
 
-    // We're stable!
-    const wasStable = this.isStable;
-    this.isStable = true;
+    // We're stable at this value!
+    const wasStable = this.currentStableValue !== null;
+    const stabilizedToNewValue = !wasStable || this.currentStableValue !== firstValue;
+    const lostPreviousStability = wasStable && this.currentStableValue !== firstValue;
     
-    if (!this.stableStartTime) {
-      this.stableStartTime = newestSample.timestamp;
-    }
+    this.currentStableValue = firstValue;
 
     return {
       stable: true,
-      justStabilized: !wasStable, // Just became stable
-      justLost: false
+      stableValue: firstValue,
+      justStabilized: stabilizedToNewValue,
+      justLost: lostPreviousStability
     };
   }
 
@@ -106,8 +104,7 @@ class StabilityTracker {
    */
   reset() {
     this.evaluations = [];
-    this.isStable = false;
-    this.stableStartTime = null;
+    this.currentStableValue = null;
   }
 
   /**
@@ -116,11 +113,10 @@ class StabilityTracker {
   getState() {
     return {
       name: this.name,
-      isStable: this.isStable,
+      currentStableValue: this.currentStableValue,
       sampleCount: this.evaluations.length,
       requiredSamples: this.consecutiveSamples,
-      withinDuration: this.withinDuration,
-      stableStartTime: this.stableStartTime
+      withinDuration: this.withinDuration
     };
   }
 }

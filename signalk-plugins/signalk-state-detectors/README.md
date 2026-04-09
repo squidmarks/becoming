@@ -1,30 +1,36 @@
 # SignalK State Detectors Plugin
 
-A SignalK plugin that monitors vessel data paths and publishes derived state paths based on configurable conditions.
+A SignalK plugin that monitors vessel data and publishes derived state paths using JEXL expressions.
 
 ## Features
 
-- **Condition-based state detection**: Define complex conditions using AND/OR logic
+- **JEXL expression-based detection**: Define states using simple boolean expressions
 - **Stability tracking**: Require conditions to persist for N consecutive samples
 - **Custom state paths**: Publish states to any SignalK path (e.g., `vessel.underway`)
-- **Independent start/end conditions**: Different logic for state transitions
+- **Automatic path subscription**: Plugin automatically subscribes to paths used in expressions
 - **JSON Schema configuration**: Configure via SignalK Admin UI
 
 ## Use Cases
 
 - **Vessel underway detection**: Monitor speed and engine RPM to set `vessel.underway`
 - **Anchor dragging**: Monitor position changes while at anchor
-- **System monitoring**: Track battery levels, tank levels, alarms
+- **System monitoring**: Track battery levels, temperature, alarms
 - **Custom automations**: Any state derived from vessel data
 
-## Configuration
+## Quick Start
 
-Configuration is done through the SignalK Admin UI. Each detector has:
+### Example: Vessel Underway
 
-- **State Path**: SignalK path to publish (e.g., `vessel.underway`)
-- **Start Conditions**: Rules that must be true to enter the state
-- **End Conditions**: Rules that must be true to exit the state
-- **Stability**: Number of consecutive samples required (default: 2 within 30s)
+```javascript
+navigation.speedOverGround > 0.257 && 
+propulsion.port.revolutions > 5 && 
+propulsion.starboard.revolutions > 5
+```
+
+This expression:
+- Evaluates to `true` when vessel is moving (>0.5 kts) with both engines running (>300 RPM)
+- Evaluates to `false` otherwise
+- With stability tracking, state only changes after condition is stable for N consecutive samples
 
 ### Example Configuration
 
@@ -34,23 +40,10 @@ Configuration is done through the SignalK Admin UI. Each detector has:
     {
       "name": "Vessel Underway",
       "statePath": "vessel.underway",
-      "startConditions": {
-        "operator": "AND",
-        "rules": [
-          { "path": "navigation.speedOverGround", "operator": ">", "value": 0.5 },
-          { "path": "propulsion.port.revolutions", "operator": ">", "value": 300 }
-        ]
-      },
-      "endConditions": {
-        "operator": "OR",
-        "rules": [
-          { "path": "navigation.speedOverGround", "operator": "<=", "value": 0.3 },
-          { "path": "propulsion.port.revolutions", "operator": "<=", "value": 100 }
-        ]
-      },
+      "expression": "navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5 && propulsion.starboard.revolutions > 5",
       "stability": {
-        "start": { "consecutiveSamples": 3, "withinDuration": 30 },
-        "end": { "consecutiveSamples": 2, "withinDuration": 30 }
+        "consecutiveSamples": 3,
+        "withinDuration": 30
       }
     }
   ]
@@ -59,11 +52,56 @@ Configuration is done through the SignalK Admin UI. Each detector has:
 
 ## How It Works
 
-1. Plugin subscribes to all paths referenced in detector conditions
-2. On each data update, evaluates all detector conditions
-3. Tracks condition stability using configurable thresholds
-4. When state changes, emits SignalK delta to set the derived path
-5. Other systems (data loggers, automation engines) can subscribe to these state paths
+1. Plugin compiles JEXL expressions and extracts SignalK paths
+2. Plugin subscribes to all paths used in expressions
+3. On each data update, evaluates all expressions against current values
+4. Tracks expression result stability using configurable thresholds
+5. When state stabilizes to a new value, emits SignalK delta to set the derived path
+6. Other systems (data loggers, automation engines) can subscribe to these state paths
+
+## Expression Language
+
+This plugin uses **JEXL** (JavaScript Expression Language) for conditions.
+
+### Basic Operators
+
+- **Comparison**: `>`, `>=`, `<`, `<=`, `==`, `!=`
+- **Logical**: `&&` (AND), `||` (OR), `!` (NOT)
+- **Math**: `+`, `-`, `*`, `/`, `%`
+- **Grouping**: `( )` for precedence
+
+### Examples
+
+**Simple comparison:**
+```javascript
+navigation.speedOverGround > 0.257
+```
+
+**Logical AND:**
+```javascript
+speed > 0.257 && rpm > 5
+```
+
+**Complex expression:**
+```javascript
+(speed > 0.257 || rpm > 10) && voltage > 11.5
+```
+
+**Range check:**
+```javascript
+temperature > 293.15 && temperature < 313.15
+```
+
+See [JEXL.md](./JEXL.md) for comprehensive guide and examples.
+
+## Units
+
+SignalK uses **SI units** for all values:
+- Speed: m/s (not knots)
+- Revolutions: Hz (not RPM)
+- Temperature: K (not °F or °C)
+
+See [UNITS.md](./UNITS.md) for conversion tables and examples.
 
 ## Integration
 

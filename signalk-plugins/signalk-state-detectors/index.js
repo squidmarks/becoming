@@ -1,23 +1,23 @@
 /**
  * SignalK State Detectors Plugin
- * Monitors vessel data and publishes derived state paths based on conditions
+ * Monitors vessel data and publishes derived state paths using JEXL expressions
  */
 
-const { ConditionEvaluator } = require('./lib/condition-evaluator.js');
+const jexl = require('jexl');
 const { StabilityTracker } = require('./lib/stability-tracker.js');
 
 module.exports = function(app) {
   let plugin = {
     id: 'signalk-state-detectors',
     name: 'State Detectors',
-    description: 'Monitor conditions and publish derived vessel state paths'
+    description: 'Monitor conditions and publish derived vessel state paths using JEXL expressions'
   };
 
   let unsubscribes = [];
   let detectors = [];
-  let trackers = new Map(); // detectorId -> {start: StabilityTracker, end: StabilityTracker}
+  let trackers = new Map(); // detectorId -> StabilityTracker
+  let expressions = new Map(); // detectorId -> compiled JEXL expression
   let currentValues = {}; // path -> latest value
-  let evaluator = new ConditionEvaluator();
 
   plugin.start = function(options, restartPlugin) {
     try {
@@ -28,10 +28,10 @@ module.exports = function(app) {
         detectors = options.detectors.filter(d => d.enabled !== false);
         app.debug(`Loaded ${detectors.length} enabled detectors`);
         
-        // Initialize stability trackers
-        initializeTrackers();
+        // Compile expressions and initialize trackers
+        initializeDetectors();
         
-        // Subscribe to all paths referenced in conditions
+        // Subscribe to all paths referenced in expressions
         subscribeToAllPaths();
       } else {
         app.debug('No detectors configured');
@@ -55,6 +55,7 @@ module.exports = function(app) {
       // Clear state
       detectors = [];
       trackers.clear();
+      expressions.clear();
       currentValues = {};
       
       app.setPluginStatus('Stopped');
@@ -64,38 +65,44 @@ module.exports = function(app) {
   };
 
   /**
-   * Initialize stability trackers for all detectors
+   * Compile JEXL expressions and initialize stability trackers
    */
-  function initializeTrackers() {
+  function initializeDetectors() {
     detectors.forEach(detector => {
       if (detector.enabled === false) return;
       
       const detectorId = detector.name;
       
-      const startConfig = detector.stability?.start || {};
-      const endConfig = detector.stability?.end || {};
-      
-      trackers.set(detectorId, {
-        start: new StabilityTracker(`${detectorId}-start`, startConfig),
-        end: new StabilityTracker(`${detectorId}-end`, endConfig)
-      });
-      
-      app.debug(`Initialized trackers for detector: ${detectorId}`);
+      try {
+        // Compile JEXL expression
+        const expr = jexl.compile(detector.expression);
+        expressions.set(detectorId, expr);
+        
+        // Initialize stability tracker
+        const stabilityConfig = detector.stability || {};
+        trackers.set(detectorId, new StabilityTracker(detectorId, stabilityConfig));
+        
+        app.debug(`Initialized detector: ${detectorId} with expression: ${detector.expression}`);
+      } catch (err) {
+        app.error(`Failed to compile expression for detector ${detectorId}: ${err.message}`);
+      }
     });
   }
 
   /**
-   * Subscribe to all SignalK paths referenced in detector conditions
+   * Subscribe to all SignalK paths referenced in detector expressions
    */
   function subscribeToAllPaths() {
     const paths = new Set();
     
-    // Collect all paths from all detectors
+    // Extract all paths from all detector expressions
     detectors.forEach(detector => {
       if (detector.enabled === false) return;
       
-      extractPaths(detector.startConditions).forEach(p => paths.add(p));
-      extractPaths(detector.endConditions).forEach(p => paths.add(p));
+      // Extract variable names from JEXL expression
+      // Variables in expressions correspond to SignalK paths (with dots converted to underscores)
+      const pathsInExpression = extractPathsFromExpression(detector.expression);
+      pathsInExpression.forEach(p => paths.add(p));
     });
     
     app.debug(`Subscribing to ${paths.size} unique paths`);
@@ -124,27 +131,21 @@ module.exports = function(app) {
   }
 
   /**
-   * Extract all paths from a condition tree
+   * Extract SignalK paths from a JEXL expression
+   * Looks for dot-notation paths (e.g., navigation.speedOverGround)
    */
-  function extractPaths(condition) {
+  function extractPathsFromExpression(expression) {
     const paths = [];
     
-    if (!condition || !condition.rules) {
-      return paths;
+    // Match patterns like: word.word.word (SignalK paths)
+    const pathRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z0-9_.]+)\b/g;
+    let match;
+    
+    while ((match = pathRegex.exec(expression)) !== null) {
+      paths.push(match[1]);
     }
     
-    condition.rules.forEach(rule => {
-      if (rule.path) {
-        paths.push(rule.path);
-      }
-      
-      // Handle nested conditions
-      if (rule.operator && rule.rules) {
-        paths.push(...extractPaths(rule));
-      }
-    });
-    
-    return paths;
+    return [...new Set(paths)]; // Remove duplicates
   }
 
   /**
@@ -176,35 +177,35 @@ module.exports = function(app) {
       if (detector.enabled === false) return;
       
       const detectorId = detector.name;
+      const expr = expressions.get(detectorId);
       const tracker = trackers.get(detectorId);
       
-      if (!tracker) {
-        app.error(`No tracker found for detector: ${detectorId}`);
+      if (!expr || !tracker) {
         return;
       }
       
-      // Get current state value (if exists)
-      const currentState = currentValues[detector.statePath];
-      
-      // Evaluate conditions
-      const startResult = evaluator.evaluate(detector.startConditions, currentValues);
-      const endResult = evaluator.evaluate(detector.endConditions, currentValues);
-      
-      // Track stability
-      const startStability = tracker.start.evaluate(startResult, now);
-      const endStability = tracker.end.evaluate(endResult, now);
-      
-      // State transitions
-      if (startStability.justStabilized && currentState !== true) {
-        // Transition to active state
-        publishState(detector.statePath, true, detector.name);
-        app.debug(`State activated: ${detector.statePath} (${detector.name})`);
-      }
-      
-      if (endStability.justStabilized && currentState === true) {
-        // Transition to inactive state
-        publishState(detector.statePath, false, detector.name);
-        app.debug(`State deactivated: ${detector.statePath} (${detector.name})`);
+      try {
+        // Evaluate JEXL expression with current values as context
+        const result = expr.evalSync(currentValues);
+        
+        // Convert result to boolean
+        const boolResult = Boolean(result);
+        
+        // Get current state value (if exists)
+        const currentState = currentValues[detector.statePath];
+        
+        // Track stability
+        const stability = tracker.evaluate(boolResult, now);
+        
+        // State transitions (only when stability changes to a new value)
+        if (stability.justStabilized && stability.stableValue !== currentState) {
+          // State has stabilized to a new value - publish it
+          publishState(detector.statePath, stability.stableValue, detector.name);
+          const action = stability.stableValue ? 'activated' : 'deactivated';
+          app.debug(`State ${action}: ${detector.statePath} (${detector.name})`);
+        }
+      } catch (err) {
+        app.error(`Error evaluating detector ${detectorId}: ${err.message}`);
       }
     });
   }
@@ -245,10 +246,10 @@ module.exports = function(app) {
       detectors: {
         type: 'array',
         title: 'State Detectors',
-        description: 'Configure state detectors to monitor conditions and publish derived paths',
+        description: 'Configure state detectors using JEXL expressions to monitor conditions and publish derived paths',
         items: {
           type: 'object',
-          required: ['name', 'statePath', 'startConditions', 'endConditions'],
+          required: ['name', 'statePath', 'expression'],
           properties: {
             name: {
               type: 'string',
@@ -267,6 +268,12 @@ module.exports = function(app) {
               description: 'SignalK path to publish state (e.g., vessel.underway)',
               example: 'vessel.underway'
             },
+            expression: {
+              type: 'string',
+              title: 'JEXL Expression',
+              description: 'Boolean expression using SignalK paths. Example: "navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5". Use SI units (m/s, Hz, K). See JEXL docs: https://github.com/TomFrost/Jexl',
+              example: 'navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5'
+            },
             category: {
               type: 'string',
               title: 'Category',
@@ -274,132 +281,24 @@ module.exports = function(app) {
               enum: ['general', 'propulsion', 'navigation', 'electrical', 'environment'],
               default: 'general'
             },
-            startConditions: {
-              type: 'object',
-              title: 'Start Conditions',
-              description: 'Conditions that must be met to activate this state',
-              required: ['operator', 'rules'],
-              properties: {
-                operator: {
-                  type: 'string',
-                  title: 'Operator',
-                  enum: ['AND', 'OR'],
-                  default: 'AND'
-                },
-                rules: {
-                  type: 'array',
-                  title: 'Rules',
-                  items: {
-                    type: 'object',
-                    required: ['path', 'operator', 'value'],
-                    properties: {
-                      path: {
-                        type: 'string',
-                        title: 'SignalK Path',
-                        description: 'SignalK path to monitor (e.g., navigation.speedOverGround)',
-                        example: 'navigation.speedOverGround'
-                      },
-                      operator: {
-                        type: 'string',
-                        title: 'Comparison Operator',
-                        enum: ['>', '>=', '<', '<=', '==', '===', '!=', '!=='],
-                        default: '>'
-                      },
-                      value: {
-                        title: 'Value',
-                        description: 'Value in SI units: speed in m/s, revolutions in Hz (rev/s), temperature in K, etc. Examples: 0.257 m/s = 0.5kts, 300 Hz = 18000 RPM',
-                        type: 'number'
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            endConditions: {
-              type: 'object',
-              title: 'End Conditions',
-              description: 'Conditions that must be met to deactivate this state',
-              required: ['operator', 'rules'],
-              properties: {
-                operator: {
-                  type: 'string',
-                  title: 'Operator',
-                  enum: ['AND', 'OR'],
-                  default: 'OR'
-                },
-                rules: {
-                  type: 'array',
-                  title: 'Rules',
-                  items: {
-                    type: 'object',
-                    required: ['path', 'operator', 'value'],
-                    properties: {
-                      path: {
-                        type: 'string',
-                        title: 'SignalK Path',
-                        description: 'SignalK path to monitor (e.g., navigation.speedOverGround)',
-                        example: 'navigation.speedOverGround'
-                      },
-                      operator: {
-                        type: 'string',
-                        title: 'Comparison Operator',
-                        enum: ['>', '>=', '<', '<=', '==', '===', '!=', '!=='],
-                        default: '<='
-                      },
-                      value: {
-                        title: 'Value',
-                        description: 'Value in SI units: speed in m/s, revolutions in Hz (rev/s), temperature in K, etc. Examples: 0.257 m/s = 0.5kts, 300 Hz = 18000 RPM',
-                        type: 'number'
-                      }
-                    }
-                  }
-                }
-              }
-            },
             stability: {
               type: 'object',
               title: 'Stability Settings',
               description: 'Debouncing configuration to avoid flapping',
               properties: {
-                start: {
-                  type: 'object',
-                  title: 'Start Stability',
-                  properties: {
-                    consecutiveSamples: {
-                      type: 'number',
-                      title: 'Consecutive Samples',
-                      description: 'Number of consecutive true samples required',
-                      default: 2,
-                      minimum: 1
-                    },
-                    withinDuration: {
-                      type: 'number',
-                      title: 'Within Duration (seconds)',
-                      description: 'Time window for consecutive samples',
-                      default: 30,
-                      minimum: 1
-                    }
-                  }
+                consecutiveSamples: {
+                  type: 'number',
+                  title: 'Consecutive Samples',
+                  description: 'Number of consecutive true samples required before state changes',
+                  default: 2,
+                  minimum: 1
                 },
-                end: {
-                  type: 'object',
-                  title: 'End Stability',
-                  properties: {
-                    consecutiveSamples: {
-                      type: 'number',
-                      title: 'Consecutive Samples',
-                      description: 'Number of consecutive true samples required',
-                      default: 2,
-                      minimum: 1
-                    },
-                    withinDuration: {
-                      type: 'number',
-                      title: 'Within Duration (seconds)',
-                      description: 'Time window for consecutive samples',
-                      default: 30,
-                      minimum: 1
-                    }
-                  }
+                withinDuration: {
+                  type: 'number',
+                  title: 'Within Duration (seconds)',
+                  description: 'Time window for consecutive samples',
+                  default: 30,
+                  minimum: 1
                 }
               }
             }
@@ -411,23 +310,10 @@ module.exports = function(app) {
             statePath: 'vessel.underway',
             enabled: true,
             category: 'navigation',
-            startConditions: {
-              operator: 'AND',
-              rules: [
-                { path: 'navigation.speedOverGround', operator: '>', value: 0.257 },
-                { path: 'propulsion.port.revolutions', operator: '>', value: 5 }
-              ]
-            },
-            endConditions: {
-              operator: 'OR',
-              rules: [
-                { path: 'navigation.speedOverGround', operator: '<=', value: 0.154 },
-                { path: 'propulsion.port.revolutions', operator: '<=', value: 1.67 }
-              ]
-            },
+            expression: 'navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5 && propulsion.starboard.revolutions > 5',
             stability: {
-              start: { consecutiveSamples: 3, withinDuration: 30 },
-              end: { consecutiveSamples: 2, withinDuration: 30 }
+              consecutiveSamples: 3,
+              withinDuration: 30
             }
           }
         ]
