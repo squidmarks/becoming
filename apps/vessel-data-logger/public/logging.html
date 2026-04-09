@@ -173,6 +173,31 @@
       padding-top: 1.5rem;
       border-top: 1px solid var(--border-color);
     }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .section-header h3 {
+      margin: 0;
+    }
+    .header-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .header-checkbox input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .header-checkbox span {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
   </style>
 </head>
 <body>
@@ -259,26 +284,20 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="switch-label">
+      <div class="section-header">
+        <h3>Logging Settings</h3>
+        <label class="header-checkbox">
           <input type="checkbox" id="editEnabled" checked>
-          <div>
-            <div class="switch-label-text">Enable Logging</div>
-            <div class="switch-label-hint">Start logging this path immediately</div>
-          </div>
+          <span>Enable Logging</span>
         </label>
       </div>
 
       <div class="condition-section">
-        <h3 style="margin-bottom: 1rem;">Conditional Logging</h3>
-        
-        <div class="form-group">
-          <label class="switch-label">
+        <div class="section-header">
+          <h3>Conditional Logging</h3>
+          <label class="header-checkbox">
             <input type="checkbox" id="hasCondition" onchange="toggleConditionFields()">
-            <div>
-              <div class="switch-label-text">Enable Condition</div>
-              <div class="switch-label-hint">Only log when specified condition is met</div>
-            </div>
+            <span>Enable Condition</span>
           </label>
         </div>
 
