@@ -33,6 +33,12 @@ module.exports = function(app) {
         
         // Subscribe to all paths referenced in expressions
         subscribeToAllPaths();
+        
+        // Initialize state paths with initial evaluation
+        // Give it a moment for subscriptions to deliver initial values
+        setTimeout(() => {
+          initializeStatePaths();
+        }, 2000);
       } else {
         app.debug('No detectors configured');
       }
@@ -165,6 +171,34 @@ module.exports = function(app) {
     
     // Evaluate all detectors
     evaluateAllDetectors();
+  }
+
+  /**
+   * Initialize all state paths with their initial values
+   */
+  function initializeStatePaths() {
+    detectors.forEach(detector => {
+      if (detector.enabled === false) return;
+      
+      const detectorId = detector.name;
+      const expr = expressions.get(detectorId);
+      
+      if (!expr) return;
+      
+      try {
+        // Evaluate expression with current values
+        const result = expr.evalSync(currentValues);
+        const boolResult = Boolean(result);
+        
+        // Publish initial state
+        publishState(detector.statePath, boolResult, detector.name);
+        app.debug(`Initialized state: ${detector.statePath} = ${boolResult} (${detector.name})`);
+      } catch (err) {
+        // If expression can't be evaluated yet, default to false
+        publishState(detector.statePath, false, detector.name);
+        app.debug(`Initialized state to false: ${detector.statePath} (${detector.name}) - ${err.message}`);
+      }
+    });
   }
 
   /**
