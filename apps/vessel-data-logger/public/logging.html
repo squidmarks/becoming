@@ -137,20 +137,20 @@
       background: var(--bg-secondary);
     }
     .switch-label {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 12px;
       cursor: pointer;
+      user-select: none;
     }
     .switch-label input[type="checkbox"] {
-      width: auto;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
     }
     .switch-label-text {
-      font-weight: 500;
-    }
-    .switch-label-hint {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
+      font-weight: 400;
+      color: var(--text-primary);
     }
     .modal-actions {
       display: flex;
@@ -252,11 +252,9 @@
       <div class="form-group">
         <label class="switch-label">
           <input type="checkbox" id="editEnabled" checked>
-          <div>
-            <div class="switch-label-text">Enable Logging</div>
-            <div class="switch-label-hint">Start logging this path immediately</div>
-          </div>
+          <span class="switch-label-text">Enable Logging</span>
         </label>
+        <small style="color: var(--text-secondary);">Start logging this path immediately</small>
       </div>
 
       <div class="condition-section">
@@ -265,11 +263,9 @@
         <div class="form-group">
           <label class="switch-label">
             <input type="checkbox" id="hasCondition" onchange="toggleConditionFields()">
-            <div>
-              <div class="switch-label-text">Enable Condition</div>
-              <div class="switch-label-hint">Only log when specified condition is met</div>
-            </div>
+            <span class="switch-label-text">Enable Condition</span>
           </label>
+          <small style="color: var(--text-secondary);">Only log when specified condition is met</small>
         </div>
 
         <div id="conditionFields" style="display: none;">
