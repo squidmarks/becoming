@@ -19,6 +19,7 @@ class WT901Parser {
     this.TYPE_MAG = 0x54;
     this.TYPE_PORT = 0x55;
     this.TYPE_QUATERNION = 0x59;
+    this.TYPE_GPIO_STATUS = 0x61;  // GPIO port status (ignore)
   }
 
   /**
@@ -94,6 +95,9 @@ class WT901Parser {
         return this.parseAngle(frame);
       case this.TYPE_MAG:
         return this.parseMagnetometer(frame);
+      case this.TYPE_GPIO_STATUS:
+        // Ignore GPIO port status frames
+        return null;
       default:
         return null;
     }

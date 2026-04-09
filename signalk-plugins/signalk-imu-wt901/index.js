@@ -64,6 +64,11 @@ module.exports = function(app) {
         app.debug(`Serial port ${config.serialPort} opened at ${config.baudRate} baud`);
         app.setPluginStatus(`Connected to ${config.serialPort}`);
         
+        // Configure sensor to output the data we need
+        setTimeout(() => {
+          configureSensor();
+        }, 1000);
+        
         // Start publishing intervals
         startPublishing(config.attitudePublishRate, config.seaStateUpdateInterval);
       });
@@ -103,6 +108,37 @@ module.exports = function(app) {
       app.setPluginError(`Error stopping: ${err.message}`);
     }
   };
+
+  /**
+   * Configure sensor to output required data types
+   */
+  function configureSensor() {
+    app.debug('Configuring WT901 sensor...');
+    
+    // Unlock configuration registers
+    const unlockCmd = Buffer.from([0xFF, 0xAA, 0x69, 0x88, 0xB5]);
+    serialPort.write(unlockCmd);
+    
+    setTimeout(() => {
+      // Configure output content (RSW register 0x02)
+      // Bit 1 = Acceleration (0x51)
+      // Bit 2 = Angular velocity (0x52)
+      // Bit 3 = Angle (0x53)
+      // Bit 4 = Magnetometer (0x54)
+      // Value: 0x1E = 0b00011110 = accel + gyro + angle + mag
+      const configOutputCmd = Buffer.from([0xFF, 0xAA, 0x02, 0x1E, 0x00]);
+      serialPort.write(configOutputCmd);
+      
+      app.debug('Sensor configuration sent');
+      
+      // Save configuration to sensor
+      setTimeout(() => {
+        const saveCmd = Buffer.from([0xFF, 0xAA, 0x00, 0x00, 0x00]);
+        serialPort.write(saveCmd);
+        app.debug('Configuration saved to sensor');
+      }, 200);
+    }, 200);
+  }
 
   /**
    * Handle incoming serial data
