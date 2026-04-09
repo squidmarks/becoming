@@ -272,14 +272,8 @@ module.exports = function(app) {
               type: 'string',
               title: 'JEXL Expression',
               description: 'Boolean expression using SignalK paths. Example: "navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5". Use SI units (m/s, Hz, K). See JEXL docs: https://github.com/TomFrost/Jexl',
-              example: 'navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5'
-            },
-            category: {
-              type: 'string',
-              title: 'Category',
-              description: 'Optional category for organization',
-              enum: ['general', 'propulsion', 'navigation', 'electrical', 'environment'],
-              default: 'general'
+              example: 'navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5',
+              format: 'textarea'
             },
             stability: {
               type: 'object',
@@ -309,7 +303,6 @@ module.exports = function(app) {
             name: 'Vessel Underway',
             statePath: 'vessel.underway',
             enabled: true,
-            category: 'navigation',
             expression: 'navigation.speedOverGround > 0.257 && propulsion.port.revolutions > 5 && propulsion.starboard.revolutions > 5',
             stability: {
               consecutiveSamples: 3,
