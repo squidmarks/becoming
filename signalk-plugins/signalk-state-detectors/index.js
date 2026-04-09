@@ -70,7 +70,7 @@ module.exports = function(app) {
     detectors.forEach(detector => {
       if (detector.enabled === false) return;
       
-      const detectorId = detector.detectorId || detector.id || detector.name;
+      const detectorId = detector.name;
       
       const startConfig = detector.stability?.start || {};
       const endConfig = detector.stability?.end || {};
@@ -175,7 +175,7 @@ module.exports = function(app) {
     detectors.forEach(detector => {
       if (detector.enabled === false) return;
       
-      const detectorId = detector.detectorId || detector.id || detector.name;
+      const detectorId = detector.name;
       const tracker = trackers.get(detectorId);
       
       if (!tracker) {
@@ -255,11 +255,6 @@ module.exports = function(app) {
               title: 'Detector Name',
               description: 'Human-readable name for this detector'
             },
-            detectorId: {
-              type: 'string',
-              title: 'Detector ID',
-              description: 'Unique identifier (auto-generated if not provided)'
-            },
             enabled: {
               type: 'boolean',
               title: 'Enabled',
@@ -271,11 +266,6 @@ module.exports = function(app) {
               title: 'State Path',
               description: 'SignalK path to publish state (e.g., vessel.underway)',
               example: 'vessel.underway'
-            },
-            description: {
-              type: 'string',
-              title: 'Description',
-              description: 'Optional description of what this detector monitors'
             },
             category: {
               type: 'string',
@@ -316,7 +306,12 @@ module.exports = function(app) {
                       },
                       value: {
                         title: 'Value',
-                        description: 'Value to compare against (number, string, or boolean)'
+                        description: 'Value to compare against (number, string, or boolean)',
+                        oneOf: [
+                          { type: 'number' },
+                          { type: 'string' },
+                          { type: 'boolean' }
+                        ]
                       }
                     }
                   }
@@ -355,7 +350,12 @@ module.exports = function(app) {
                       },
                       value: {
                         title: 'Value',
-                        description: 'Value to compare against'
+                        description: 'Value to compare against (number, string, or boolean)',
+                        oneOf: [
+                          { type: 'number' },
+                          { type: 'string' },
+                          { type: 'boolean' }
+                        ]
                       }
                     }
                   }
@@ -416,7 +416,6 @@ module.exports = function(app) {
             name: 'Vessel Underway',
             statePath: 'vessel.underway',
             enabled: true,
-            description: 'Detects when vessel is underway based on speed and engine RPM',
             category: 'navigation',
             startConditions: {
               operator: 'AND',
