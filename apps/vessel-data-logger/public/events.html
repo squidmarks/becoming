@@ -427,6 +427,25 @@
       font-weight: 400;
       color: var(--text-primary);
     }
+
+    .condition-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+      margin-bottom: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+
+    .condition-row .form-group {
+      margin-bottom: 0;
+    }
+
+    .condition-row .btn-remove {
+      margin-bottom: 0;
+    }
   </style>
 </head>
 <body>
@@ -574,29 +593,16 @@
       </div>
 
       <div style="border-top: 1px solid var(--border-color); margin: 1.5rem 0; padding-top: 1.5rem;">
-        <h3 style="margin-bottom: 1rem;">Start Conditions</h3>
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
-          <div class="form-group">
-            <label for="startPath">Path *</label>
-            <input type="text" id="startPath" placeholder="navigation.speedOverGround">
-          </div>
-          <div class="form-group">
-            <label for="startOperator">Operator *</label>
-            <select id="startOperator">
-              <option value=">">></option>
-              <option value=">=">>=</option>
-              <option value="<"><</option>
-              <option value="<="><=</option>
-              <option value="==">==</option>
-              <option value="!=">!=</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="startValue">Value *</label>
-            <input type="number" id="startValue" step="0.1" placeholder="1.0">
-          </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+          <h3 style="margin: 0;">Start Conditions</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="addStartCondition()">
+            <i class="fas fa-plus"></i> Add Condition
+          </button>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+        
+        <div id="startConditionsList"></div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
           <div class="form-group">
             <label for="startSamples">Consecutive Samples</label>
             <input type="number" id="startSamples" value="3" min="1">
@@ -611,29 +617,16 @@
       </div>
 
       <div style="border-top: 1px solid var(--border-color); margin: 1.5rem 0; padding-top: 1.5rem;">
-        <h3 style="margin-bottom: 1rem;">End Conditions</h3>
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
-          <div class="form-group">
-            <label for="endPath">Path *</label>
-            <input type="text" id="endPath" placeholder="navigation.speedOverGround">
-          </div>
-          <div class="form-group">
-            <label for="endOperator">Operator *</label>
-            <select id="endOperator">
-              <option value=">">></option>
-              <option value=">=">>=</option>
-              <option value="<"><</option>
-              <option value="<="><=</option>
-              <option value="==">==</option>
-              <option value="!=">!=</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="endValue">Value *</label>
-            <input type="number" id="endValue" step="0.1" placeholder="0.5">
-          </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+          <h3 style="margin: 0;">End Conditions</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="addEndCondition()">
+            <i class="fas fa-plus"></i> Add Condition
+          </button>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+        
+        <div id="endConditionsList"></div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
           <div class="form-group">
             <label for="endSamples">Consecutive Samples</label>
             <input type="number" id="endSamples" value="6" min="1">
@@ -770,8 +763,8 @@
                 <td>${detector.type || 'duration'}</td>
                 <td>${detector.category || 'general'}</td>
                 <td style="font-family: monospace; font-size: 0.85rem;">
-                  ${detector.startConditions?.rules?.[0] ? 
-                    detector.startConditions.rules[0].path + ' ' + detector.startConditions.rules[0].operator + ' ' + detector.startConditions.rules[0].value :
+                  ${detector.startConditions?.rules?.length > 0 ? 
+                    detector.startConditions.rules.map(r => r.path + ' ' + r.operator + ' ' + r.value).join('<br>AND ') :
                     '-'
                   }
                 </td>
@@ -795,6 +788,134 @@
 
     let editingDetectorIndex = null;
     let fullConfig = null;
+    let startConditions = [];
+    let endConditions = [];
+
+    function addStartCondition(path = '', operator = '>', value = '') {
+      const index = startConditions.length;
+      startConditions.push({ path, operator, value });
+      renderStartConditions();
+    }
+
+    function removeStartCondition(index) {
+      startConditions.splice(index, 1);
+      renderStartConditions();
+    }
+
+    function addEndCondition(path = '', operator = '<', value = '') {
+      const index = endConditions.length;
+      endConditions.push({ path, operator, value });
+      renderEndConditions();
+    }
+
+    function removeEndCondition(index) {
+      endConditions.splice(index, 1);
+      renderEndConditions();
+    }
+
+    function renderStartConditions() {
+      const container = document.getElementById('startConditionsList');
+      if (startConditions.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No conditions. Click "Add Condition" to add one.</p>';
+        return;
+      }
+      
+      container.innerHTML = startConditions.map((condition, index) => `
+        <div class="condition-row">
+          <div class="form-group">
+            ${index === 0 ? '<label>Path *</label>' : ''}
+            <input type="text" class="start-path" data-index="${index}" value="${condition.path}" placeholder="navigation.speedOverGround">
+          </div>
+          <div class="form-group">
+            ${index === 0 ? '<label>Operator *</label>' : ''}
+            <select class="start-operator" data-index="${index}">
+              <option value=">" ${condition.operator === '>' ? 'selected' : ''}>></option>
+              <option value=">=" ${condition.operator === '>=' ? 'selected' : '}>>=</option>
+              <option value="<" ${condition.operator === '<' ? 'selected' : ''}><</option>
+              <option value="<=" ${condition.operator === '<=' ? 'selected' : '}><=</option>
+              <option value="==" ${condition.operator === '==' ? 'selected' : ''}>==</option>
+              <option value="!=" ${condition.operator === '!=' ? 'selected' : ''}>!=</option>
+            </select>
+          </div>
+          <div class="form-group">
+            ${index === 0 ? '<label>Value *</label>' : ''}
+            <input type="number" step="0.1" class="start-value" data-index="${index}" value="${condition.value}" placeholder="1.0">
+          </div>
+          <button type="button" class="btn btn-sm btn-danger btn-remove" onclick="removeStartCondition(${index})">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `).join('');
+
+      // Update conditions array when inputs change
+      container.querySelectorAll('.start-path').forEach(input => {
+        input.addEventListener('input', (e) => {
+          startConditions[e.target.dataset.index].path = e.target.value;
+        });
+      });
+      container.querySelectorAll('.start-operator').forEach(select => {
+        select.addEventListener('change', (e) => {
+          startConditions[e.target.dataset.index].operator = e.target.value;
+        });
+      });
+      container.querySelectorAll('.start-value').forEach(input => {
+        input.addEventListener('input', (e) => {
+          startConditions[e.target.dataset.index].value = e.target.value;
+        });
+      });
+    }
+
+    function renderEndConditions() {
+      const container = document.getElementById('endConditionsList');
+      if (endConditions.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No conditions. Click "Add Condition" to add one.</p>';
+        return;
+      }
+      
+      container.innerHTML = endConditions.map((condition, index) => `
+        <div class="condition-row">
+          <div class="form-group">
+            ${index === 0 ? '<label>Path *</label>' : ''}
+            <input type="text" class="end-path" data-index="${index}" value="${condition.path}" placeholder="navigation.speedOverGround">
+          </div>
+          <div class="form-group">
+            ${index === 0 ? '<label>Operator *</label>' : ''}
+            <select class="end-operator" data-index="${index}">
+              <option value=">" ${condition.operator === '>' ? 'selected' : ''}>></option>
+              <option value=">=" ${condition.operator === '>=' ? 'selected' : '}>>=</option>
+              <option value="<" ${condition.operator === '<' ? 'selected' : ''}><</option>
+              <option value="<=" ${condition.operator === '<=' ? 'selected' : '}><=</option>
+              <option value="==" ${condition.operator === '==' ? 'selected' : ''}>==</option>
+              <option value="!=" ${condition.operator === '!=' ? 'selected' : ''}>!=</option>
+            </select>
+          </div>
+          <div class="form-group">
+            ${index === 0 ? '<label>Value *</label>' : ''}
+            <input type="number" step="0.1" class="end-value" data-index="${index}" value="${condition.value}" placeholder="0.5">
+          </div>
+          <button type="button" class="btn btn-sm btn-danger btn-remove" onclick="removeEndCondition(${index})">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `).join('');
+
+      // Update conditions array when inputs change
+      container.querySelectorAll('.end-path').forEach(input => {
+        input.addEventListener('input', (e) => {
+          endConditions[e.target.dataset.index].path = e.target.value;
+        });
+      });
+      container.querySelectorAll('.end-operator').forEach(select => {
+        select.addEventListener('change', (e) => {
+          endConditions[e.target.dataset.index].operator = e.target.value;
+        });
+      });
+      container.querySelectorAll('.end-value').forEach(input => {
+        input.addEventListener('input', (e) => {
+          endConditions[e.target.dataset.index].value = e.target.value;
+        });
+      });
+    }
 
     function viewDetector(index) {
       openDetectorEditor(index);
@@ -813,23 +934,29 @@
         document.getElementById('detectorCategory').value = detector.category || 'general';
         document.getElementById('detectorNotifications').checked = detector.notifications?.enabled || false;
         
-        // Start conditions (simplified - first rule only)
-        const startRule = detector.startConditions?.rules?.[0];
-        if (startRule) {
-          document.getElementById('startPath').value = startRule.path;
-          document.getElementById('startOperator').value = startRule.operator;
-          document.getElementById('startValue').value = startRule.value;
+        // Load start conditions
+        startConditions = (detector.startConditions?.rules || []).map(rule => ({
+          path: rule.path,
+          operator: rule.operator,
+          value: rule.value
+        }));
+        if (startConditions.length === 0) {
+          startConditions = [{ path: '', operator: '>', value: '' }];
         }
+        renderStartConditions();
         document.getElementById('startSamples').value = detector.stability?.start?.consecutiveSamples || 3;
         document.getElementById('startDuration').value = detector.stability?.start?.withinDuration || 60;
         
-        // End conditions (simplified - first rule only)
-        const endRule = detector.endConditions?.rules?.[0];
-        if (endRule) {
-          document.getElementById('endPath').value = endRule.path;
-          document.getElementById('endOperator').value = endRule.operator;
-          document.getElementById('endValue').value = endRule.value;
+        // Load end conditions
+        endConditions = (detector.endConditions?.rules || []).map(rule => ({
+          path: rule.path,
+          operator: rule.operator,
+          value: rule.value
+        }));
+        if (endConditions.length === 0) {
+          endConditions = [{ path: '', operator: '<', value: '' }];
         }
+        renderEndConditions();
         document.getElementById('endSamples').value = detector.stability?.end?.consecutiveSamples || 6;
         document.getElementById('endDuration').value = detector.stability?.end?.withinDuration || 300;
         
@@ -842,16 +969,18 @@
         document.getElementById('detectorDescription').value = '';
         document.getElementById('detectorCategory').value = 'navigation';
         document.getElementById('detectorNotifications').checked = true;
-        document.getElementById('startPath').value = '';
-        document.getElementById('startOperator').value = '>';
-        document.getElementById('startValue').value = '';
+        
+        // Initialize with one empty condition for each
+        startConditions = [{ path: '', operator: '>', value: '' }];
+        renderStartConditions();
         document.getElementById('startSamples').value = '3';
         document.getElementById('startDuration').value = '60';
-        document.getElementById('endPath').value = '';
-        document.getElementById('endOperator').value = '<=';
-        document.getElementById('endValue').value = '';
+        
+        endConditions = [{ path: '', operator: '<', value: '' }];
+        renderEndConditions();
         document.getElementById('endSamples').value = '6';
         document.getElementById('endDuration').value = '300';
+        
         document.getElementById('deleteDetectorBtn').style.display = 'none';
       }
       
@@ -866,14 +995,34 @@
     async function saveDetector() {
       const detectorId = document.getElementById('detectorId').value.trim();
       const name = document.getElementById('detectorName').value.trim();
-      const startPath = document.getElementById('startPath').value.trim();
-      const startValue = document.getElementById('startValue').value;
-      const endPath = document.getElementById('endPath').value.trim();
-      const endValue = document.getElementById('endValue').value;
       
-      if (!detectorId || !name || !startPath || !startValue || !endPath || !endValue) {
-        alert('Please fill in all required fields');
+      if (!detectorId || !name) {
+        alert('Please provide detector ID and name');
         return;
+      }
+
+      // Validate start conditions
+      if (startConditions.length === 0) {
+        alert('Please add at least one start condition');
+        return;
+      }
+      for (const condition of startConditions) {
+        if (!condition.path || !condition.operator || condition.value === '') {
+          alert('Please fill in all start condition fields');
+          return;
+        }
+      }
+
+      // Validate end conditions
+      if (endConditions.length === 0) {
+        alert('Please add at least one end condition');
+        return;
+      }
+      for (const condition of endConditions) {
+        if (!condition.path || !condition.operator || condition.value === '') {
+          alert('Please fill in all end condition fields');
+          return;
+        }
       }
 
       const detector = {
@@ -897,19 +1046,19 @@
         },
         startConditions: {
           operator: 'AND',
-          rules: [{
-            path: startPath,
-            operator: document.getElementById('startOperator').value,
-            value: parseFloat(startValue)
-          }]
+          rules: startConditions.map(c => ({
+            path: c.path,
+            operator: c.operator,
+            value: parseFloat(c.value)
+          }))
         },
         endConditions: {
           operator: 'AND',
-          rules: [{
-            path: endPath,
-            operator: document.getElementById('endOperator').value,
-            value: parseFloat(endValue)
-          }]
+          rules: endConditions.map(c => ({
+            path: c.path,
+            operator: c.operator,
+            value: parseFloat(c.value)
+          }))
         }
       };
 
