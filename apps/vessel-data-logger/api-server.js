@@ -7,14 +7,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export class ApiServer {
-  constructor(port, cache, storage, configManager, signalkClient, eventDetector, enhancedEventDetector) {
+  constructor(port, cache, storage, configManager, signalkClient) {
     this.port = port;
     this.cache = cache;
     this.storage = storage;
     this.configManager = configManager;
     this.signalkClient = signalkClient;
-    this.eventDetector = eventDetector;
-    this.enhancedEventDetector = enhancedEventDetector;
     this.app = express();
     this.server = null;
     this.sseClients = [];
@@ -41,14 +39,6 @@ export class ApiServer {
     this.app.get('/api/paths/prefixes', (req, res) => this.handleGetPathPrefixes(req, res));
     this.app.get('/api/status', (req, res) => this.handleStatus(req, res));
     this.app.get('/api/events/stream', (req, res) => this.handleSSE(req, res));
-    this.app.get('/api/events/query', (req, res) => this.handleEventsQuery(req, res));
-    this.app.get('/api/events/recent', (req, res) => this.handleRecentEvents(req, res));
-    this.app.get('/api/events/states', (req, res) => this.handleEventStates(req, res));
-    this.app.get('/api/events/active', (req, res) => this.handleActiveEvents(req, res));
-    this.app.get('/api/events/pending', (req, res) => this.handlePendingEvents(req, res));
-    this.app.post('/api/events/:eventId/confirm', (req, res) => this.handleConfirmEvent(req, res));
-    this.app.post('/api/events/:eventId/dismiss', (req, res) => this.handleDismissEvent(req, res));
-    this.app.post('/api/events/:eventId/update', (req, res) => this.handleUpdateEvent(req, res));
     this.app.get('/api/openapi.json', (req, res) => this.handleOpenAPI(req, res));
     
     // Swagger UI for API documentation
@@ -384,144 +374,6 @@ export class ApiServer {
         },
         cache: this.cache.stats()
       });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async handleEventsQuery(req, res) {
-    try {
-      const { start, end, name, limit } = req.query;
-
-      if (!start || !end) {
-        return res.status(400).json({ error: 'Missing required parameters: start, end' });
-      }
-
-      const limitNum = Math.min(parseInt(limit) || 1000, 10000);
-      const events = await this.storage.queryEvents(start, end, name || null, limitNum);
-
-      res.json({
-        start,
-        end,
-        name: name || 'all',
-        count: events.length,
-        events
-      });
-    } catch (error) {
-      console.error('Events query error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async handleRecentEvents(req, res) {
-    try {
-      const { limit } = req.query;
-      const limitNum = Math.min(parseInt(limit) || 50, 500);
-      
-      const events = await this.storage.getRecentEvents(limitNum);
-      
-      res.json({
-        count: events.length,
-        events
-      });
-    } catch (error) {
-      console.error('Recent events query error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  handleEventStates(req, res) {
-    try {
-      const states = this.eventDetector.getAllEventStates();
-      res.json({ states });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async handleActiveEvents(req, res) {
-    try {
-      const activeEvents = await this.storage.getActiveEvents();
-      
-      // Also include in-memory active events from detector
-      const detectorActive = this.enhancedEventDetector.getActiveEvents();
-      
-      res.json({
-        count: activeEvents.length,
-        events: activeEvents,
-        detectorActive: detectorActive.length
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async handlePendingEvents(req, res) {
-    try {
-      const limit = parseInt(req.query.limit) || 50;
-      const pendingEvents = await this.storage.getPendingEvents(limit);
-      
-      res.json({
-        count: pendingEvents.length,
-        events: pendingEvents
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async handleConfirmEvent(req, res) {
-    try {
-      const { eventId } = req.params;
-      const { notes, tags, userFields } = req.body;
-      
-      const updates = {
-        state: 'confirmed',
-        userNotes: notes || '',
-        tags: tags || [],
-        userFields: userFields || {}
-      };
-      
-      await this.storage.updateEventFields(eventId, updates);
-      
-      res.json({ success: true, message: 'Event confirmed' });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async handleDismissEvent(req, res) {
-    try {
-      const { eventId } = req.params;
-      const { reason } = req.body;
-      
-      const updates = {
-        state: 'dismissed',
-        userNotes: reason || 'Dismissed by user'
-      };
-      
-      await this.storage.updateEventFields(eventId, updates);
-      
-      res.json({ success: true, message: 'Event dismissed' });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async handleUpdateEvent(req, res) {
-    try {
-      const { eventId } = req.params;
-      const updates = req.body;
-      
-      // Don't allow changing core fields
-      delete updates.eventId;
-      delete updates.detectorId;
-      delete updates.startTime;
-      delete updates.createdAt;
-      
-      await this.storage.updateEventFields(eventId, updates);
-      
-      res.json({ success: true, message: 'Event updated' });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

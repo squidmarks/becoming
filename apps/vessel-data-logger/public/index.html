@@ -21,7 +21,6 @@
     <div class="nav-tabs">
       <a href="./" class="active">Dashboard</a>
       <a href="logging.html">Logging</a>
-      <a href="events.html">Events</a>
       <a href="settings.html">Settings</a>
     </div>
   </nav>
@@ -71,12 +70,6 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>Recent Events</h2>
-      <div id="events-log">
-        <p class="empty-state">Waiting for events...</p>
-      </div>
-    </div>
   </main>
 
   <footer>
@@ -94,8 +87,6 @@
 
   <script>
     let eventSource = null;
-    const eventsLog = [];
-    const maxEventsEntries = 20;
 
     function initTheme() {
       const theme = localStorage.getItem('theme') || 'light';
@@ -163,23 +154,6 @@
       return `${minutes}m`;
     }
 
-    async function loadRecentEvents() {
-      try {
-        const response = await fetch('api/events/recent?limit=20');
-        const data = await response.json();
-        
-        eventsLog.length = 0;
-        eventsLog.push(...data.events.map(e => ({
-          ...e,
-          timestamp: new Date(e.timestamp)
-        })));
-        
-        renderEventsLog();
-      } catch (error) {
-        console.error('Failed to load recent events:', error);
-      }
-    }
-
     function connectSSE() {
       eventSource = new EventSource('api/events/stream');
 
@@ -196,63 +170,13 @@
     }
 
     function handleSSEEvent(data) {
-      if (data.type === 'event') {
-        addToEventsLog(data.data);
-      } else if (data.type === 'signalk-connected' || data.type === 'signalk-disconnected') {
+      if (data.type === 'signalk-connected' || data.type === 'signalk-disconnected') {
         loadStatus();
       }
     }
 
-    function addToEventsLog(event) {
-      eventsLog.unshift({
-        ...event,
-        timestamp: new Date(event.timestamp)
-      });
-
-      if (eventsLog.length > maxEventsEntries) {
-        eventsLog.pop();
-      }
-
-      renderEventsLog();
-    }
-
-    function renderEventsLog() {
-      const container = document.getElementById('events-log');
-      
-      if (eventsLog.length === 0) {
-        container.innerHTML = '<p class="empty-state">Waiting for events...</p>';
-        return;
-      }
-
-      const table = document.createElement('table');
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Event</th>
-            <th>Path</th>
-            <th>Transition</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${eventsLog.map(entry => `
-            <tr>
-              <td>${entry.timestamp.toLocaleTimeString()}</td>
-              <td><strong>${entry.name.replace(/_/g, ' ')}</strong></td>
-              <td style="font-family: monospace; font-size: 0.75rem;">${entry.path}</td>
-              <td>${entry.fromValue} → ${entry.toValue}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      `;
-
-      container.innerHTML = '';
-      container.appendChild(table);
-    }
-
     initTheme();
     loadStatus();
-    loadRecentEvents();
     connectSSE();
     setInterval(loadStatus, 30000);
   </script>

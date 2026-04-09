@@ -1,0 +1,22 @@
+{
+  "name": "signalk-state-detectors",
+  "version": "1.0.0",
+  "description": "SignalK plugin for monitoring conditions and publishing derived vessel state paths",
+  "main": "index.js",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk",
+    "state",
+    "detector",
+    "automation"
+  ],
+  "author": "M/Y Becoming",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/geoffrey/becoming"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

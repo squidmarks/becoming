@@ -4,10 +4,6 @@ import { DataCache } from './data-cache.js';
 import { SignalKClient } from './signalk-client.js';
 import { MongoStorage } from './mongo-storage.js';
 import { ApiServer } from './api-server.js';
-import { EventDetector } from './event-detector.js';
-import { EnhancedEventDetector } from './enhanced-event-detector.js';
-import { NotificationManager } from './notification-manager.js';
-import { TelegramTransport } from './telegram-transport.js';
 
 dotenv.config();
 
@@ -24,24 +20,13 @@ class VesselDataLogger {
       process.env.SIGNALK_PROTOCOL || 'ws'
     );
     this.storage = new MongoStorage(process.env.MONGO_URI);
-    this.eventDetector = new EventDetector();
-    this.enhancedEventDetector = new EnhancedEventDetector([], this.cache);
-    
-    // Initialize notification system
-    this.notificationManager = new NotificationManager();
-    const telegramTransport = new TelegramTransport();
-    if (telegramTransport.isEnabled()) {
-      this.notificationManager.addTransport(telegramTransport);
-    }
     
     this.apiServer = new ApiServer(
       parseInt(process.env.WEB_PORT) || 3200,
       this.cache,
       this.storage,
       this.configManager,
-      this.signalkClient,
-      this.eventDetector,
-      this.enhancedEventDetector
+      this.signalkClient
     );
 
     this.lastWriteTimes = new Map();
@@ -61,18 +46,7 @@ class VesselDataLogger {
 
     try {
       this.configManager.load();
-      const config = this.configManager.config;
       console.log(`  Subscriptions: ${this.configManager.getEnabledSubscriptions().length} enabled\n`);
-      
-      if (config.eventDetection && config.eventDetection.enabled) {
-        this.eventDetector.updateRules(config.eventDetection.rules || []);
-        console.log(`  Event Detection: ${config.eventDetection.rules?.length || 0} rules configured`);
-      }
-      
-      if (config.enhancedEventDetectors) {
-        this.enhancedEventDetector.updateDetectors(config.enhancedEventDetectors);
-        console.log(`  Enhanced Event Detection: ${config.enhancedEventDetectors.length} detectors configured\n`);
-      }
     } catch (error) {
       console.error('Failed to load configuration:', error.message);
       process.exit(1);
@@ -102,11 +76,6 @@ class VesselDataLogger {
     await this.apiServer.start();
 
     this.configManager.watch();
-
-    // Start periodic enhanced event evaluation (every 5 seconds)
-    this.enhancedEventEvaluator = setInterval(() => {
-      this.evaluateEnhancedEvents();
-    }, 5000);
     
     console.log('\n✓ Vessel Data Logger is running\n');
   }
@@ -130,17 +99,6 @@ class VesselDataLogger {
     this.configManager.on('configChanged', (config) => {
       console.log('Configuration changed, updating subscriptions...');
       this.subscribeToSignalK();
-      
-      if (config.eventDetection && config.eventDetection.enabled) {
-        this.eventDetector.updateRules(config.eventDetection.rules || []);
-        console.log(`Event detection rules updated: ${config.eventDetection.rules?.length || 0} rules`);
-      }
-      
-      if (config.enhancedEventDetectors) {
-        this.enhancedEventDetector.updateDetectors(config.enhancedEventDetectors);
-        console.log(`Enhanced event detectors updated: ${config.enhancedEventDetectors.length} detectors`);
-      }
-      
       this.apiServer.broadcastSSE('config-changed', {});
     });
 
@@ -160,16 +118,6 @@ class VesselDataLogger {
 
     this.cache.set(path, value, timestamp, source);
 
-    // Simple event detection (backward compatibility)
-    const events = this.eventDetector.detectEvents(path, value, timestamp, source);
-    if (events.length > 0 && this.storage.connected) {
-      for (const event of events) {
-        console.log(`📌 Event detected: ${event.name} - ${event.description}`);
-        this.storage.writeEvent(event);
-        this.apiServer.broadcastSSE('event', event);
-      }
-    }
-
     const subscription = this.configManager.getSubscriptionByPath(path);
     if (subscription && this.storage.connected) {
       const shouldWrite = this.shouldWriteToStorage(path, value, timestamp, subscription);
@@ -179,41 +127,6 @@ class VesselDataLogger {
         this.lastWriteValues.set(path, value);
         // Only broadcast activity for data that's actually being logged
         this.apiServer.broadcastSSE('delta', { path, value, timestamp, source });
-      }
-    }
-  }
-
-  evaluateEnhancedEvents() {
-    // Get all current cache values
-    const currentValues = this.cache.getAll();
-    
-    // Convert to simple path -> value map
-    const valueMap = {};
-    for (const [path, entry] of Object.entries(currentValues)) {
-      valueMap[path] = entry.value;
-    }
-    
-    // Evaluate all detectors
-    const events = this.enhancedEventDetector.evaluateAll(valueMap, new Date());
-    
-    // Handle detected events
-    if (events.length > 0 && this.storage.connected) {
-      for (const event of events) {
-        const action = event.endTime ? 'ended' : 'started';
-        console.log(`📌 Enhanced event ${action}: ${event.name}`);
-        
-        // Write/update rich event
-        this.storage.writeRichEvent(event);
-        
-        // Broadcast to web UI
-        this.apiServer.broadcastSSE('rich-event', event);
-        
-        // Send notifications if enabled for this event
-        if (event.notifications && event.notifications.enabled) {
-          this.notificationManager.sendEventNotification(event).catch(err => {
-            console.error('Notification error:', err);
-          });
-        }
       }
     }
   }
@@ -340,10 +253,6 @@ class VesselDataLogger {
 
   async shutdown(signal) {
     console.log(`\n\nReceived ${signal}, shutting down gracefully...`);
-
-    if (this.enhancedEventEvaluator) {
-      clearInterval(this.enhancedEventEvaluator);
-    }
     
     this.configManager.stopWatching();
     this.signalkClient.disconnect();
