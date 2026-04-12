@@ -71,36 +71,15 @@ AI agents can use sea state data to:
 - Assess crew comfort
 - Log voyage conditions
 
-## ⚠️ Sensor Configuration Required
+## Sensor Data Format
 
-**CRITICAL**: The WT901BLECL must be configured using Windows software before it will output attitude data.
+The WT901BLECL outputs **all sensor data in a single 20-byte packet** via both USB serial and Bluetooth:
+- Bytes 0-1: Header (0x55 0x61)
+- Bytes 2-7: Acceleration (X, Y, Z)
+- Bytes 8-13: Angular velocity (X, Y, Z)  
+- Bytes 14-19: Angles (Roll, Pitch, Yaw) ← Attitude data!
 
-### Configuration Steps
-
-1. **Connect to Windows PC** via USB
-2. **Download** [WitMotion Minimu.exe](https://www.wit-motion.com/) software
-3. **Open** Minimu.exe and ensure sensor shows "Online"
-4. **Go to Config → Menu of Configuration**
-5. **Enable outputs:**
-   - ☑ Acceleration (0x51)
-   - ☑ Angular Velocity (0x52)
-   - ☑ Angle (0x53) ← **Required for attitude!**
-   - ☑ Magnetic Field (0x54)
-6. **Set output rate** to 100Hz or 200Hz (for sea state analysis)
-7. **Click "Save"** to persist settings
-8. **Reconnect to Raspberry Pi**
-
-### Verify Configuration
-
-Check that the sensor outputs angle frames:
-
-```bash
-ssh geoff@becoming-hub
-sudo timeout 2 cat /dev/ttyUSB0 | hexdump -C | grep '55 53'
-```
-
-**✓ Success:** You see lines with `55 53` (angle frames)  
-**✗ Problem:** Only `55 61` frames → Sensor needs reconfiguration
+The sensor works out-of-the-box with default settings - no configuration required.
 
 ## Installation
 
