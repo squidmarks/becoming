@@ -1,0 +1,23 @@
+[Unit]
+Description=Vessel Event Handler Webhook Service
+After=network.target signalk.service
+Wants=signalk.service
+
+[Service]
+Type=simple
+User=geoff
+WorkingDirectory=/home/geoff/becoming/apps/vessel-event-handler
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=4000
+Environment=SIGNALK_URL=http://localhost:3100
+Environment=LOG_DIR=/home/geoff/becoming/logs/events
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vessel-event-handler
+
+[Install]
+WantedBy=multi-user.target
