@@ -105,35 +105,39 @@ async function endVoyage(timestamp) {
     return { action: 'voyage_end_ignored', reason: 'no_active_voyage' };
   }
   
-  logger.info(`Ending voyage: ${activeVoyage.id}`);
+  // Claim the active voyage immediately to prevent duplicate processing
+  const voyage = activeVoyage;
+  activeVoyage = null;
+  
+  logger.info(`Ending voyage: ${voyage.id}`);
   
   // Fetch current vessel state
   const vesselData = await fetchSignalKData('vessels/self');
   
   // Calculate voyage statistics
-  activeVoyage.endTime = timestamp;
-  activeVoyage.endPosition = vesselData?.navigation?.position || null;
-  activeVoyage.duration = calculateDuration(activeVoyage.startTime, timestamp);
-  activeVoyage.endFuelLevel = {
+  voyage.endTime = timestamp;
+  voyage.endPosition = vesselData?.navigation?.position || null;
+  voyage.duration = calculateDuration(voyage.startTime, timestamp);
+  voyage.endFuelLevel = {
     port: vesselData?.tanks?.fuel?.port?.currentLevel,
     starboard: vesselData?.tanks?.fuel?.starboard?.currentLevel
   };
   
   // Calculate distance (this is simplified - in reality you'd integrate trip distance from logs)
-  if (activeVoyage.startPosition && activeVoyage.endPosition) {
-    activeVoyage.distanceNm = calculateDistance(
-      activeVoyage.startPosition,
-      activeVoyage.endPosition
+  if (voyage.startPosition && voyage.endPosition) {
+    voyage.distanceNm = calculateDistance(
+      voyage.startPosition,
+      voyage.endPosition
     );
   }
   
   // Calculate fuel consumption
-  if (activeVoyage.startFuelLevel.port && activeVoyage.endFuelLevel.port) {
-    activeVoyage.fuelUsed = {
-      port: activeVoyage.startFuelLevel.port - activeVoyage.endFuelLevel.port,
-      starboard: activeVoyage.startFuelLevel.starboard - activeVoyage.endFuelLevel.starboard
+  if (voyage.startFuelLevel.port && voyage.endFuelLevel.port) {
+    voyage.fuelUsed = {
+      port: voyage.startFuelLevel.port - voyage.endFuelLevel.port,
+      starboard: voyage.startFuelLevel.starboard - voyage.endFuelLevel.starboard
     };
-    activeVoyage.fuelUsed.total = activeVoyage.fuelUsed.port + activeVoyage.fuelUsed.starboard;
+    voyage.fuelUsed.total = voyage.fuelUsed.port + voyage.fuelUsed.starboard;
   }
   
   // TODO: Add more rich data:
@@ -146,25 +150,22 @@ async function endVoyage(timestamp) {
   // Save completed voyage
   const voyageDir = path.join(config.logDir, 'voyages');
   await fs.writeFile(
-    path.join(voyageDir, `${activeVoyage.id}.json`),
-    JSON.stringify(activeVoyage, null, 2)
+    path.join(voyageDir, `${voyage.id}.json`),
+    JSON.stringify(voyage, null, 2)
   );
   
-  logger.info(`Voyage completed: ${activeVoyage.id}`, {
-    duration: activeVoyage.duration,
-    distance: activeVoyage.distanceNm,
-    fuelUsed: activeVoyage.fuelUsed?.total
+  logger.info(`Voyage completed: ${voyage.id}`, {
+    duration: voyage.duration,
+    distance: voyage.distanceNm,
+    fuelUsed: voyage.fuelUsed?.total
   });
-  
-  const completedVoyage = activeVoyage;
-  activeVoyage = null;
   
   return {
     action: 'voyage_completed',
-    voyageId: completedVoyage.id,
-    duration: completedVoyage.duration,
-    distanceNm: completedVoyage.distanceNm,
-    fuelUsed: completedVoyage.fuelUsed
+    voyageId: voyage.id,
+    duration: voyage.duration,
+    distanceNm: voyage.distanceNm,
+    fuelUsed: voyage.fuelUsed
   };
 }
 
