@@ -20,6 +20,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "jexl": "^2.3.0"
+    "jexl": "^2.3.0",
+    "node-fetch": "^2.7.0"
   }
 }

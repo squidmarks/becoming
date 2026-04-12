@@ -135,15 +135,22 @@ class MotionAnalyzer {
 
   /**
    * Calculate intensity on 0-10 scale based on RMS and max values
+   * 
+   * Scale based on realistic marine conditions:
+   * < 2° RMS = Calm (0-1)
+   * 2-5° RMS = Light chop (1-2.5)
+   * 5-9° RMS = Moderate (2.5-4.5)
+   * 9-13° RMS = Rough (4.5-6.5)
+   * 13-17° RMS = Very rough (6.5-8.5)
+   * > 17° RMS = Heavy seas (8.5-10)
    */
   calculateIntensity(rms, max) {
-    // Intensity based on RMS (primary factor)
-    // 0° RMS = 0, 20° RMS = 10
-    let intensity = (rms / 20) * 10;
+    // Use realistic marine scale where 17° RMS = intensity 10
+    let intensity = (rms / 17) * 10;
     
-    // Add contribution from max excursion
-    // High max values indicate occasional large motions
-    const maxFactor = Math.min(max / 40, 1) * 2; // Up to +2 points
+    // Add contribution from max excursion (occasional large rolls)
+    // 30° max adds up to +2 points
+    const maxFactor = Math.min(max / 30, 1) * 2;
     intensity += maxFactor;
     
     // Clamp to 0-10

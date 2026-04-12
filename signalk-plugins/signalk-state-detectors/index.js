@@ -4,6 +4,7 @@
  */
 
 const jexl = require('jexl');
+const fetch = require('node-fetch');
 const { StabilityTracker } = require('./lib/stability-tracker.js');
 
 module.exports = function(app) {
@@ -18,10 +19,23 @@ module.exports = function(app) {
   let trackers = new Map(); // detectorId -> StabilityTracker
   let expressions = new Map(); // detectorId -> compiled JEXL expression
   let currentValues = {}; // path -> latest value
+  let webhookConfig = null; // Webhook configuration
 
   plugin.start = function(options, restartPlugin) {
     try {
       app.debug('Starting State Detectors plugin');
+      
+      // Initialize webhook configuration
+      if (options && options.webhook && options.webhook.enabled && options.webhook.baseUrl) {
+        webhookConfig = {
+          baseUrl: options.webhook.baseUrl,
+          timeout: options.webhook.timeout || 5000
+        };
+        app.debug(`Webhook enabled: ${webhookConfig.baseUrl}`);
+      } else {
+        webhookConfig = null;
+        app.debug('Webhook disabled');
+      }
       
       // Initialize detectors from configuration
       if (options && options.detectors) {
@@ -245,9 +259,12 @@ module.exports = function(app) {
   }
 
   /**
-   * Publish state change to SignalK
+   * Publish state change to SignalK and fire webhook
    */
   function publishState(path, value, source) {
+    const timestamp = new Date().toISOString();
+    
+    // Publish to SignalK
     const delta = {
       context: 'vessels.self',
       updates: [
@@ -256,7 +273,7 @@ module.exports = function(app) {
             label: 'signalk-state-detectors',
             type: 'plugin'
           },
-          timestamp: new Date().toISOString(),
+          timestamp: timestamp,
           values: [
             {
               path: path,
@@ -268,6 +285,49 @@ module.exports = function(app) {
     };
     
     app.handleMessage('signalk-state-detectors', delta);
+    
+    // Fire webhook if enabled
+    if (webhookConfig) {
+      fireWebhook(path, value, timestamp).catch(err => {
+        app.error(`Webhook error for ${path}: ${err.message}`);
+      });
+    }
+  }
+  
+  /**
+   * Fire webhook for state change
+   * URL pattern: POST {baseUrl}/events/{path}
+   * Body: {value, timestamp}
+   */
+  async function fireWebhook(path, value, timestamp) {
+    // Convert path dots to slashes for URL (e.g., vessel.underway -> vessel/underway)
+    const urlPath = path.replace(/\./g, '/');
+    const url = `${webhookConfig.baseUrl}/events/${urlPath}`;
+    
+    try {
+      app.debug(`Firing webhook: ${url} with value=${value}`);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          value: value,
+          timestamp: timestamp
+        }),
+        timeout: webhookConfig.timeout
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      app.debug(`Webhook success: ${url} (${response.status})`);
+    } catch (err) {
+      // Don't throw - log and continue so webhook failures don't break state publishing
+      app.error(`Failed to fire webhook to ${url}: ${err.message}`);
+    }
   }
 
   /**
@@ -277,6 +337,32 @@ module.exports = function(app) {
     type: 'object',
     required: ['detectors'],
     properties: {
+      webhook: {
+        type: 'object',
+        title: 'Webhook Configuration',
+        description: 'Fire webhooks when state changes occur',
+        properties: {
+          enabled: {
+            type: 'boolean',
+            title: 'Enable Webhooks',
+            description: 'Fire HTTP POST requests when states change',
+            default: false
+          },
+          baseUrl: {
+            type: 'string',
+            title: 'Base URL',
+            description: 'Base URL for webhook calls (e.g., http://localhost:4000). State changes will POST to {baseUrl}/events/{path}',
+            example: 'http://localhost:4000'
+          },
+          timeout: {
+            type: 'number',
+            title: 'Timeout (ms)',
+            description: 'HTTP request timeout in milliseconds',
+            default: 5000,
+            minimum: 1000
+          }
+        }
+      },
       detectors: {
         type: 'array',
         title: 'State Detectors',
