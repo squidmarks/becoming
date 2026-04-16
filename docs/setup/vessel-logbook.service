@@ -9,6 +9,11 @@ WorkingDirectory=/home/geoff/becoming/apps/vessel-logbook
 ExecStart=/usr/bin/node server/index.js
 Restart=always
 RestartSec=10
+
+# Load environment from .env file (includes MONGO_URI)
+EnvironmentFile=/home/geoff/becoming/apps/vessel-logbook/.env
+
+# Additional environment variables
 Environment=NODE_ENV=production
 Environment=PORT=3210
 Environment=SIGNALK_URL=http://localhost:3100
