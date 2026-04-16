@@ -54,7 +54,12 @@ const TripSchema = new mongoose.Schema({
   },
   end: {
     type: ConditionsSchema,
-    required: true
+    required: false  // Optional - can be added later when trip completes
+  },
+  status: {
+    type: String,
+    enum: ['in_progress', 'completed'],
+    default: 'in_progress'
   },
   calculated: CalculatedSchema,
   tags: [String],

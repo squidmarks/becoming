@@ -111,18 +111,20 @@ router.post('/', async (req, res) => {
   const { start, end, tags, crew, notes } = req.body;
   
   try {
-    // Validate required fields
-    if (!start?.time || !end?.time) {
-      return res.status(400).json({ error: 'start.time and end.time are required' });
+    // Validate required fields (only start.time is required)
+    if (!start?.time) {
+      return res.status(400).json({ error: 'start.time is required' });
     }
     
-    // Calculate summaries
-    const calculated = calculateTripSummary(start, end);
+    // Calculate summaries only if trip is complete
+    const calculated = (end?.time) ? calculateTripSummary(start, end) : null;
+    const status = (end?.time) ? 'completed' : 'in_progress';
     
     // Create trip in MongoDB
     const tripDoc = new Trip({
       start,
-      end,
+      end: end || undefined,  // Don't save empty end object
+      status,
       calculated,
       tags: tags || [],
       crew: crew || [],
@@ -134,7 +136,7 @@ router.post('/', async (req, res) => {
     const trip = tripDoc.toObject();
     trip.id = trip._id.toString();
     
-    logger.info(`Trip ${trip.id} saved to MongoDB`);
+    logger.info(`Trip ${trip.id} saved to MongoDB (status: ${status})`);
     res.status(201).json(trip);
   } catch (err) {
     logger.error('Error creating trip:', err);
@@ -152,16 +154,22 @@ router.put('/:id', async (req, res) => {
   const updates = req.body;
   
   try {
-    // Recalculate summaries if start/end changed
-    if (updates.start || updates.end) {
-      const existingTrip = await Trip.findById(id).lean();
-      if (!existingTrip) {
-        return res.status(404).json({ error: 'Trip not found' });
-      }
-      
-      const finalStart = updates.start || existingTrip.start;
-      const finalEnd = updates.end || existingTrip.end;
+    const existingTrip = await Trip.findById(id).lean();
+    if (!existingTrip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    
+    // Determine final start/end
+    const finalStart = updates.start || existingTrip.start;
+    const finalEnd = updates.end || existingTrip.end;
+    
+    // Recalculate summaries and status if we have both start and end
+    if (finalStart && finalEnd && finalEnd.time) {
       updates.calculated = calculateTripSummary(finalStart, finalEnd);
+      updates.status = 'completed';
+    } else {
+      updates.status = 'in_progress';
+      updates.calculated = null;
     }
     
     const trip = await Trip.findByIdAndUpdate(
@@ -175,7 +183,7 @@ router.put('/:id', async (req, res) => {
     }
     
     trip.id = trip._id.toString();
-    logger.info(`Trip ${id} updated in MongoDB`);
+    logger.info(`Trip ${id} updated in MongoDB (status: ${trip.status})`);
     res.json(trip);
   } catch (err) {
     if (err.name === 'CastError') {

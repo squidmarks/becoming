@@ -269,14 +269,18 @@ function renderTripList() {
     const startTime = trip.start?.time || trip.startTime;
     const endTime = trip.end?.time || trip.endTime;
     const fromLocation = trip.start?.locationName || trip.from || 'Unknown';
-    const toLocation = trip.end?.locationName || trip.to || 'Unknown';
-    const duration = trip.calculated?.duration?.formatted || trip.analysis?.duration?.formatted || 'N/A';
+    const toLocation = trip.end?.locationName || trip.to || (trip.status === 'in_progress' ? 'Enroute' : 'Unknown');
+    const duration = trip.calculated?.duration?.formatted || trip.analysis?.duration?.formatted || (trip.status === 'in_progress' ? 'In Progress' : 'N/A');
     const distance = trip.calculated?.distance?.nauticalMiles || trip.analysis?.distance?.nauticalMiles || null;
     const isActive = currentTrip && (currentTrip.id || currentTrip._id) === id;
+    const isInProgress = trip.status === 'in_progress' || !endTime;
     
     return `
-      <div class="trip-card ${isActive ? 'active' : ''}" data-id="${id}">
-        <div class="trip-card-header">${fromLocation} → ${toLocation}</div>
+      <div class="trip-card ${isActive ? 'active' : ''} ${isInProgress ? 'in-progress' : ''}" data-id="${id}">
+        <div class="trip-card-header">
+          ${fromLocation} → ${toLocation}
+          ${isInProgress ? '<span class="trip-card-badge">📍 Enroute</span>' : ''}
+        </div>
         <div class="trip-card-date">${formatDate(startTime)}</div>
         <div class="trip-card-info">
           <span>⏱️ ${duration}</span>
@@ -527,7 +531,8 @@ function renderTripDetail() {
   const startTime = trip.start?.time || trip.startTime;
   const endTime = trip.end?.time || trip.endTime;
   const fromLocation = trip.start?.locationName || trip.from || 'Unknown';
-  const toLocation = trip.end?.locationName || trip.to || 'Unknown';
+  const toLocation = trip.end?.locationName || trip.to || (trip.status === 'in_progress' ? 'Enroute' : 'Unknown');
+  const isInProgress = trip.status === 'in_progress' || !endTime;
   
   document.getElementById('viewTitle').textContent = `${fromLocation} → ${toLocation}`;
   
@@ -535,7 +540,7 @@ function renderTripDetail() {
   
   let html = `
     <div class="detail-section">
-      <h3>📅 ${formatDate(startTime)} → ${formatDate(endTime)}</h3>
+      <h3>📅 ${formatDate(startTime)} ${isInProgress ? '→ 📍 Enroute' : `→ ${formatDate(endTime)}`}</h3>
       ${trip.crew && trip.crew.length > 0 ? `<p><strong>Crew:</strong> ${trip.crew.join(', ')}</p>` : ''}
       ${trip.notes ? `<p style="margin-top: 1rem;">${trip.notes}</p>` : ''}
       ${trip.tags && trip.tags.length > 0 ? `
@@ -543,6 +548,7 @@ function renderTripDetail() {
           ${trip.tags.map(tag => `<span class="detail-tag">${tag}</span>`).join('')}
         </div>
       ` : ''}
+      ${isInProgress ? '<p style="color: var(--warning); margin-top: 1rem;"><strong>ℹ️ Trip in progress - add arrival details when completed</strong></p>' : ''}
     </div>
   `;
   
