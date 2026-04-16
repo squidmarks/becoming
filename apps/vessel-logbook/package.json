@@ -1,0 +1,29 @@
+{
+  "name": "vessel-logbook",
+  "version": "1.0.0",
+  "description": "Manual trip logging with automated data enrichment from vessel systems",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "keywords": [
+    "vessel",
+    "logbook",
+    "trip",
+    "marine"
+  ],
+  "author": "M/Y Becoming",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M/Y Becoming - Logbook</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚓ M/Y Becoming - Logbook</h1>
+      <button id="newTripBtn" class="btn btn-primary">+ New Trip Log</button>
+    </header>
+
+    <!-- Trip List View -->
+    <section id="tripList" class="trip-list">
+      <div class="loading">Loading trips...</div>
+    </section>
+
+    <!-- Trip Form Modal -->
+    <div id="tripModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>New Trip Log</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        
+        <form id="tripForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="startTime">Departure Time *</label>
+              <input type="datetime-local" id="startTime" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="endTime">Arrival Time *</label>
+              <input type="datetime-local" id="endTime" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="from">From</label>
+              <input type="text" id="from" placeholder="e.g., Hilton Head Marina">
+            </div>
+            
+            <div class="form-group">
+              <label for="to">To</label>
+              <input type="text" id="to" placeholder="e.g., Daufuskie Island">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="crew">Crew (comma-separated)</label>
+            <input type="text" id="crew" placeholder="e.g., Geoff, Sarah">
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" rows="4" placeholder="Weather conditions, sea state, notable events..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Trip Log</button>
+          </div>
+        </form>
+
+        <div id="formLoading" class="form-loading" style="display: none;">
+          <div class="spinner"></div>
+          <p>Analyzing trip data from logs...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trip Detail Modal -->
+    <div id="tripDetailModal" class="modal">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>Trip Details</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        
+        <div id="tripDetail" class="trip-detail">
+          <!-- Trip details will be populated here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
