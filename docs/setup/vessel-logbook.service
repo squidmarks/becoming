@@ -1,0 +1,23 @@
+[Unit]
+Description=Vessel Logbook Web Application
+After=network.target
+
+[Service]
+Type=simple
+User=geoff
+WorkingDirectory=/home/geoff/becoming/apps/vessel-logbook
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3210
+Environment=SIGNALK_URL=http://localhost:3100
+Environment=LOGGER_DATA_DIR=/home/geoff/becoming/apps/vessel-data-logger/logs
+Environment=TRIPS_DIR=/home/geoff/becoming/apps/vessel-logbook/data/trips
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vessel-logbook
+
+[Install]
+WantedBy=multi-user.target
