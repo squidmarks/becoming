@@ -21,6 +21,9 @@ const dialogIcon = document.getElementById('dialogIcon');
 const dialogConfirm = document.getElementById('dialogConfirm');
 const dialogCancel = document.getElementById('dialogCancel');
 
+// Toast container
+const toastContainer = document.getElementById('toastContainer');
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   loadTrips();
@@ -124,19 +127,61 @@ function closeDialog() {
   dialogOverlay.classList.remove('active');
 }
 
-// Convenience functions
-async function showSuccess(message, title = 'Success') {
-  return showDialog({ title, message, type: 'success' });
+// Toast notification functions
+function showToast(message, type = 'info', title = '', duration = 3000) {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: '✓',
+    error: '✕',
+    info: 'ℹ️',
+    warning: '⚠️'
+  };
+  
+  const titles = {
+    success: title || 'Success',
+    error: title || 'Error',
+    info: title || 'Info',
+    warning: title || 'Warning'
+  };
+  
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || icons.info}</div>
+    <div class="toast-content">
+      <div class="toast-title">${titles[type]}</div>
+      <div class="toast-message">${message}</div>
+    </div>
+  `;
+  
+  toastContainer.appendChild(toast);
+  
+  // Auto-remove after duration
+  setTimeout(() => {
+    toast.classList.add('removing');
+    setTimeout(() => {
+      toast.remove();
+    }, 300); // Match animation duration
+  }, duration);
 }
 
-async function showError(message, title = 'Error') {
-  return showDialog({ title, message, type: 'error' });
+function showSuccess(message, title = '') {
+  showToast(message, 'success', title);
 }
 
-async function showInfo(message, title = 'Information') {
-  return showDialog({ title, message, type: 'info' });
+function showError(message, title = '') {
+  showToast(message, 'error', title);
 }
 
+function showInfo(message, title = '') {
+  showToast(message, 'info', title);
+}
+
+function showWarning(message, title = '') {
+  showToast(message, 'warning', title);
+}
+
+// Confirm dialog (still needs user interaction)
 async function showConfirm(message, title = 'Confirm') {
   return showDialog({
     title,
@@ -168,7 +213,7 @@ async function loadTrips() {
     }
   } catch (err) {
     console.error('Error loading trips:', err);
-    await showError(`Error loading trips: ${err.message}`);
+    showError(`Failed to load trips: ${err.message}`);
   }
 }
 
@@ -302,9 +347,10 @@ async function handleSave(e) {
     await loadTrips();
     showViewMode();
     renderTripDetail();
+    showSuccess('Trip saved successfully');
   } catch (err) {
     console.error('Error saving trip:', err);
-    await showError(`Error saving trip: ${err.message}`);
+    showError(`Failed to save trip: ${err.message}`);
   }
 }
 
@@ -332,9 +378,10 @@ async function handleDelete() {
     
     await loadTrips();
     showEmptyState();
+    showSuccess('Trip deleted');
   } catch (err) {
     console.error('Error deleting trip:', err);
-    await showError(`Error deleting trip: ${err.message}`);
+    showError(`Failed to delete trip: ${err.message}`);
   }
 }
 
@@ -517,6 +564,10 @@ async function captureConditions(type) {
     
     const prefix = type === 'start' ? 'start' : 'end';
     
+    // Time - use timestamp from SignalK or current local time
+    const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
+    document.getElementById(`${prefix}Time`).value = formatDateTimeLocal(timestamp.toISOString());
+    
     // Position
     if (data.position) {
       document.getElementById(`${prefix}Lat`).value = data.position.latitude || '';
@@ -529,17 +580,15 @@ async function captureConditions(type) {
       document.getElementById(`${prefix}EngineStbd`).value = data.engineHours.starboard || '';
     }
     
-    // Fuel levels (convert from ratio to percentage)
-    // Note: API returns fuel as percentages already if tank levels are in ratio
-    // This needs to match what SignalK provides
+    // Fuel level
+    // Note: Need to check what format SignalK provides
     
-    await showSuccess(
-      `Current conditions captured for ${type === 'start' ? 'departure' : 'arrival'}`,
-      'Conditions Captured'
+    showSuccess(
+      `Conditions captured for ${type === 'start' ? 'departure' : 'arrival'}`
     );
   } catch (err) {
     console.error('Error capturing conditions:', err);
-    await showError(`Error capturing conditions: ${err.message}`);
+    showError(`Failed to capture conditions: ${err.message}`);
   }
 }
 
