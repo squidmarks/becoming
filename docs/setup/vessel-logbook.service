@@ -18,7 +18,6 @@ Environment=NODE_ENV=production
 Environment=PORT=3210
 Environment=SIGNALK_URL=http://localhost:3100
 Environment=LOGGER_DATA_DIR=/home/geoff/becoming/apps/vessel-data-logger/logs
-Environment=TRIPS_DIR=/home/geoff/becoming/apps/vessel-logbook/data/trips
 
 StandardOutput=journal
 StandardError=journal

@@ -1,15 +1,12 @@
 /**
  * Trip CRUD routes
- * Supports both MongoDB and JSON file storage
+ * MongoDB storage only
  */
 
 const express = require('express');
 const router = express.Router();
-const fs = require('fs').promises;
-const path = require('path');
 const fetch = require('node-fetch');
 const Trip = require('../models/Trip');
-const { isMongoConnected } = require('../db');
 
 /**
  * GET /api/trips/current-conditions
@@ -61,40 +58,18 @@ router.get('/current-conditions', async (req, res) => {
  * List all trips
  */
 router.get('/', async (req, res) => {
-  const { logger, config } = req.app.locals;
+  const { logger } = req.app.locals;
   
   try {
-    let trips;
+    const trips = await Trip.find().sort({ 'start.time': -1 }).lean();
     
-    if (isMongoConnected()) {
-      // MongoDB storage
-      trips = await Trip.find().sort({ 'start.time': -1 }).lean();
-      // Add id field for frontend compatibility
-      trips = trips.map(trip => ({
-        ...trip,
-        id: trip._id.toString()
-      }));
-    } else {
-      // JSON file storage
-      await fs.mkdir(config.tripsDir, { recursive: true });
-      const files = await fs.readdir(config.tripsDir);
-      const tripFiles = files.filter(f => f.endsWith('.json'));
-      
-      trips = await Promise.all(
-        tripFiles.map(async (file) => {
-          const content = await fs.readFile(path.join(config.tripsDir, file), 'utf-8');
-          return JSON.parse(content);
-        })
-      );
-      
-      trips.sort((a, b) => {
-        const aTime = a.start?.time || a.startTime;
-        const bTime = b.start?.time || b.startTime;
-        return new Date(bTime) - new Date(aTime);
-      });
-    }
+    // Add id field for frontend compatibility
+    const tripsWithId = trips.map(trip => ({
+      ...trip,
+      id: trip._id.toString()
+    }));
     
-    res.json(trips);
+    res.json(tripsWithId);
   } catch (err) {
     logger.error('Error listing trips:', err);
     res.status(500).json({ error: err.message });
@@ -106,34 +81,24 @@ router.get('/', async (req, res) => {
  * Get a specific trip
  */
 router.get('/:id', async (req, res) => {
-  const { logger, config } = req.app.locals;
+  const { logger } = req.app.locals;
   const { id } = req.params;
   
   try {
-    let trip;
+    const trip = await Trip.findById(id).lean();
     
-    if (isMongoConnected()) {
-      // MongoDB storage
-      trip = await Trip.findById(id).lean();
-      if (!trip) {
-        return res.status(404).json({ error: 'Trip not found' });
-      }
-      trip.id = trip._id.toString();
-    } else {
-      // JSON file storage
-      const filePath = path.join(config.tripsDir, `${id}.json`);
-      const content = await fs.readFile(filePath, 'utf-8');
-      trip = JSON.parse(content);
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
     }
     
+    trip.id = trip._id.toString();
     res.json(trip);
   } catch (err) {
-    if (err.code === 'ENOENT' || err.name === 'CastError') {
-      res.status(404).json({ error: 'Trip not found' });
-    } else {
-      logger.error(`Error reading trip ${id}:`, err);
-      res.status(500).json({ error: err.message });
+    if (err.name === 'CastError') {
+      return res.status(404).json({ error: 'Trip not found' });
     }
+    logger.error(`Error reading trip ${id}:`, err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -142,7 +107,7 @@ router.get('/:id', async (req, res) => {
  * Create a new trip
  */
 router.post('/', async (req, res) => {
-  const { logger, config } = req.app.locals;
+  const { logger } = req.app.locals;
   const { start, end, tags, crew, notes } = req.body;
   
   try {
@@ -154,47 +119,22 @@ router.post('/', async (req, res) => {
     // Calculate summaries
     const calculated = calculateTripSummary(start, end);
     
-    let trip;
+    // Create trip in MongoDB
+    const tripDoc = new Trip({
+      start,
+      end,
+      calculated,
+      tags: tags || [],
+      crew: crew || [],
+      notes: notes || ''
+    });
     
-    if (isMongoConnected()) {
-      // MongoDB storage
-      const tripDoc = new Trip({
-        start,
-        end,
-        calculated,
-        tags: tags || [],
-        crew: crew || [],
-        notes: notes || ''
-      });
-      
-      await tripDoc.save();
-      trip = tripDoc.toObject();
-      trip.id = trip._id.toString();
-      
-      logger.info(`Trip ${trip.id} saved to MongoDB`);
-    } else {
-      // JSON file storage
-      const id = `trip-${new Date(start.time).toISOString().replace(/[:.]/g, '-')}`;
-      
-      trip = {
-        id,
-        start,
-        end,
-        calculated,
-        tags: tags || [],
-        crew: crew || [],
-        notes: notes || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      await fs.mkdir(config.tripsDir, { recursive: true });
-      const filePath = path.join(config.tripsDir, `${id}.json`);
-      await fs.writeFile(filePath, JSON.stringify(trip, null, 2));
-      
-      logger.info(`Trip ${id} saved to JSON file`);
-    }
+    await tripDoc.save();
     
+    const trip = tripDoc.toObject();
+    trip.id = trip._id.toString();
+    
+    logger.info(`Trip ${trip.id} saved to MongoDB`);
     res.status(201).json(trip);
   } catch (err) {
     logger.error('Error creating trip:', err);
@@ -207,62 +147,42 @@ router.post('/', async (req, res) => {
  * Update a trip
  */
 router.put('/:id', async (req, res) => {
-  const { logger, config } = req.app.locals;
+  const { logger } = req.app.locals;
   const { id } = req.params;
   const updates = req.body;
   
   try {
-    let trip;
-    
     // Recalculate summaries if start/end changed
     if (updates.start || updates.end) {
-      const finalStart = updates.start || (await getExistingTrip(id, config)).start;
-      const finalEnd = updates.end || (await getExistingTrip(id, config)).end;
+      const existingTrip = await Trip.findById(id).lean();
+      if (!existingTrip) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      
+      const finalStart = updates.start || existingTrip.start;
+      const finalEnd = updates.end || existingTrip.end;
       updates.calculated = calculateTripSummary(finalStart, finalEnd);
     }
     
-    if (isMongoConnected()) {
-      // MongoDB storage
-      trip = await Trip.findByIdAndUpdate(
-        id,
-        { $set: updates },
-        { new: true, runValidators: true }
-      ).lean();
-      
-      if (!trip) {
-        return res.status(404).json({ error: 'Trip not found' });
-      }
-      trip.id = trip._id.toString();
-      
-      logger.info(`Trip ${id} updated in MongoDB`);
-    } else {
-      // JSON file storage
-      const filePath = path.join(config.tripsDir, `${id}.json`);
-      const content = await fs.readFile(filePath, 'utf-8');
-      trip = JSON.parse(content);
-      
-      // Update fields
-      Object.keys(updates).forEach(key => {
-        if (key !== 'id' && key !== 'createdAt') {
-          trip[key] = updates[key];
-        }
-      });
-      
-      trip.updatedAt = new Date().toISOString();
-      
-      await fs.writeFile(filePath, JSON.stringify(trip, null, 2));
-      
-      logger.info(`Trip ${id} updated in JSON file`);
+    const trip = await Trip.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).lean();
+    
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
     }
     
+    trip.id = trip._id.toString();
+    logger.info(`Trip ${id} updated in MongoDB`);
     res.json(trip);
   } catch (err) {
-    if (err.code === 'ENOENT' || err.name === 'CastError') {
-      res.status(404).json({ error: 'Trip not found' });
-    } else {
-      logger.error(`Error updating trip ${id}:`, err);
-      res.status(500).json({ error: err.message });
+    if (err.name === 'CastError') {
+      return res.status(404).json({ error: 'Trip not found' });
     }
+    logger.error(`Error updating trip ${id}:`, err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -271,47 +191,26 @@ router.put('/:id', async (req, res) => {
  * Delete a trip
  */
 router.delete('/:id', async (req, res) => {
-  const { logger, config } = req.app.locals;
+  const { logger } = req.app.locals;
   const { id } = req.params;
   
   try {
-    if (isMongoConnected()) {
-      // MongoDB storage
-      const result = await Trip.findByIdAndDelete(id);
-      if (!result) {
-        return res.status(404).json({ error: 'Trip not found' });
-      }
-      logger.info(`Trip ${id} deleted from MongoDB`);
-    } else {
-      // JSON file storage
-      const filePath = path.join(config.tripsDir, `${id}.json`);
-      await fs.unlink(filePath);
-      logger.info(`Trip ${id} deleted from JSON file`);
+    const result = await Trip.findByIdAndDelete(id);
+    
+    if (!result) {
+      return res.status(404).json({ error: 'Trip not found' });
     }
     
+    logger.info(`Trip ${id} deleted from MongoDB`);
     res.status(204).send();
   } catch (err) {
-    if (err.code === 'ENOENT' || err.name === 'CastError') {
-      res.status(404).json({ error: 'Trip not found' });
-    } else {
-      logger.error(`Error deleting trip ${id}:`, err);
-      res.status(500).json({ error: err.message });
+    if (err.name === 'CastError') {
+      return res.status(404).json({ error: 'Trip not found' });
     }
+    logger.error(`Error deleting trip ${id}:`, err);
+    res.status(500).json({ error: err.message });
   }
 });
-
-/**
- * Helper: Get existing trip (for calculating updates)
- */
-async function getExistingTrip(id, config) {
-  if (isMongoConnected()) {
-    return await Trip.findById(id).lean();
-  } else {
-    const filePath = path.join(config.tripsDir, `${id}.json`);
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content);
-  }
-}
 
 /**
  * Calculate trip summary from start/end conditions

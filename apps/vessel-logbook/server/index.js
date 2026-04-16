@@ -33,7 +33,6 @@ const config = {
   port: process.env.PORT || 3200,
   signalkUrl: process.env.SIGNALK_URL || 'http://localhost:3100',
   loggerDataDir: process.env.LOGGER_DATA_DIR || path.join(__dirname, '../../vessel-data-logger/logs'),
-  tripsDir: process.env.TRIPS_DIR || path.join(__dirname, '../data/trips'),
   mongoUri: process.env.MONGO_URI || null
 };
 
@@ -58,7 +57,7 @@ app.get('/api/health', (req, res) => {
     config: {
       signalkUrl: config.signalkUrl,
       loggerDataDir: config.loggerDataDir,
-      tripsDir: config.tripsDir
+      storage: 'MongoDB'
     }
   });
 });
@@ -66,21 +65,28 @@ app.get('/api/health', (req, res) => {
 // Connect to MongoDB and start server
 async function startServer() {
   try {
-    // Attempt MongoDB connection
+    // Check MongoDB URI is configured
+    if (!config.mongoUri) {
+      logger.error('MONGO_URI environment variable is required');
+      logger.error('Set MONGO_URI in .env file or environment');
+      process.exit(1);
+    }
+    
+    // Connect to MongoDB
     const mongoConnected = await connectDB(config.mongoUri, logger);
     
-    if (mongoConnected) {
-      logger.info('✓ MongoDB storage enabled');
-    } else {
-      logger.warn('⚠ MongoDB not configured - using JSON file storage as fallback');
+    if (!mongoConnected) {
+      logger.error('Failed to connect to MongoDB - cannot start server');
+      process.exit(1);
     }
+    
+    logger.info('✓ MongoDB connected');
     
     // Start Express server
     app.listen(config.port, () => {
       logger.info(`Vessel Logbook listening on port ${config.port}`);
       logger.info(`SignalK URL: ${config.signalkUrl}`);
-      logger.info(`Logger data directory: ${config.loggerDataDir}`);
-      logger.info(`Storage: ${mongoConnected ? 'MongoDB' : 'JSON files (' + config.tripsDir + ')'}`);
+      logger.info(`Storage: MongoDB`);
     });
   } catch (err) {
     logger.error('Failed to start server:', err);

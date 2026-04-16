@@ -16,14 +16,15 @@ Instead of trying to automatically detect trips (unreliable), this app lets the 
 
 **Current:**
 - Manual trip entry (start/end time, locations, crew, notes)
+- Master-detail UI with sidebar navigation
 - "Capture Current Conditions" buttons to auto-fill from SignalK
 - Fetch live engine hours, position, fuel, weather from vessel
 - Automatic calculation of distance, duration, fuel used
 - Predefined and custom tags/badges
-- Trip editing capability
-- MongoDB storage with JSON file fallback
-- Trip list view with stats
-- Detailed trip analysis
+- Trip editing and deletion
+- MongoDB Atlas cloud storage
+- Responsive trip list with stats
+- Detailed trip analysis view
 
 **Planned:**
 - GPS track maps (Leaflet.js)
@@ -63,19 +64,24 @@ Environment variables:
 PORT=3210                                           # Web server port
 SIGNALK_URL=http://localhost:3100                  # SignalK server
 
-# Storage (MongoDB preferred, JSON files as fallback)
+# Storage (Required)
 MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/becoming?retryWrites=true&w=majority
-TRIPS_DIR=./data/trips                              # JSON fallback storage
 
 # Data sources (for future log analysis)
 LOGGER_DATA_DIR=/path/to/vessel-data-logger/logs   # Historical log files
 ```
 
-**Storage Options:**
+**MongoDB Required:**
 
-1. **MongoDB (Recommended)**: Set `MONGO_URI` to use MongoDB Atlas or local MongoDB. Better for querying, analytics, and future features like reverse geocoding and AI analysis.
+MongoDB is the only supported storage backend. The service will not start without a valid `MONGO_URI`. 
 
-2. **JSON Files (Fallback)**: If `MONGO_URI` is not set, trips are stored as JSON files in `TRIPS_DIR`. Good for development or simple deployments.
+Benefits:
+- Cloud backup and redundancy
+- Better query performance
+- Advanced filtering and aggregation
+- Full-text search
+- Ready for AI features (vector search, similarity)
+- Accessible from anywhere with proper authentication
 
 ## How It Works
 
