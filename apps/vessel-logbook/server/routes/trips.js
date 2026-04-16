@@ -77,8 +77,12 @@ router.get('/', async (req, res) => {
       })
     );
     
-    // Sort by start time (newest first)
-    trips.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+    // Sort by start time (newest first) - handle both old and new formats
+    trips.sort((a, b) => {
+      const aTime = a.start?.time || a.startTime;
+      const bTime = b.start?.time || b.startTime;
+      return new Date(bTime) - new Date(aTime);
+    });
     
     res.json(trips);
   } catch (err) {

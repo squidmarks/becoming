@@ -88,7 +88,7 @@ function renderTripList() {
       <div class="trip-card-header">
         <div>
           <div class="trip-card-title">${formatRoute(trip)}</div>
-          <div class="trip-card-date">${formatDate(trip.start.time)}</div>
+          <div class="trip-card-date">${formatDate(trip.start?.time || trip.startTime)}</div>
         </div>
       </div>
       
@@ -501,10 +501,16 @@ function renderTripDetail(trip) {
 
 // Utility functions
 function formatRoute(trip) {
-  if (trip.start?.locationName && trip.end?.locationName) {
-    return `${trip.start.locationName} → ${trip.end.locationName}`;
+  // Handle both new format (start.locationName) and old format (from/to)
+  const startName = trip.start?.locationName || trip.from;
+  const endName = trip.end?.locationName || trip.to;
+  
+  if (startName && endName) {
+    return `${startName} → ${endName}`;
   }
-  return `Trip on ${new Date(trip.start?.time || trip.startTime).toLocaleDateString()}`;
+  
+  const tripDate = trip.start?.time || trip.startTime;
+  return `Trip on ${new Date(tripDate).toLocaleDateString()}`;
 }
 
 function formatDate(dateStr) {
