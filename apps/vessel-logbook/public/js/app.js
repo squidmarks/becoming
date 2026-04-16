@@ -92,28 +92,28 @@ function renderTripList() {
         </div>
       </div>
       
-      ${trip.calculated ? `
+      ${(trip.calculated || trip.analysis) ? `
         <div class="trip-card-stats">
-          ${trip.calculated.distance ? `
+          ${(trip.calculated?.distance || trip.analysis?.distance) ? `
             <div class="stat">
               <span class="stat-label">Distance</span>
-              <span class="stat-value">${trip.calculated.distance.nauticalMiles} NM</span>
+              <span class="stat-value">${(trip.calculated?.distance || trip.analysis?.distance).nauticalMiles} NM</span>
             </div>
           ` : ''}
           <div class="stat">
             <span class="stat-label">Duration</span>
-            <span class="stat-value">${trip.calculated.duration.formatted}</span>
+            <span class="stat-value">${(trip.calculated?.duration || trip.analysis?.duration).formatted}</span>
           </div>
-          ${trip.calculated.engineHoursAdded ? `
+          ${(trip.calculated?.engineHoursAdded || trip.analysis?.engineHours) ? `
             <div class="stat">
               <span class="stat-label">Engine Hours</span>
-              <span class="stat-value">${trip.calculated.engineHoursAdded.port || 0} hrs</span>
+              <span class="stat-value">${(trip.calculated?.engineHoursAdded?.port || trip.analysis?.engineHours?.port || 0)} hrs</span>
             </div>
           ` : ''}
-          ${trip.calculated.averageSpeed ? `
+          ${(trip.calculated?.averageSpeed || trip.analysis?.speed?.average) ? `
             <div class="stat">
               <span class="stat-label">Avg Speed</span>
-              <span class="stat-value">${trip.calculated.averageSpeed} kts</span>
+              <span class="stat-value">${trip.calculated?.averageSpeed || trip.analysis?.speed?.average} kts</span>
             </div>
           ` : ''}
         </div>
@@ -428,10 +428,14 @@ function handleEditClick() {
 function renderTripDetail(trip) {
   const detailEl = document.getElementById('tripDetail');
   
+  // Handle both old and new formats
+  const startTime = trip.start?.time || trip.startTime;
+  const endTime = trip.end?.time || trip.endTime;
+  
   detailEl.innerHTML = `
     <div class="detail-section">
       <h3>${formatRoute(trip)}</h3>
-      <p>${formatDate(trip.start.time)} • ${trip.calculated?.duration?.formatted || 'Duration unknown'}</p>
+      <p>${formatDate(startTime)} • ${trip.calculated?.duration?.formatted || trip.analysis?.duration?.formatted || 'Duration unknown'}</p>
       ${trip.crew && trip.crew.length > 0 ? `<p><strong>Crew:</strong> ${trip.crew.join(', ')}</p>` : ''}
       ${trip.tags && trip.tags.length > 0 ? `
         <div class="trip-tags" style="margin-top: 1rem;">
@@ -488,13 +492,23 @@ function renderTripDetail(trip) {
         </div>
       </div>
       
-      <div class="detail-section">
-        <h3>Locations</h3>
-        <p><strong>Start:</strong> ${trip.start.locationName || 'Unknown'} 
-          ${trip.start.position ? `(${trip.start.position.latitude.toFixed(6)}, ${trip.start.position.longitude.toFixed(6)})` : ''}</p>
-        <p><strong>End:</strong> ${trip.end.locationName || 'Unknown'}
-          ${trip.end.position ? `(${trip.end.position.latitude.toFixed(6)}, ${trip.end.position.longitude.toFixed(6)})` : ''}</p>
-      </div>
+      ${(trip.start?.locationName || trip.from || trip.end?.locationName || trip.to) ? `
+        <div class="detail-section">
+          <h3>Locations</h3>
+          <p><strong>Start:</strong> ${trip.start?.locationName || trip.from || 'Unknown'} 
+            ${trip.start?.position ? `(${trip.start.position.latitude.toFixed(6)}, ${trip.start.position.longitude.toFixed(6)})` : ''}</p>
+          <p><strong>End:</strong> ${trip.end?.locationName || trip.to || 'Unknown'}
+            ${trip.end?.position ? `(${trip.end.position.latitude.toFixed(6)}, ${trip.end.position.longitude.toFixed(6)})` : ''}</p>
+        </div>
+      ` : ''}
+      
+      ${trip.analysis ? `
+        <div class="detail-section">
+          <p style="color: var(--text-light); font-size: 0.875rem;">
+            <em>This trip uses the old format. Edit it to migrate to the new structure.</em>
+          </p>
+        </div>
+      ` : ''}
     ` : ''}
   `;
 }
