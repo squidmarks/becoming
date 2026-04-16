@@ -1,5 +1,6 @@
 /**
  * Trip CRUD routes
+ * Supports both MongoDB and JSON file storage
  */
 
 const express = require('express');
@@ -7,10 +8,11 @@ const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
 const fetch = require('node-fetch');
-const { analyzeTrip } = require('../lib/log-analyzer');
+const Trip = require('../models/Trip');
+const { isMongoConnected } = require('../db');
 
 /**
- * GET /api/current-conditions
+ * GET /api/trips/current-conditions
  * Fetch current vessel conditions from SignalK
  */
 router.get('/current-conditions', async (req, res) => {
@@ -62,27 +64,35 @@ router.get('/', async (req, res) => {
   const { logger, config } = req.app.locals;
   
   try {
-    // Ensure trips directory exists
-    await fs.mkdir(config.tripsDir, { recursive: true });
+    let trips;
     
-    // Read all trip files
-    const files = await fs.readdir(config.tripsDir);
-    const tripFiles = files.filter(f => f.endsWith('.json'));
-    
-    // Load and parse each trip
-    const trips = await Promise.all(
-      tripFiles.map(async (file) => {
-        const content = await fs.readFile(path.join(config.tripsDir, file), 'utf-8');
-        return JSON.parse(content);
-      })
-    );
-    
-    // Sort by start time (newest first) - handle both old and new formats
-    trips.sort((a, b) => {
-      const aTime = a.start?.time || a.startTime;
-      const bTime = b.start?.time || b.startTime;
-      return new Date(bTime) - new Date(aTime);
-    });
+    if (isMongoConnected()) {
+      // MongoDB storage
+      trips = await Trip.find().sort({ 'start.time': -1 }).lean();
+      // Add id field for frontend compatibility
+      trips = trips.map(trip => ({
+        ...trip,
+        id: trip._id.toString()
+      }));
+    } else {
+      // JSON file storage
+      await fs.mkdir(config.tripsDir, { recursive: true });
+      const files = await fs.readdir(config.tripsDir);
+      const tripFiles = files.filter(f => f.endsWith('.json'));
+      
+      trips = await Promise.all(
+        tripFiles.map(async (file) => {
+          const content = await fs.readFile(path.join(config.tripsDir, file), 'utf-8');
+          return JSON.parse(content);
+        })
+      );
+      
+      trips.sort((a, b) => {
+        const aTime = a.start?.time || a.startTime;
+        const bTime = b.start?.time || b.startTime;
+        return new Date(bTime) - new Date(aTime);
+      });
+    }
     
     res.json(trips);
   } catch (err) {
@@ -100,13 +110,25 @@ router.get('/:id', async (req, res) => {
   const { id } = req.params;
   
   try {
-    const filePath = path.join(config.tripsDir, `${id}.json`);
-    const content = await fs.readFile(filePath, 'utf-8');
-    const trip = JSON.parse(content);
+    let trip;
+    
+    if (isMongoConnected()) {
+      // MongoDB storage
+      trip = await Trip.findById(id).lean();
+      if (!trip) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      trip.id = trip._id.toString();
+    } else {
+      // JSON file storage
+      const filePath = path.join(config.tripsDir, `${id}.json`);
+      const content = await fs.readFile(filePath, 'utf-8');
+      trip = JSON.parse(content);
+    }
     
     res.json(trip);
   } catch (err) {
-    if (err.code === 'ENOENT') {
+    if (err.code === 'ENOENT' || err.name === 'CastError') {
       res.status(404).json({ error: 'Trip not found' });
     } else {
       logger.error(`Error reading trip ${id}:`, err);
@@ -118,15 +140,6 @@ router.get('/:id', async (req, res) => {
 /**
  * POST /api/trips
  * Create a new trip
- * 
- * Body:
- * {
- *   start: { time, position, locationName, engineHours, fuelLevel, conditions },
- *   end: { time, position, locationName, engineHours, fuelLevel, conditions },
- *   tags: string[],
- *   crew: string[],
- *   notes: string
- * }
  */
 router.post('/', async (req, res) => {
   const { logger, config } = req.app.locals;
@@ -138,33 +151,49 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'start.time and end.time are required' });
     }
     
-    // Generate trip ID from start time
-    const id = `trip-${new Date(start.time).toISOString().replace(/[:.]/g, '-')}`;
-    
-    // Calculate duration and summaries
+    // Calculate summaries
     const calculated = calculateTripSummary(start, end);
     
-    // Create trip object
-    const trip = {
-      id,
-      start,
-      end,
-      calculated,
-      tags: tags || [],
-      crew: crew || [],
-      notes: notes || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    let trip;
     
-    logger.info(`Creating trip ${id} from ${start.time} to ${end.time}`);
-    
-    // Save to file
-    await fs.mkdir(config.tripsDir, { recursive: true });
-    const filePath = path.join(config.tripsDir, `${id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(trip, null, 2));
-    
-    logger.info(`Trip ${id} saved successfully`);
+    if (isMongoConnected()) {
+      // MongoDB storage
+      const tripDoc = new Trip({
+        start,
+        end,
+        calculated,
+        tags: tags || [],
+        crew: crew || [],
+        notes: notes || ''
+      });
+      
+      await tripDoc.save();
+      trip = tripDoc.toObject();
+      trip.id = trip._id.toString();
+      
+      logger.info(`Trip ${trip.id} saved to MongoDB`);
+    } else {
+      // JSON file storage
+      const id = `trip-${new Date(start.time).toISOString().replace(/[:.]/g, '-')}`;
+      
+      trip = {
+        id,
+        start,
+        end,
+        calculated,
+        tags: tags || [],
+        crew: crew || [],
+        notes: notes || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      await fs.mkdir(config.tripsDir, { recursive: true });
+      const filePath = path.join(config.tripsDir, `${id}.json`);
+      await fs.writeFile(filePath, JSON.stringify(trip, null, 2));
+      
+      logger.info(`Trip ${id} saved to JSON file`);
+    }
     
     res.status(201).json(trip);
   } catch (err) {
@@ -183,32 +212,52 @@ router.put('/:id', async (req, res) => {
   const updates = req.body;
   
   try {
-    const filePath = path.join(config.tripsDir, `${id}.json`);
-    const content = await fs.readFile(filePath, 'utf-8');
-    const trip = JSON.parse(content);
-    
-    // Update fields
-    Object.keys(updates).forEach(key => {
-      if (key !== 'id' && key !== 'createdAt') {
-        trip[key] = updates[key];
-      }
-    });
+    let trip;
     
     // Recalculate summaries if start/end changed
     if (updates.start || updates.end) {
-      trip.calculated = calculateTripSummary(trip.start, trip.end);
+      const finalStart = updates.start || (await getExistingTrip(id, config)).start;
+      const finalEnd = updates.end || (await getExistingTrip(id, config)).end;
+      updates.calculated = calculateTripSummary(finalStart, finalEnd);
     }
     
-    trip.updatedAt = new Date().toISOString();
-    
-    // Save updated trip
-    await fs.writeFile(filePath, JSON.stringify(trip, null, 2));
-    
-    logger.info(`Trip ${id} updated successfully`);
+    if (isMongoConnected()) {
+      // MongoDB storage
+      trip = await Trip.findByIdAndUpdate(
+        id,
+        { $set: updates },
+        { new: true, runValidators: true }
+      ).lean();
+      
+      if (!trip) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      trip.id = trip._id.toString();
+      
+      logger.info(`Trip ${id} updated in MongoDB`);
+    } else {
+      // JSON file storage
+      const filePath = path.join(config.tripsDir, `${id}.json`);
+      const content = await fs.readFile(filePath, 'utf-8');
+      trip = JSON.parse(content);
+      
+      // Update fields
+      Object.keys(updates).forEach(key => {
+        if (key !== 'id' && key !== 'createdAt') {
+          trip[key] = updates[key];
+        }
+      });
+      
+      trip.updatedAt = new Date().toISOString();
+      
+      await fs.writeFile(filePath, JSON.stringify(trip, null, 2));
+      
+      logger.info(`Trip ${id} updated in JSON file`);
+    }
     
     res.json(trip);
   } catch (err) {
-    if (err.code === 'ENOENT') {
+    if (err.code === 'ENOENT' || err.name === 'CastError') {
       res.status(404).json({ error: 'Trip not found' });
     } else {
       logger.error(`Error updating trip ${id}:`, err);
@@ -226,14 +275,23 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   
   try {
-    const filePath = path.join(config.tripsDir, `${id}.json`);
-    await fs.unlink(filePath);
-    
-    logger.info(`Trip ${id} deleted successfully`);
+    if (isMongoConnected()) {
+      // MongoDB storage
+      const result = await Trip.findByIdAndDelete(id);
+      if (!result) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      logger.info(`Trip ${id} deleted from MongoDB`);
+    } else {
+      // JSON file storage
+      const filePath = path.join(config.tripsDir, `${id}.json`);
+      await fs.unlink(filePath);
+      logger.info(`Trip ${id} deleted from JSON file`);
+    }
     
     res.status(204).send();
   } catch (err) {
-    if (err.code === 'ENOENT') {
+    if (err.code === 'ENOENT' || err.name === 'CastError') {
       res.status(404).json({ error: 'Trip not found' });
     } else {
       logger.error(`Error deleting trip ${id}:`, err);
@@ -241,6 +299,19 @@ router.delete('/:id', async (req, res) => {
     }
   }
 });
+
+/**
+ * Helper: Get existing trip (for calculating updates)
+ */
+async function getExistingTrip(id, config) {
+  if (isMongoConnected()) {
+    return await Trip.findById(id).lean();
+  } else {
+    const filePath = path.join(config.tripsDir, `${id}.json`);
+    const content = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(content);
+  }
+}
 
 /**
  * Calculate trip summary from start/end conditions
@@ -304,7 +375,7 @@ function calculateTripSummary(start, end) {
     };
     
     // Average speed
-    if (summary.duration.hours > 0) {
+    if (durationHours > 0) {
       summary.averageSpeed = parseFloat((summary.distance.nauticalMiles / durationHours).toFixed(1));
     }
   }

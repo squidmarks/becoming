@@ -16,14 +16,18 @@ Instead of trying to automatically detect trips (unreliable), this app lets the 
 
 **Current:**
 - Manual trip entry (start/end time, locations, crew, notes)
-- Automatic data enrichment from logs
+- "Capture Current Conditions" buttons to auto-fill from SignalK
+- Fetch live engine hours, position, fuel, weather from vessel
+- Automatic calculation of distance, duration, fuel used
+- Predefined and custom tags/badges
+- Trip editing capability
+- MongoDB storage with JSON file fallback
 - Trip list view with stats
 - Detailed trip analysis
-- JSON file storage
 
 **Planned:**
 - GPS track maps (Leaflet.js)
-- Weather conditions at departure/arrival  
+- Reverse geocoding for marina/anchorage names
 - AI-generated voyage narratives
 - Photo uploads linked to trips
 - Export to PDF logbook
@@ -55,34 +59,55 @@ Access at: `http://localhost:3200`
 Environment variables:
 
 ```bash
-PORT=3200                                           # Web server port
+# Server
+PORT=3210                                           # Web server port
 SIGNALK_URL=http://localhost:3100                  # SignalK server
-LOGGER_DATA_DIR=/path/to/vessel-data-logger/logs   # Log files location
-TRIPS_DIR=./data/trips                              # Where to store trip files
+
+# Storage (MongoDB preferred, JSON files as fallback)
+MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/becoming?retryWrites=true&w=majority
+TRIPS_DIR=./data/trips                              # JSON fallback storage
+
+# Data sources (for future log analysis)
+LOGGER_DATA_DIR=/path/to/vessel-data-logger/logs   # Historical log files
 ```
+
+**Storage Options:**
+
+1. **MongoDB (Recommended)**: Set `MONGO_URI` to use MongoDB Atlas or local MongoDB. Better for querying, analytics, and future features like reverse geocoding and AI analysis.
+
+2. **JSON Files (Fallback)**: If `MONGO_URI` is not set, trips are stored as JSON files in `TRIPS_DIR`. Good for development or simple deployments.
 
 ## How It Works
 
 1. **Captain creates trip:**
-   - Opens web UI
+   - Opens web UI at `http://becoming-hub/logbook/`
    - Clicks "New Trip Log"
-   - Enters departure/arrival times
-   - Optionally adds locations, crew, notes
+   - For departure: Click "Capture Current Conditions" to auto-fill from SignalK
+   - Manually enter location name (future: reverse geocoding)
+   - (Later) For arrival: Click "Capture Current Conditions" again
+   - Add tags (marina, anchored, mooring ball, dolphins, etc.)
+   - Add crew names
+   - Add notes
 
 2. **System enriches data:**
-   - Backend queries vessel-data-logger JSONL files for timeframe
-   - Parses position, speed, depth, engine data
-   - Calculates:
-     - Distance (nautical miles)
-     - Average/max speed (knots)
-     - Engine hours added (port/starboard)
-     - Average RPM
-     - Depth statistics
+   - Fetches live data from SignalK API:
+     - GPS position (lat/lon)
+     - Engine hours (port/starboard)
+     - Fuel levels (port/starboard tanks)
+     - Weather (wind, barometer, temperature)
+     - Sea state description
+   - Calculates trip summaries:
+     - Duration (hours/minutes)
+     - Distance (Haversine formula, nautical miles)
+     - Average speed (knots)
+     - Engine hours added per engine
+     - Fuel used per tank
 
-3. **View trip:**
-   - Trip card shows summary stats
-   - Click for detailed analysis
-   - All data stored in JSON file
+3. **View and edit trips:**
+   - Trip list shows summary cards (sorted newest first)
+   - Click for detailed trip view
+   - Click "Edit" to update any trip
+   - All data stored in MongoDB (or JSON files as fallback)
 
 ## API Endpoints
 
@@ -92,33 +117,90 @@ List all trips (sorted by date, newest first)
 ### `GET /api/trips/:id`
 Get specific trip details
 
+### `GET /api/trips/current-conditions`
+Fetch current vessel conditions from SignalK API
+
+**Response:**
+```json
+{
+  "timestamp": "2026-04-12T09:00:00.000Z",
+  "position": {
+    "latitude": 32.428504,
+    "longitude": -80.681160
+  },
+  "engineHours": {
+    "port": 1234.56,
+    "starboard": 1235.12
+  },
+  "weather": {
+    "windSpeed": 8.5,
+    "windDirection": 225,
+    "barometer": 101325,
+    "temperature": 293.15
+  },
+  "seaState": "slight"
+}
+```
+
 ### `POST /api/trips`
 Create new trip
 
 **Request body:**
 ```json
 {
-  "startTime": "2026-04-12T09:00:00Z",
-  "endTime": "2026-04-12T12:30:00Z",
-  "from": "Hilton Head Marina",
-  "to": "Daufuskie Island",
+  "start": {
+    "time": "2026-04-12T09:00:00Z",
+    "locationName": "Hilton Head Marina",
+    "position": {
+      "latitude": 32.428504,
+      "longitude": -80.681160
+    },
+    "engineHours": {
+      "port": 1234.56,
+      "starboard": 1235.12
+    },
+    "fuelLevel": {
+      "port": 0.85,
+      "starboard": 0.82
+    },
+    "conditions": {
+      "wind": { "speed": 8.5, "direction": 225 },
+      "barometer": 101325,
+      "temperature": 293.15,
+      "seaState": "slight"
+    }
+  },
+  "end": {
+    "time": "2026-04-12T12:30:00Z",
+    "locationName": "Daufuskie Island",
+    "position": {
+      "latitude": 32.130434,
+      "longitude": -80.876614
+    },
+    "engineHours": {
+      "port": 1238.06,
+      "starboard": 1238.62
+    },
+    "fuelLevel": {
+      "port": 0.72,
+      "starboard": 0.69
+    }
+  },
+  "tags": ["anchored", "dolphins"],
   "crew": ["Geoff", "Sarah"],
-  "notes": "Beautiful weather, calm seas"
+  "notes": "Beautiful weather, calm seas. Set anchor on first try!"
 }
 ```
 
 **Response:**
 ```json
 {
-  "id": "trip-2026-04-12T09-00-00-000Z",
-  "startTime": "2026-04-12T09:00:00Z",
-  "endTime": "2026-04-12T12:30:00Z",
-  "from": "Hilton Head Marina",
-  "to": "Daufuskie Island",
-  "crew": ["Geoff", "Sarah"],
-  "notes": "Beautiful weather, calm seas",
-  "analysis": {
+  "id": "507f1f77bcf86cd799439011",
+  "start": { ... },
+  "end": { ... },
+  "calculated": {
     "duration": {
+      "milliseconds": 12600000,
       "hours": 3,
       "minutes": 30,
       "formatted": "3h 30m"
@@ -127,37 +209,21 @@ Create new trip
       "nauticalMiles": 18.2,
       "kilometers": 33.7
     },
-    "speed": {
-      "average": 5.2,
-      "max": 7.8,
-      "unit": "knots"
-    },
-    "engineHours": {
+    "averageSpeed": 5.2,
+    "engineHoursAdded": {
       "port": 3.5,
-      "starboard": 3.5,
-      "unit": "hours"
+      "starboard": 3.5
     },
-    "engineRPM": {
-      "port": { "average": 1850, "max": 2200 },
-      "starboard": { "average": 1820, "max": 2180 }
-    },
-    "depth": {
-      "average": 28.5,
-      "max": 42.0,
-      "min": 12.5,
-      "unit": "feet"
-    },
-    "startPosition": {
-      "lat": 32.428504,
-      "lon": -80.681160
-    },
-    "endPosition": {
-      "lat": 32.130434,
-      "lon": -80.876614
+    "fuelUsed": {
+      "port": 0.13,
+      "starboard": 0.13
     }
   },
-  "createdAt": "2026-04-12T13:00:00Z",
-  "updatedAt": "2026-04-12T13:00:00Z"
+  "tags": ["anchored", "dolphins"],
+  "crew": ["Geoff", "Sarah"],
+  "notes": "Beautiful weather, calm seas. Set anchor on first try!",
+  "createdAt": "2026-04-12T13:00:00.000Z",
+  "updatedAt": "2026-04-12T13:00:00.000Z"
 }
 ```
 
@@ -173,10 +239,13 @@ Delete trip
 apps/vessel-logbook/
 ├── server/
 │   ├── index.js              # Express server
+│   ├── db.js                 # MongoDB connection
+│   ├── models/
+│   │   └── Trip.js           # Mongoose Trip schema
 │   ├── routes/
 │   │   └── trips.js          # Trip CRUD operations
 │   └── lib/
-│       └── log-analyzer.js   # Parses vessel-data-logger files
+│       └── log-analyzer.js   # Parses vessel-data-logger files (future)
 ├── public/
 │   ├── index.html            # Web UI
 │   ├── css/
@@ -184,8 +253,9 @@ apps/vessel-logbook/
 │   └── js/
 │       └── app.js            # Frontend logic
 ├── data/
-│   └── trips/                # Trip JSON files
+│   └── trips/                # JSON file storage (fallback)
 ├── package.json
+├── .env.example
 └── README.md
 ```
 
@@ -223,8 +293,9 @@ ExecStart=/usr/bin/node server/index.js
 Restart=always
 RestartSec=10
 Environment=NODE_ENV=production
-Environment=PORT=3200
+Environment=PORT=3210
 Environment=SIGNALK_URL=http://localhost:3100
+Environment=MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/becoming?retryWrites=true&w=majority
 Environment=LOGGER_DATA_DIR=/home/geoff/becoming/apps/vessel-data-logger/logs
 Environment=TRIPS_DIR=/home/geoff/becoming/apps/vessel-logbook/data/trips
 
@@ -235,6 +306,8 @@ SyslogIdentifier=vessel-logbook
 [Install]
 WantedBy=multi-user.target
 ```
+
+**Note**: Set your actual MongoDB connection string in `MONGO_URI`. If left blank, the app will fall back to JSON file storage in `TRIPS_DIR`.
 
 Enable and start:
 ```bash
@@ -249,12 +322,16 @@ Add to nginx config to make it accessible via `http://becoming-hub/logbook`:
 
 ```nginx
 location /logbook {
-    proxy_pass http://localhost:3200;
+    proxy_pass http://localhost:3210;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection 'upgrade';
     proxy_set_header Host $host;
     proxy_cache_bypass $http_upgrade;
+    
+    # Handle trailing slashes
+    rewrite ^/logbook$ /logbook/ permanent;
+    rewrite ^/logbook/(.*) /$1 break;
 }
 ```
 
