@@ -352,10 +352,7 @@ function collectFormData() {
         port: parseFloat(document.getElementById('startEnginePort').value) || null,
         starboard: parseFloat(document.getElementById('startEngineStbd').value) || null
       },
-      fuelLevel: {
-        port: parseInt(document.getElementById('startFuelPort').value) / 100 || null,
-        starboard: parseInt(document.getElementById('startFuelStbd').value) / 100 || null
-      }
+      fuelLevel: parseInt(document.getElementById('startFuel').value) / 100 || null
     },
     end: {
       time: document.getElementById('endTime').value,
@@ -368,10 +365,7 @@ function collectFormData() {
         port: parseFloat(document.getElementById('endEnginePort').value) || null,
         starboard: parseFloat(document.getElementById('endEngineStbd').value) || null
       },
-      fuelLevel: {
-        port: parseInt(document.getElementById('endFuelPort').value) / 100 || null,
-        starboard: parseInt(document.getElementById('endFuelStbd').value) / 100 || null
-      }
+      fuelLevel: parseInt(document.getElementById('endFuel').value) / 100 || null
     },
     tags: selectedTags,
     crew: document.getElementById('crew').value.split(',').map(c => c.trim()).filter(c => c),
@@ -393,9 +387,8 @@ function populateForm(trip) {
       document.getElementById('startEnginePort').value = trip.start.engineHours.port || '';
       document.getElementById('startEngineStbd').value = trip.start.engineHours.starboard || '';
     }
-    if (trip.start.fuelLevel) {
-      document.getElementById('startFuelPort').value = Math.round(trip.start.fuelLevel.port * 100) || '';
-      document.getElementById('startFuelStbd').value = Math.round(trip.start.fuelLevel.starboard * 100) || '';
+    if (trip.start.fuelLevel != null) {
+      document.getElementById('startFuel').value = Math.round(trip.start.fuelLevel * 100) || '';
     }
   } else if (trip.startTime) {
     // Old format
@@ -415,9 +408,8 @@ function populateForm(trip) {
       document.getElementById('endEnginePort').value = trip.end.engineHours.port || '';
       document.getElementById('endEngineStbd').value = trip.end.engineHours.starboard || '';
     }
-    if (trip.end.fuelLevel) {
-      document.getElementById('endFuelPort').value = Math.round(trip.end.fuelLevel.port * 100) || '';
-      document.getElementById('endFuelStbd').value = Math.round(trip.end.fuelLevel.starboard * 100) || '';
+    if (trip.end.fuelLevel != null) {
+      document.getElementById('endFuel').value = Math.round(trip.end.fuelLevel * 100) || '';
     }
   } else if (trip.endTime) {
     // Old format
@@ -501,14 +493,10 @@ function renderTripDetail() {
             </div>
           ` : ''}
           
-          ${trip.calculated.fuelUsed ? `
+          ${trip.calculated.fuelUsed != null ? `
             <div class="detail-item">
-              <span class="detail-label">Fuel Used (Port)</span>
-              <span class="detail-value">${(trip.calculated.fuelUsed.port * 100).toFixed(0)}%</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Fuel Used (Stbd)</span>
-              <span class="detail-value">${(trip.calculated.fuelUsed.starboard * 100).toFixed(0)}%</span>
+              <span class="detail-label">Fuel Used</span>
+              <span class="detail-value">${(trip.calculated.fuelUsed * 100).toFixed(0)}%</span>
             </div>
           ` : ''}
         </div>

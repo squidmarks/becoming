@@ -243,14 +243,8 @@ function calculateTripSummary(start, end) {
   }
   
   // Fuel used
-  if (start.fuelLevel && end.fuelLevel) {
-    summary.fuelUsed = {};
-    if (start.fuelLevel.port != null && end.fuelLevel.port != null) {
-      summary.fuelUsed.port = parseFloat((start.fuelLevel.port - end.fuelLevel.port).toFixed(3));
-    }
-    if (start.fuelLevel.starboard != null && end.fuelLevel.starboard != null) {
-      summary.fuelUsed.starboard = parseFloat((start.fuelLevel.starboard - end.fuelLevel.starboard).toFixed(3));
-    }
+  if (start.fuelLevel != null && end.fuelLevel != null) {
+    summary.fuelUsed = parseFloat((start.fuelLevel - end.fuelLevel).toFixed(3));
   }
   
   // Distance (Haversine formula)

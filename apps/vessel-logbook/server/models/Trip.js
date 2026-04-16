@@ -16,10 +16,7 @@ const ConditionsSchema = new mongoose.Schema({
     port: Number,
     starboard: Number
   },
-  fuelLevel: {
-    port: Number,
-    starboard: Number
-  },
+  fuelLevel: Number,
   conditions: {
     wind: {
       speed: Number,
@@ -47,10 +44,7 @@ const CalculatedSchema = new mongoose.Schema({
     port: Number,
     starboard: Number
   },
-  fuelUsed: {
-    port: Number,
-    starboard: Number
-  }
+  fuelUsed: Number
 }, { _id: false });
 
 const TripSchema = new mongoose.Schema({
