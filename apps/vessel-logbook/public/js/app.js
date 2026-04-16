@@ -24,15 +24,25 @@ const dialogCancel = document.getElementById('dialogCancel');
 // Toast container
 const toastContainer = document.getElementById('toastContainer');
 
+// Mobile elements
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const menuToggle = document.getElementById('menuToggle');
+const newTripBtnMobile = document.getElementById('newTripBtnMobile');
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   loadTrips();
   setupEventListeners();
+  setupMobileMenu();
 });
 
 // Event listeners
 function setupEventListeners() {
   document.getElementById('newTripBtn').addEventListener('click', () => showEditMode(null));
+  if (newTripBtnMobile) {
+    newTripBtnMobile.addEventListener('click', () => showEditMode(null));
+  }
   document.getElementById('editBtn').addEventListener('click', () => showEditMode(currentTrip));
   document.getElementById('deleteBtn').addEventListener('click', handleDelete);
   document.getElementById('cancelBtn').addEventListener('click', cancelEdit);
@@ -60,6 +70,36 @@ function setupEventListeners() {
       closeDialog();
     }
   });
+}
+
+// Mobile menu setup
+function setupMobileMenu() {
+  if (!menuToggle) return; // Not on mobile
+  
+  menuToggle.addEventListener('click', toggleSidebar);
+  sidebarOverlay.addEventListener('click', closeSidebar);
+  
+  // Close sidebar when selecting a trip
+  tripListEl.addEventListener('click', (e) => {
+    if (e.target.closest('.trip-card')) {
+      closeSidebar();
+    }
+  });
+}
+
+function toggleSidebar() {
+  sidebar.classList.toggle('open');
+  sidebarOverlay.classList.toggle('active');
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarOverlay.classList.remove('active');
+}
+
+function openSidebar() {
+  sidebar.classList.add('open');
+  sidebarOverlay.classList.add('active');
 }
 
 // Dialog functions
@@ -302,6 +342,9 @@ function showEditMode(trip) {
     selectedTags = [];
     renderSelectedTags();
   }
+  
+  // Close sidebar on mobile
+  closeSidebar();
 }
 
 // Cancel edit

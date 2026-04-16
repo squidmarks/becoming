@@ -8,8 +8,15 @@
 </head>
 <body>
   <div class="app-container">
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+      <button id="menuToggle" class="btn btn-icon" aria-label="Toggle menu">☰</button>
+      <h1>⚓ Logbook</h1>
+      <button id="newTripBtnMobile" class="btn btn-primary btn-icon" title="New Trip">➕</button>
+    </div>
+
     <!-- Left Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <h1>⚓ Logbook</h1>
         <button id="newTripBtn" class="btn btn-primary btn-icon" title="New Trip">➕</button>
@@ -222,6 +229,9 @@
 
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
   <script src="js/app.js"></script>
 </body>

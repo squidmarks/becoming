@@ -26,6 +26,24 @@ body {
   overflow: hidden;
 }
 
+/* Mobile Header */
+.mobile-header {
+  display: none;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.mobile-header h1 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
 /* App Container */
 .app-container {
   display: flex;
@@ -40,6 +58,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: transform 0.3s ease;
 }
 
 .sidebar-header {
@@ -716,7 +735,43 @@ body {
 /* Responsive */
 @media (max-width: 768px) {
   :root {
-    --sidebar-width: 280px;
+    --sidebar-width: 85vw;
+  }
+  
+  .mobile-header {
+    display: flex;
+  }
+  
+  .app-container {
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+  
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    max-width: 320px;
+    z-index: 200;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .sidebar-header {
+    padding-top: 1rem;
+  }
+  
+  .main-content {
+    flex: 1;
+    padding-top: 60px; /* Account for mobile header */
   }
   
   .form-row {
@@ -725,5 +780,71 @@ body {
   
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .content-header {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  
+  .content-header h2 {
+    font-size: 1.25rem;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  
+  .header-actions .btn {
+    flex: 1;
+  }
+  
+  .trip-form {
+    padding: 1rem;
+  }
+  
+  .trip-detail {
+    padding: 1rem;
+  }
+  
+  .form-section {
+    padding: 1rem;
+  }
+  
+  .dialog-box {
+    width: 95%;
+    max-width: none;
+  }
+  
+  .toast-container {
+    top: 0.5rem;
+    right: 0.5rem;
+    left: 0.5rem;
+  }
+  
+  .toast {
+    min-width: auto;
+    max-width: none;
+  }
+}
+
+/* Mobile overlay for sidebar */
+@media (max-width: 768px) {
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 150;
+  }
+  
+  .sidebar-overlay.active {
+    display: block;
   }
 }
