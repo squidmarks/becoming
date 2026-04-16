@@ -14,6 +14,7 @@ const formLoading = document.getElementById('formLoading');
 const modalTitle = document.getElementById('modalTitle');
 const submitBtn = document.getElementById('submitBtn');
 const editTripBtn = document.getElementById('editTripBtn');
+const deleteTripBtn = document.getElementById('deleteTripBtn');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,6 +28,7 @@ function setupEventListeners() {
   cancelBtn.addEventListener('click', closeTripModal);
   tripForm.addEventListener('submit', handleTripSubmit);
   editTripBtn.addEventListener('click', handleEditClick);
+  deleteTripBtn.addEventListener('click', handleDeleteClick);
   
   // Capture conditions buttons
   document.getElementById('captureStartBtn').addEventListener('click', () => captureConditions('start'));
@@ -422,6 +424,36 @@ async function viewTrip(tripId) {
 function handleEditClick() {
   tripDetailModal.classList.remove('active');
   openTripModal(window.currentTrip);
+}
+
+// Handle delete button click
+async function handleDeleteClick() {
+  if (!window.currentTrip) return;
+  
+  const tripName = formatRoute(window.currentTrip);
+  if (!confirm(`Are you sure you want to delete this trip?\n\n${tripName}`)) {
+    return;
+  }
+  
+  try {
+    await deleteTrip(window.currentTrip.id || window.currentTrip._id);
+    tripDetailModal.classList.remove('active');
+    await loadTrips();
+  } catch (err) {
+    alert(`Error deleting trip: ${err.message}`);
+  }
+}
+
+// Delete trip
+async function deleteTrip(id) {
+  const response = await fetch(`/api/trips/${id}`, {
+    method: 'DELETE'
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete trip');
+  }
 }
 
 // Render trip detail view
