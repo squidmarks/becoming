@@ -236,7 +236,7 @@ async function showConfirm(message, title = 'Confirm') {
 // Load all trips
 async function loadTrips() {
   try {
-    const response = await fetch('/api/trips');
+    const response = await fetch('api/trips');
     if (!response.ok) throw new Error('Failed to load trips');
     
     trips = await response.json();
@@ -365,7 +365,7 @@ async function handleSave(e) {
   try {
     if (editingTripId) {
       // Update existing trip
-      const response = await fetch(`/api/trips/${editingTripId}`, {
+      const response = await fetch(`api/trips/${editingTripId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(tripData)
@@ -376,7 +376,7 @@ async function handleSave(e) {
       currentTrip = updated;
     } else {
       // Create new trip
-      const response = await fetch('/api/trips', {
+      const response = await fetch('api/trips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(tripData)
@@ -413,7 +413,7 @@ async function handleDelete() {
   
   try {
     const id = currentTrip.id || currentTrip._id;
-    const response = await fetch(`/api/trips/${id}`, {
+    const response = await fetch(`api/trips/${id}`, {
       method: 'DELETE'
     });
     
@@ -600,7 +600,7 @@ function renderTripDetail() {
 // Capture current conditions
 async function captureConditions(type) {
   try {
-    const response = await fetch('/api/trips/current-conditions');
+    const response = await fetch('api/trips/current-conditions');
     if (!response.ok) throw new Error('Failed to fetch conditions');
     
     const data = await response.json();
