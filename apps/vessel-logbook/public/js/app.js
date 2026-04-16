@@ -102,7 +102,7 @@ function renderTripList() {
           ` : ''}
           <div class="stat">
             <span class="stat-label">Duration</span>
-            <span class="stat-value">${(trip.calculated?.duration || trip.analysis?.duration).formatted}</span>
+            <span class="stat-value">${trip.calculated?.duration?.formatted || trip.analysis?.duration?.formatted || 'N/A'}</span>
           </div>
           ${(trip.calculated?.engineHoursAdded || trip.analysis?.engineHours) ? `
             <div class="stat">
@@ -458,7 +458,7 @@ function renderTripDetail(trip) {
           
           <div class="detail-item">
             <span class="detail-label">Duration</span>
-            <span class="detail-value">${trip.calculated.duration.formatted}</span>
+            <span class="detail-value">${trip.calculated?.duration?.formatted || 'N/A'}</span>
           </div>
           
           ${trip.calculated.averageSpeed ? `
