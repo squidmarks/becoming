@@ -20,37 +20,148 @@
 
     <!-- Trip Form Modal -->
     <div id="tripModal" class="modal">
-      <div class="modal-content">
+      <div class="modal-content modal-large">
         <div class="modal-header">
-          <h2>New Trip Log</h2>
+          <h2 id="modalTitle">New Trip Log</h2>
           <button class="modal-close">&times;</button>
         </div>
         
         <form id="tripForm">
+          <input type="hidden" id="tripId">
+          
+          <!-- Start Conditions -->
+          <div class="section-header">
+            <h3>Departure</h3>
+            <button type="button" class="btn btn-secondary btn-sm" id="captureStartBtn">
+              📡 Capture Current Conditions
+            </button>
+          </div>
+          
           <div class="form-row">
             <div class="form-group">
-              <label for="startTime">Departure Time *</label>
+              <label for="startTime">Time *</label>
               <input type="datetime-local" id="startTime" required>
             </div>
             
             <div class="form-group">
-              <label for="endTime">Arrival Time *</label>
-              <input type="datetime-local" id="endTime" required>
+              <label for="startLocationName">Location Name</label>
+              <input type="text" id="startLocationName" placeholder="e.g., Hilton Head Marina">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="from">From</label>
-              <input type="text" id="from" placeholder="e.g., Hilton Head Marina">
+              <label for="startLat">Latitude</label>
+              <input type="number" id="startLat" step="0.000001" placeholder="32.4285">
             </div>
             
             <div class="form-group">
-              <label for="to">To</label>
-              <input type="text" id="to" placeholder="e.g., Daufuskie Island">
+              <label for="startLon">Longitude</label>
+              <input type="number" id="startLon" step="0.000001" placeholder="-80.6812">
             </div>
           </div>
 
+          <div class="form-row">
+            <div class="form-group">
+              <label for="startEnginePort">Engine Hours (Port)</label>
+              <input type="number" id="startEnginePort" step="0.1" placeholder="1234.5">
+            </div>
+            
+            <div class="form-group">
+              <label for="startEngineStbd">Engine Hours (Starboard)</label>
+              <input type="number" id="startEngineStbd" step="0.1" placeholder="1235.2">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="startFuelPort">Fuel Level Port (%)</label>
+              <input type="number" id="startFuelPort" step="1" min="0" max="100" placeholder="85">
+            </div>
+            
+            <div class="form-group">
+              <label for="startFuelStbd">Fuel Level Starboard (%)</label>
+              <input type="number" id="startFuelStbd" step="1" min="0" max="100" placeholder="86">
+            </div>
+          </div>
+
+          <!-- End Conditions -->
+          <div class="section-header">
+            <h3>Arrival</h3>
+            <button type="button" class="btn btn-secondary btn-sm" id="captureEndBtn">
+              📡 Capture Current Conditions
+            </button>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="endTime">Time *</label>
+              <input type="datetime-local" id="endTime" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="endLocationName">Location Name</label>
+              <input type="text" id="endLocationName" placeholder="e.g., Daufuskie Island">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="endLat">Latitude</label>
+              <input type="number" id="endLat" step="0.000001" placeholder="32.1304">
+            </div>
+            
+            <div class="form-group">
+              <label for="endLon">Longitude</label>
+              <input type="number" id="endLon" step="0.000001" placeholder="-80.8766">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="endEnginePort">Engine Hours (Port)</label>
+              <input type="number" id="endEnginePort" step="0.1" placeholder="1238.0">
+            </div>
+            
+            <div class="form-group">
+              <label for="endEngineStbd">Engine Hours (Starboard)</label>
+              <input type="number" id="endEngineStbd" step="0.1" placeholder="1238.7">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="endFuelPort">Fuel Level Port (%)</label>
+              <input type="number" id="endFuelPort" step="1" min="0" max="100" placeholder="70">
+            </div>
+            
+            <div class="form-group">
+              <label for="endFuelStbd">Fuel Level Starboard (%)</label>
+              <input type="number" id="endFuelStbd" step="1" min="0" max="100" placeholder="70">
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div class="form-group">
+            <label>Tags</label>
+            <div class="tag-buttons">
+              <button type="button" class="tag-btn" data-tag="marina">🏖️ Marina</button>
+              <button type="button" class="tag-btn" data-tag="anchorage">⚓ Anchorage</button>
+              <button type="button" class="tag-btn" data-tag="mooring">🎯 Mooring Ball</button>
+              <button type="button" class="tag-btn" data-tag="fuel">⛽ Fuel Stop</button>
+              <button type="button" class="tag-btn" data-tag="first_time">🎉 First Time</button>
+              <button type="button" class="tag-btn" data-tag="dolphins">🐬 Dolphins</button>
+              <button type="button" class="tag-btn" data-tag="fishing">🎣 Fishing</button>
+              <button type="button" class="tag-btn" data-tag="rough_seas">🌊 Rough Seas</button>
+            </div>
+            <div class="form-row" style="margin-top: 10px;">
+              <input type="text" id="customTag" placeholder="Add custom tag...">
+              <button type="button" class="btn btn-secondary btn-sm" id="addCustomTagBtn">+ Add</button>
+            </div>
+            <div id="selectedTags" class="selected-tags"></div>
+          </div>
+
+          <!-- Crew & Notes -->
           <div class="form-group">
             <label for="crew">Crew (comma-separated)</label>
             <input type="text" id="crew" placeholder="e.g., Geoff, Sarah">
@@ -58,18 +169,18 @@
 
           <div class="form-group">
             <label for="notes">Notes</label>
-            <textarea id="notes" rows="4" placeholder="Weather conditions, sea state, notable events..."></textarea>
+            <textarea id="notes" rows="4" placeholder="Weather conditions, highlights, notes..."></textarea>
           </div>
 
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create Trip Log</button>
+            <button type="submit" class="btn btn-primary" id="submitBtn">Create Trip Log</button>
           </div>
         </form>
 
         <div id="formLoading" class="form-loading" style="display: none;">
           <div class="spinner"></div>
-          <p>Analyzing trip data from logs...</p>
+          <p id="loadingMessage">Saving trip...</p>
         </div>
       </div>
     </div>
@@ -79,7 +190,10 @@
       <div class="modal-content modal-large">
         <div class="modal-header">
           <h2>Trip Details</h2>
-          <button class="modal-close">&times;</button>
+          <div>
+            <button id="editTripBtn" class="btn btn-secondary btn-sm">✏️ Edit</button>
+            <button class="modal-close">&times;</button>
+          </div>
         </div>
         
         <div id="tripDetail" class="trip-detail">

@@ -6,7 +6,53 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
+const fetch = require('node-fetch');
 const { analyzeTrip } = require('../lib/log-analyzer');
+
+/**
+ * GET /api/current-conditions
+ * Fetch current vessel conditions from SignalK
+ */
+router.get('/current-conditions', async (req, res) => {
+  const { logger, config } = req.app.locals;
+  
+  try {
+    const url = `${config.signalkUrl}/signalk/v1/api/vessels/self`;
+    logger.info(`Fetching current conditions from ${url}`);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`SignalK returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Extract relevant data
+    const conditions = {
+      timestamp: new Date().toISOString(),
+      position: data.navigation?.position?.value || null,
+      engineHours: {
+        port: data.propulsion?.port?.runTime?.value ? 
+          parseFloat((data.propulsion.port.runTime.value / 3600).toFixed(2)) : null,
+        starboard: data.propulsion?.starboard?.runTime?.value ?
+          parseFloat((data.propulsion.starboard.runTime.value / 3600).toFixed(2)) : null
+      },
+      weather: {
+        windSpeed: data.environment?.wind?.speedTrue?.value || null,
+        windDirection: data.environment?.wind?.directionTrue?.value || null,
+        barometer: data.environment?.outside?.pressure?.value || null,
+        temperature: data.environment?.outside?.temperature?.value || null
+      },
+      seaState: data.environment?.seaState?.description?.value || null
+    };
+    
+    logger.info('Current conditions fetched successfully', conditions);
+    res.json(conditions);
+  } catch (err) {
+    logger.error('Error fetching current conditions:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * GET /api/trips
@@ -71,54 +117,43 @@ router.get('/:id', async (req, res) => {
  * 
  * Body:
  * {
- *   startTime: ISO8601,
- *   endTime: ISO8601,
- *   from: string,
- *   to: string,
+ *   start: { time, position, locationName, engineHours, fuelLevel, conditions },
+ *   end: { time, position, locationName, engineHours, fuelLevel, conditions },
+ *   tags: string[],
  *   crew: string[],
  *   notes: string
  * }
  */
 router.post('/', async (req, res) => {
   const { logger, config } = req.app.locals;
-  const { startTime, endTime, from, to, crew, notes } = req.body;
+  const { start, end, tags, crew, notes } = req.body;
   
   try {
     // Validate required fields
-    if (!startTime || !endTime) {
-      return res.status(400).json({ error: 'startTime and endTime are required' });
+    if (!start?.time || !end?.time) {
+      return res.status(400).json({ error: 'start.time and end.time are required' });
     }
     
     // Generate trip ID from start time
-    const id = `trip-${new Date(startTime).toISOString().replace(/[:.]/g, '-')}`;
+    const id = `trip-${new Date(start.time).toISOString().replace(/[:.]/g, '-')}`;
     
-    // Create basic trip object
+    // Calculate duration and summaries
+    const calculated = calculateTripSummary(start, end);
+    
+    // Create trip object
     const trip = {
       id,
-      startTime,
-      endTime,
-      from: from || null,
-      to: to || null,
+      start,
+      end,
+      calculated,
+      tags: tags || [],
       crew: crew || [],
       notes: notes || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
-    logger.info(`Creating trip ${id} from ${startTime} to ${endTime}`);
-    
-    // Analyze trip data from logs
-    try {
-      const analysis = await analyzeTrip(startTime, endTime, config, logger);
-      trip.analysis = analysis;
-      logger.info(`Trip analysis completed for ${id}`, analysis);
-    } catch (err) {
-      logger.error(`Failed to analyze trip ${id}:`, err);
-      trip.analysis = {
-        error: err.message,
-        status: 'failed'
-      };
-    }
+    logger.info(`Creating trip ${id} from ${start.time} to ${end.time}`);
     
     // Save to file
     await fs.mkdir(config.tripsDir, { recursive: true });
@@ -154,6 +189,11 @@ router.put('/:id', async (req, res) => {
         trip[key] = updates[key];
       }
     });
+    
+    // Recalculate summaries if start/end changed
+    if (updates.start || updates.end) {
+      trip.calculated = calculateTripSummary(trip.start, trip.end);
+    }
     
     trip.updatedAt = new Date().toISOString();
     
@@ -197,5 +237,75 @@ router.delete('/:id', async (req, res) => {
     }
   }
 });
+
+/**
+ * Calculate trip summary from start/end conditions
+ */
+function calculateTripSummary(start, end) {
+  const summary = {};
+  
+  // Duration
+  const startMs = new Date(start.time).getTime();
+  const endMs = new Date(end.time).getTime();
+  const durationMs = endMs - startMs;
+  const durationHours = durationMs / (1000 * 60 * 60);
+  
+  summary.duration = {
+    milliseconds: durationMs,
+    hours: Math.floor(durationHours),
+    minutes: Math.floor((durationHours % 1) * 60),
+    formatted: `${Math.floor(durationHours)}h ${Math.floor((durationHours % 1) * 60)}m`
+  };
+  
+  // Engine hours added
+  if (start.engineHours && end.engineHours) {
+    summary.engineHoursAdded = {};
+    if (start.engineHours.port != null && end.engineHours.port != null) {
+      summary.engineHoursAdded.port = parseFloat((end.engineHours.port - start.engineHours.port).toFixed(2));
+    }
+    if (start.engineHours.starboard != null && end.engineHours.starboard != null) {
+      summary.engineHoursAdded.starboard = parseFloat((end.engineHours.starboard - start.engineHours.starboard).toFixed(2));
+    }
+  }
+  
+  // Fuel used
+  if (start.fuelLevel && end.fuelLevel) {
+    summary.fuelUsed = {};
+    if (start.fuelLevel.port != null && end.fuelLevel.port != null) {
+      summary.fuelUsed.port = parseFloat((start.fuelLevel.port - end.fuelLevel.port).toFixed(3));
+    }
+    if (start.fuelLevel.starboard != null && end.fuelLevel.starboard != null) {
+      summary.fuelUsed.starboard = parseFloat((start.fuelLevel.starboard - end.fuelLevel.starboard).toFixed(3));
+    }
+  }
+  
+  // Distance (Haversine formula)
+  if (start.position && end.position && 
+      start.position.latitude != null && start.position.longitude != null &&
+      end.position.latitude != null && end.position.longitude != null) {
+    
+    const R = 3440.065; // Earth radius in nautical miles
+    const dLat = (end.position.latitude - start.position.latitude) * Math.PI / 180;
+    const dLon = (end.position.longitude - start.position.longitude) * Math.PI / 180;
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(start.position.latitude * Math.PI / 180) * 
+              Math.cos(end.position.latitude * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    
+    summary.distance = {
+      nauticalMiles: parseFloat((R * c).toFixed(2)),
+      kilometers: parseFloat((R * c * 1.852).toFixed(2))
+    };
+    
+    // Average speed
+    if (summary.duration.hours > 0) {
+      summary.averageSpeed = parseFloat((summary.distance.nauticalMiles / durationHours).toFixed(1));
+    }
+  }
+  
+  return summary;
+}
 
 module.exports = router;
