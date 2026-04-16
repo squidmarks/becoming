@@ -13,6 +13,14 @@ const editMode = document.getElementById('editMode');
 const tripForm = document.getElementById('tripForm');
 const loadingIndicator = document.getElementById('loadingIndicator');
 
+// Dialog elements
+const dialogOverlay = document.getElementById('dialogOverlay');
+const dialogTitle = document.getElementById('dialogTitle');
+const dialogMessage = document.getElementById('dialogMessage');
+const dialogIcon = document.getElementById('dialogIcon');
+const dialogConfirm = document.getElementById('dialogConfirm');
+const dialogCancel = document.getElementById('dialogCancel');
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   loadTrips();
@@ -42,6 +50,102 @@ function setupEventListeners() {
       addCustomTag();
     }
   });
+  
+  // Dialog close on overlay click
+  dialogOverlay.addEventListener('click', (e) => {
+    if (e.target === dialogOverlay) {
+      closeDialog();
+    }
+  });
+}
+
+// Dialog functions
+function showDialog(options) {
+  return new Promise((resolve) => {
+    const {
+      title = 'Notification',
+      message = '',
+      type = 'info', // info, success, warning, error
+      confirmText = 'OK',
+      cancelText = 'Cancel',
+      showCancel = false
+    } = options;
+    
+    dialogTitle.textContent = title;
+    dialogMessage.textContent = message;
+    
+    // Set icon
+    dialogIcon.className = `dialog-icon ${type}`;
+    const icons = {
+      info: 'ℹ️',
+      success: '✓',
+      warning: '⚠️',
+      error: '✕'
+    };
+    dialogIcon.textContent = icons[type] || icons.info;
+    
+    // Configure buttons
+    dialogConfirm.textContent = confirmText;
+    dialogCancel.textContent = cancelText;
+    dialogCancel.style.display = showCancel ? 'block' : 'none';
+    
+    // Show dialog
+    dialogOverlay.classList.add('active');
+    
+    // Handle confirm
+    const handleConfirm = () => {
+      cleanup();
+      resolve(true);
+    };
+    
+    // Handle cancel
+    const handleCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    
+    // Cleanup function
+    const cleanup = () => {
+      dialogConfirm.removeEventListener('click', handleConfirm);
+      dialogCancel.removeEventListener('click', handleCancel);
+      dialogOverlay.classList.remove('active');
+    };
+    
+    // Attach listeners
+    dialogConfirm.addEventListener('click', handleConfirm);
+    dialogCancel.addEventListener('click', handleCancel);
+    
+    // Focus confirm button
+    setTimeout(() => dialogConfirm.focus(), 100);
+  });
+}
+
+function closeDialog() {
+  dialogOverlay.classList.remove('active');
+}
+
+// Convenience functions
+async function showSuccess(message, title = 'Success') {
+  return showDialog({ title, message, type: 'success' });
+}
+
+async function showError(message, title = 'Error') {
+  return showDialog({ title, message, type: 'error' });
+}
+
+async function showInfo(message, title = 'Information') {
+  return showDialog({ title, message, type: 'info' });
+}
+
+async function showConfirm(message, title = 'Confirm') {
+  return showDialog({
+    title,
+    message,
+    type: 'warning',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    showCancel: true
+  });
 }
 
 // Load all trips
@@ -64,7 +168,7 @@ async function loadTrips() {
     }
   } catch (err) {
     console.error('Error loading trips:', err);
-    alert(`Error loading trips: ${err.message}`);
+    await showError(`Error loading trips: ${err.message}`);
   }
 }
 
@@ -200,7 +304,7 @@ async function handleSave(e) {
     renderTripDetail();
   } catch (err) {
     console.error('Error saving trip:', err);
-    alert(`Error saving trip: ${err.message}`);
+    await showError(`Error saving trip: ${err.message}`);
   }
 }
 
@@ -211,9 +315,12 @@ async function handleDelete() {
   const fromLocation = currentTrip.start?.locationName || currentTrip.from || 'Unknown';
   const toLocation = currentTrip.end?.locationName || currentTrip.to || 'Unknown';
   
-  if (!confirm(`Are you sure you want to delete this trip?\n\n${fromLocation} → ${toLocation}`)) {
-    return;
-  }
+  const confirmed = await showConfirm(
+    `Are you sure you want to delete this trip?\n\n${fromLocation} → ${toLocation}`,
+    'Delete Trip'
+  );
+  
+  if (!confirmed) return;
   
   try {
     const id = currentTrip.id || currentTrip._id;
@@ -227,7 +334,7 @@ async function handleDelete() {
     showEmptyState();
   } catch (err) {
     console.error('Error deleting trip:', err);
-    alert(`Error deleting trip: ${err.message}`);
+    await showError(`Error deleting trip: ${err.message}`);
   }
 }
 
@@ -438,10 +545,13 @@ async function captureConditions(type) {
     // Note: API returns fuel as percentages already if tank levels are in ratio
     // This needs to match what SignalK provides
     
-    alert(`✓ Current conditions captured for ${type === 'start' ? 'departure' : 'arrival'}`);
+    await showSuccess(
+      `Current conditions captured for ${type === 'start' ? 'departure' : 'arrival'}`,
+      'Conditions Captured'
+    );
   } catch (err) {
     console.error('Error capturing conditions:', err);
-    alert(`Error capturing conditions: ${err.message}`);
+    await showError(`Error capturing conditions: ${err.message}`);
   }
 }
 
