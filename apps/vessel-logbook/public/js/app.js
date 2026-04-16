@@ -214,7 +214,7 @@ async function captureConditions(type) {
     document.getElementById('loadingMessage').textContent = 'Fetching current conditions...';
     tripForm.style.display = 'none';
     
-    const response = await fetch('/api/current-conditions');
+    const response = await fetch('/api/trips/current-conditions');
     if (!response.ok) throw new Error('Failed to fetch conditions');
     
     const conditions = await response.json();
