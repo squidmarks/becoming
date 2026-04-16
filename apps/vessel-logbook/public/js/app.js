@@ -1,20 +1,17 @@
 // App state
 let trips = [];
 let selectedTags = [];
+let currentTrip = null;
 let editingTripId = null;
 
 // DOM elements
 const tripListEl = document.getElementById('tripList');
-const tripModal = document.getElementById('tripModal');
-const tripDetailModal = document.getElementById('tripDetailModal');
+const emptyState = document.getElementById('emptyState');
+const tripView = document.getElementById('tripView');
+const viewMode = document.getElementById('viewMode');
+const editMode = document.getElementById('editMode');
 const tripForm = document.getElementById('tripForm');
-const newTripBtn = document.getElementById('newTripBtn');
-const cancelBtn = document.getElementById('cancelBtn');
-const formLoading = document.getElementById('formLoading');
-const modalTitle = document.getElementById('modalTitle');
-const submitBtn = document.getElementById('submitBtn');
-const editTripBtn = document.getElementById('editTripBtn');
-const deleteTripBtn = document.getElementById('deleteTripBtn');
+const loadingIndicator = document.getElementById('loadingIndicator');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,11 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event listeners
 function setupEventListeners() {
-  newTripBtn.addEventListener('click', openTripModal);
-  cancelBtn.addEventListener('click', closeTripModal);
-  tripForm.addEventListener('submit', handleTripSubmit);
-  editTripBtn.addEventListener('click', handleEditClick);
-  deleteTripBtn.addEventListener('click', handleDeleteClick);
+  document.getElementById('newTripBtn').addEventListener('click', () => showEditMode(null));
+  document.getElementById('editBtn').addEventListener('click', () => showEditMode(currentTrip));
+  document.getElementById('deleteBtn').addEventListener('click', handleDelete);
+  document.getElementById('cancelBtn').addEventListener('click', cancelEdit);
+  document.getElementById('saveBtn').addEventListener('click', handleSave);
   
   // Capture conditions buttons
   document.getElementById('captureStartBtn').addEventListener('click', () => captureConditions('start'));
@@ -45,22 +42,9 @@ function setupEventListeners() {
       addCustomTag();
     }
   });
-  
-  // Close modals on backdrop click
-  [tripModal, tripDetailModal].forEach(modal => {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        modal.classList.remove('active');
-      }
-    });
-    
-    modal.querySelector('.modal-close').addEventListener('click', () => {
-      modal.classList.remove('active');
-    });
-  });
 }
 
-// Load trips from API
+// Load all trips
 async function loadTrips() {
   try {
     const response = await fetch('/api/trips');
@@ -68,430 +52,329 @@ async function loadTrips() {
     
     trips = await response.json();
     renderTripList();
+    
+    // If there was a selected trip, reselect it
+    if (currentTrip) {
+      const updatedTrip = trips.find(t => (t.id || t._id) === (currentTrip.id || currentTrip._id));
+      if (updatedTrip) {
+        selectTrip(updatedTrip);
+      } else {
+        showEmptyState();
+      }
+    }
   } catch (err) {
-    tripListEl.innerHTML = `<div class="error">Error loading trips: ${err.message}</div>`;
+    console.error('Error loading trips:', err);
+    alert(`Error loading trips: ${err.message}`);
   }
 }
 
-// Render trip list
+// Render trip list in sidebar
 function renderTripList() {
   if (trips.length === 0) {
-    tripListEl.innerHTML = `
-      <div class="empty-state">
-        <h2>No trips logged yet</h2>
-        <p>Click "New Trip Log" to create your first entry</p>
-      </div>
-    `;
+    tripListEl.innerHTML = '<div class="empty-trip-list">No trips yet<br>Click ➕ to create one</div>';
     return;
   }
   
-  tripListEl.innerHTML = trips.map(trip => `
-    <div class="trip-card" onclick="viewTrip('${trip.id}')">
-      <div class="trip-card-header">
-        <div>
-          <div class="trip-card-title">${formatRoute(trip)}</div>
-          <div class="trip-card-date">${formatDate(trip.start?.time || trip.startTime)}</div>
+  tripListEl.innerHTML = trips.map(trip => {
+    const id = trip.id || trip._id;
+    const startTime = trip.start?.time || trip.startTime;
+    const endTime = trip.end?.time || trip.endTime;
+    const fromLocation = trip.start?.locationName || trip.from || 'Unknown';
+    const toLocation = trip.end?.locationName || trip.to || 'Unknown';
+    const duration = trip.calculated?.duration?.formatted || trip.analysis?.duration?.formatted || 'N/A';
+    const distance = trip.calculated?.distance?.nauticalMiles || trip.analysis?.distance?.nauticalMiles || null;
+    const isActive = currentTrip && (currentTrip.id || currentTrip._id) === id;
+    
+    return `
+      <div class="trip-card ${isActive ? 'active' : ''}" data-id="${id}">
+        <div class="trip-card-header">${fromLocation} → ${toLocation}</div>
+        <div class="trip-card-date">${formatDate(startTime)}</div>
+        <div class="trip-card-info">
+          <span>⏱️ ${duration}</span>
+          ${distance ? `<span>📍 ${distance} NM</span>` : ''}
         </div>
-      </div>
-      
-      ${(trip.calculated || trip.analysis) ? `
-        <div class="trip-card-stats">
-          ${(trip.calculated?.distance || trip.analysis?.distance) ? `
-            <div class="stat">
-              <span class="stat-label">Distance</span>
-              <span class="stat-value">${(trip.calculated?.distance || trip.analysis?.distance).nauticalMiles} NM</span>
-            </div>
-          ` : ''}
-          <div class="stat">
-            <span class="stat-label">Duration</span>
-            <span class="stat-value">${trip.calculated?.duration?.formatted || trip.analysis?.duration?.formatted || 'N/A'}</span>
+        ${trip.tags && trip.tags.length > 0 ? `
+          <div class="trip-card-tags">
+            ${trip.tags.map(tag => `<span class="trip-card-tag">${tag}</span>`).join('')}
           </div>
-          ${(trip.calculated?.engineHoursAdded || trip.analysis?.engineHours) ? `
-            <div class="stat">
-              <span class="stat-label">Engine Hours</span>
-              <span class="stat-value">${(trip.calculated?.engineHoursAdded?.port || trip.analysis?.engineHours?.port || 0)} hrs</span>
-            </div>
-          ` : ''}
-          ${(trip.calculated?.averageSpeed || trip.analysis?.speed?.average) ? `
-            <div class="stat">
-              <span class="stat-label">Avg Speed</span>
-              <span class="stat-value">${trip.calculated?.averageSpeed || trip.analysis?.speed?.average} kts</span>
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
-      
-      ${trip.tags && trip.tags.length > 0 ? `
-        <div class="trip-tags">
-          ${trip.tags.map(tag => `<span class="trip-tag">${formatTagLabel(tag)}</span>`).join('')}
-        </div>
-      ` : ''}
-      
-      ${trip.notes ? `<div class="trip-card-notes">${trip.notes}</div>` : ''}
-    </div>
-  `).join('');
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+  
+  // Add click listeners
+  tripListEl.querySelectorAll('.trip-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.id;
+      const trip = trips.find(t => (t.id || t._id) === id);
+      if (trip) selectTrip(trip);
+    });
+  });
 }
 
-// Open trip creation/edit modal
-function openTripModal(trip = null) {
-  editingTripId = trip?.id || null;
-  selectedTags = trip?.tags || [];
+// Select a trip
+function selectTrip(trip) {
+  currentTrip = trip;
+  renderTripList(); // Refresh to show active state
+  showViewMode();
+  renderTripDetail();
+}
+
+// Show empty state
+function showEmptyState() {
+  currentTrip = null;
+  emptyState.style.display = 'flex';
+  tripView.style.display = 'none';
+}
+
+// Show view mode
+function showViewMode() {
+  emptyState.style.display = 'none';
+  tripView.style.display = 'flex';
+  viewMode.style.display = 'block';
+  editMode.style.display = 'none';
+}
+
+// Show edit mode
+function showEditMode(trip) {
+  editingTripId = trip ? (trip.id || trip._id) : null;
+  
+  emptyState.style.display = 'none';
+  tripView.style.display = 'flex';
+  viewMode.style.display = 'none';
+  editMode.style.display = 'block';
   
   if (trip) {
-    // Edit mode
-    modalTitle.textContent = 'Edit Trip Log';
-    submitBtn.textContent = 'Update Trip';
+    document.getElementById('editTitle').textContent = 'Edit Trip Log';
     populateForm(trip);
   } else {
-    // New mode
-    modalTitle.textContent = 'New Trip Log';
-    submitBtn.textContent = 'Create Trip Log';
+    document.getElementById('editTitle').textContent = 'New Trip Log';
     tripForm.reset();
-    
-    // Set default times (now and 1 hour ago)
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    document.getElementById('endTime').value = formatDateTimeLocal(now);
-    document.getElementById('startTime').value = formatDateTimeLocal(oneHourAgo);
-  }
-  
-  // Reset tag buttons
-  document.querySelectorAll('.tag-btn').forEach(btn => btn.classList.remove('active'));
-  selectedTags.forEach(tag => {
-    const btn = document.querySelector(`[data-tag="${tag}"]`);
-    if (btn) btn.classList.add('active');
-  });
-  renderSelectedTags();
-  
-  tripModal.classList.add('active');
-}
-
-// Populate form with trip data (for editing)
-function populateForm(trip) {
-  document.getElementById('tripId').value = trip.id;
-  
-  // Start conditions
-  document.getElementById('startTime').value = formatDateTimeLocal(new Date(trip.start.time));
-  document.getElementById('startLocationName').value = trip.start.locationName || '';
-  if (trip.start.position) {
-    document.getElementById('startLat').value = trip.start.position.latitude || '';
-    document.getElementById('startLon').value = trip.start.position.longitude || '';
-  }
-  if (trip.start.engineHours) {
-    document.getElementById('startEnginePort').value = trip.start.engineHours.port || '';
-    document.getElementById('startEngineStbd').value = trip.start.engineHours.starboard || '';
-  }
-  if (trip.start.fuelLevel) {
-    document.getElementById('startFuelPort').value = (trip.start.fuelLevel.port * 100) || '';
-    document.getElementById('startFuelStbd').value = (trip.start.fuelLevel.starboard * 100) || '';
-  }
-  
-  // End conditions
-  document.getElementById('endTime').value = formatDateTimeLocal(new Date(trip.end.time));
-  document.getElementById('endLocationName').value = trip.end.locationName || '';
-  if (trip.end.position) {
-    document.getElementById('endLat').value = trip.end.position.latitude || '';
-    document.getElementById('endLon').value = trip.end.position.longitude || '';
-  }
-  if (trip.end.engineHours) {
-    document.getElementById('endEnginePort').value = trip.end.engineHours.port || '';
-    document.getElementById('endEngineStbd').value = trip.end.engineHours.starboard || '';
-  }
-  if (trip.end.fuelLevel) {
-    document.getElementById('endFuelPort').value = (trip.end.fuelLevel.port * 100) || '';
-    document.getElementById('endFuelStbd').value = (trip.end.fuelLevel.starboard * 100) || '';
-  }
-  
-  // Crew & notes
-  document.getElementById('crew').value = trip.crew?.join(', ') || '';
-  document.getElementById('notes').value = trip.notes || '';
-}
-
-// Capture current conditions from SignalK
-async function captureConditions(type) {
-  const prefix = type; // 'start' or 'end'
-  
-  try {
-    document.getElementById('formLoading').style.display = 'block';
-    document.getElementById('loadingMessage').textContent = 'Fetching current conditions...';
-    tripForm.style.display = 'none';
-    
-    const response = await fetch('/api/trips/current-conditions');
-    if (!response.ok) throw new Error('Failed to fetch conditions');
-    
-    const conditions = await response.json();
-    
-    // Fill in time
-    document.getElementById(`${prefix}Time`).value = formatDateTimeLocal(new Date(conditions.timestamp));
-    
-    // Fill in position
-    if (conditions.position) {
-      document.getElementById(`${prefix}Lat`).value = conditions.position.latitude?.toFixed(6) || '';
-      document.getElementById(`${prefix}Lon`).value = conditions.position.longitude?.toFixed(6) || '';
-    }
-    
-    // Fill in engine hours
-    if (conditions.engineHours) {
-      if (conditions.engineHours.port) {
-        document.getElementById(`${prefix}EnginePort`).value = conditions.engineHours.port;
-      }
-      if (conditions.engineHours.starboard) {
-        document.getElementById(`${prefix}EngineStbd`).value = conditions.engineHours.starboard;
-      }
-    }
-    
-    alert('✅ Current conditions captured successfully!');
-    
-  } catch (err) {
-    alert(`Error capturing conditions: ${err.message}`);
-  } finally {
-    document.getElementById('formLoading').style.display = 'none';
-    tripForm.style.display = 'block';
+    selectedTags = [];
+    renderSelectedTags();
   }
 }
 
-// Close trip modal
-function closeTripModal() {
-  tripModal.classList.remove('active');
-  editingTripId = null;
+// Cancel edit
+function cancelEdit() {
+  if (currentTrip) {
+    showViewMode();
+  } else {
+    showEmptyState();
+  }
 }
 
-// Handle trip form submission
-async function handleTripSubmit(e) {
+// Handle save
+async function handleSave(e) {
   e.preventDefault();
   
-  // Build trip data object
-  const tripData = {
+  const tripData = collectFormData();
+  
+  try {
+    if (editingTripId) {
+      // Update existing trip
+      const response = await fetch(`/api/trips/${editingTripId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tripData)
+      });
+      
+      if (!response.ok) throw new Error('Failed to update trip');
+      const updated = await response.json();
+      currentTrip = updated;
+    } else {
+      // Create new trip
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tripData)
+      });
+      
+      if (!response.ok) throw new Error('Failed to create trip');
+      const created = await response.json();
+      currentTrip = created;
+    }
+    
+    await loadTrips();
+    showViewMode();
+    renderTripDetail();
+  } catch (err) {
+    console.error('Error saving trip:', err);
+    alert(`Error saving trip: ${err.message}`);
+  }
+}
+
+// Handle delete
+async function handleDelete() {
+  if (!currentTrip) return;
+  
+  const fromLocation = currentTrip.start?.locationName || currentTrip.from || 'Unknown';
+  const toLocation = currentTrip.end?.locationName || currentTrip.to || 'Unknown';
+  
+  if (!confirm(`Are you sure you want to delete this trip?\n\n${fromLocation} → ${toLocation}`)) {
+    return;
+  }
+  
+  try {
+    const id = currentTrip.id || currentTrip._id;
+    const response = await fetch(`/api/trips/${id}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) throw new Error('Failed to delete trip');
+    
+    await loadTrips();
+    showEmptyState();
+  } catch (err) {
+    console.error('Error deleting trip:', err);
+    alert(`Error deleting trip: ${err.message}`);
+  }
+}
+
+// Collect form data
+function collectFormData() {
+  return {
     start: {
-      time: new Date(document.getElementById('startTime').value).toISOString(),
+      time: document.getElementById('startTime').value,
       locationName: document.getElementById('startLocationName').value || null,
-      position: {},
-      engineHours: {},
-      fuelLevel: {},
-      conditions: {}
+      position: {
+        latitude: parseFloat(document.getElementById('startLat').value) || null,
+        longitude: parseFloat(document.getElementById('startLon').value) || null
+      },
+      engineHours: {
+        port: parseFloat(document.getElementById('startEnginePort').value) || null,
+        starboard: parseFloat(document.getElementById('startEngineStbd').value) || null
+      },
+      fuelLevel: {
+        port: parseInt(document.getElementById('startFuelPort').value) / 100 || null,
+        starboard: parseInt(document.getElementById('startFuelStbd').value) / 100 || null
+      }
     },
     end: {
-      time: new Date(document.getElementById('endTime').value).toISOString(),
+      time: document.getElementById('endTime').value,
       locationName: document.getElementById('endLocationName').value || null,
-      position: {},
-      engineHours: {},
-      fuelLevel: {},
-      conditions: {}
+      position: {
+        latitude: parseFloat(document.getElementById('endLat').value) || null,
+        longitude: parseFloat(document.getElementById('endLon').value) || null
+      },
+      engineHours: {
+        port: parseFloat(document.getElementById('endEnginePort').value) || null,
+        starboard: parseFloat(document.getElementById('endEngineStbd').value) || null
+      },
+      fuelLevel: {
+        port: parseInt(document.getElementById('endFuelPort').value) / 100 || null,
+        starboard: parseInt(document.getElementById('endFuelStbd').value) / 100 || null
+      }
     },
     tags: selectedTags,
     crew: document.getElementById('crew').value.split(',').map(c => c.trim()).filter(c => c),
     notes: document.getElementById('notes').value || ''
   };
-  
-  // Add position data
-  const startLat = parseFloat(document.getElementById('startLat').value);
-  const startLon = parseFloat(document.getElementById('startLon').value);
-  if (!isNaN(startLat) && !isNaN(startLon)) {
-    tripData.start.position = { latitude: startLat, longitude: startLon };
-  } else {
-    tripData.start.position = null;
-  }
-  
-  const endLat = parseFloat(document.getElementById('endLat').value);
-  const endLon = parseFloat(document.getElementById('endLon').value);
-  if (!isNaN(endLat) && !isNaN(endLon)) {
-    tripData.end.position = { latitude: endLat, longitude: endLon };
-  } else {
-    tripData.end.position = null;
-  }
-  
-  // Add engine hours
-  const startEnginePort = parseFloat(document.getElementById('startEnginePort').value);
-  const startEngineStbd = parseFloat(document.getElementById('startEngineStbd').value);
-  if (!isNaN(startEnginePort)) tripData.start.engineHours.port = startEnginePort;
-  if (!isNaN(startEngineStbd)) tripData.start.engineHours.starboard = startEngineStbd;
-  
-  const endEnginePort = parseFloat(document.getElementById('endEnginePort').value);
-  const endEngineStbd = parseFloat(document.getElementById('endEngineStbd').value);
-  if (!isNaN(endEnginePort)) tripData.end.engineHours.port = endEnginePort;
-  if (!isNaN(endEngineStbd)) tripData.end.engineHours.starboard = endEngineStbd;
-  
-  // Add fuel levels (convert % to ratio)
-  const startFuelPort = parseFloat(document.getElementById('startFuelPort').value);
-  const startFuelStbd = parseFloat(document.getElementById('startFuelStbd').value);
-  if (!isNaN(startFuelPort)) tripData.start.fuelLevel.port = startFuelPort / 100;
-  if (!isNaN(startFuelStbd)) tripData.start.fuelLevel.starboard = startFuelStbd / 100;
-  
-  const endFuelPort = parseFloat(document.getElementById('endFuelPort').value);
-  const endFuelStbd = parseFloat(document.getElementById('endFuelStbd').value);
-  if (!isNaN(endFuelPort)) tripData.end.fuelLevel.port = endFuelPort / 100;
-  if (!isNaN(endFuelStbd)) tripData.end.fuelLevel.starboard = endFuelStbd / 100;
-  
-  // Show loading state
-  tripForm.style.display = 'none';
-  document.getElementById('formLoading').style.display = 'block';
-  document.getElementById('loadingMessage').textContent = editingTripId ? 'Updating trip...' : 'Creating trip...';
-  
-  try {
-    const method = editingTripId ? 'PUT' : 'POST';
-    const url = editingTripId ? `/api/trips/${editingTripId}` : '/api/trips';
-    
-    const response = await fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(tripData)
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to save trip');
+}
+
+// Populate form with trip data
+function populateForm(trip) {
+  // Start data
+  if (trip.start) {
+    document.getElementById('startTime').value = formatDateTimeLocal(trip.start.time);
+    document.getElementById('startLocationName').value = trip.start.locationName || '';
+    if (trip.start.position) {
+      document.getElementById('startLat').value = trip.start.position.latitude || '';
+      document.getElementById('startLon').value = trip.start.position.longitude || '';
     }
-    
-    const trip = await response.json();
-    
-    // Close modal and reload trips
-    closeTripModal();
-    await loadTrips();
-    
-    // Open detail view of trip
-    viewTrip(trip.id);
-    
-  } catch (err) {
-    alert(`Error saving trip: ${err.message}`);
-  } finally {
-    tripForm.style.display = 'block';
-    document.getElementById('formLoading').style.display = 'none';
-  }
-}
-
-// Tag management
-function toggleTag(tag, button) {
-  const index = selectedTags.indexOf(tag);
-  if (index > -1) {
-    selectedTags.splice(index, 1);
-    button.classList.remove('active');
-  } else {
-    selectedTags.push(tag);
-    button.classList.add('active');
-  }
-  renderSelectedTags();
-}
-
-function addCustomTag() {
-  const input = document.getElementById('customTag');
-  const tag = input.value.trim();
-  
-  if (tag && !selectedTags.includes(tag)) {
-    selectedTags.push(tag);
-    renderSelectedTags();
-    input.value = '';
-  }
-}
-
-function removeTag(tag) {
-  const index = selectedTags.indexOf(tag);
-  if (index > -1) {
-    selectedTags.splice(index, 1);
-    const btn = document.querySelector(`[data-tag="${tag}"]`);
-    if (btn) btn.classList.remove('active');
-    renderSelectedTags();
-  }
-}
-
-function renderSelectedTags() {
-  const container = document.getElementById('selectedTags');
-  container.innerHTML = selectedTags.map(tag => `
-    <span class="tag">
-      ${formatTagLabel(tag)}
-      <button type="button" class="tag-remove" onclick="removeTag('${tag}')">×</button>
-    </span>
-  `).join('');
-}
-
-// View trip details
-async function viewTrip(tripId) {
-  try {
-    const response = await fetch(`/api/trips/${tripId}`);
-    if (!response.ok) throw new Error('Failed to load trip');
-    
-    const trip = await response.json();
-    renderTripDetail(trip);
-    tripDetailModal.classList.add('active');
-    
-    // Store current trip for edit button
-    window.currentTrip = trip;
-  } catch (err) {
-    alert(`Error loading trip: ${err.message}`);
-  }
-}
-
-// Handle edit button click
-function handleEditClick() {
-  tripDetailModal.classList.remove('active');
-  openTripModal(window.currentTrip);
-}
-
-// Handle delete button click
-async function handleDeleteClick() {
-  if (!window.currentTrip) return;
-  
-  const tripName = formatRoute(window.currentTrip);
-  if (!confirm(`Are you sure you want to delete this trip?\n\n${tripName}`)) {
-    return;
+    if (trip.start.engineHours) {
+      document.getElementById('startEnginePort').value = trip.start.engineHours.port || '';
+      document.getElementById('startEngineStbd').value = trip.start.engineHours.starboard || '';
+    }
+    if (trip.start.fuelLevel) {
+      document.getElementById('startFuelPort').value = Math.round(trip.start.fuelLevel.port * 100) || '';
+      document.getElementById('startFuelStbd').value = Math.round(trip.start.fuelLevel.starboard * 100) || '';
+    }
+  } else if (trip.startTime) {
+    // Old format
+    document.getElementById('startTime').value = formatDateTimeLocal(trip.startTime);
+    document.getElementById('startLocationName').value = trip.from || '';
   }
   
-  try {
-    await deleteTrip(window.currentTrip.id || window.currentTrip._id);
-    tripDetailModal.classList.remove('active');
-    await loadTrips();
-  } catch (err) {
-    alert(`Error deleting trip: ${err.message}`);
+  // End data
+  if (trip.end) {
+    document.getElementById('endTime').value = formatDateTimeLocal(trip.end.time);
+    document.getElementById('endLocationName').value = trip.end.locationName || '';
+    if (trip.end.position) {
+      document.getElementById('endLat').value = trip.end.position.latitude || '';
+      document.getElementById('endLon').value = trip.end.position.longitude || '';
+    }
+    if (trip.end.engineHours) {
+      document.getElementById('endEnginePort').value = trip.end.engineHours.port || '';
+      document.getElementById('endEngineStbd').value = trip.end.engineHours.starboard || '';
+    }
+    if (trip.end.fuelLevel) {
+      document.getElementById('endFuelPort').value = Math.round(trip.end.fuelLevel.port * 100) || '';
+      document.getElementById('endFuelStbd').value = Math.round(trip.end.fuelLevel.starboard * 100) || '';
+    }
+  } else if (trip.endTime) {
+    // Old format
+    document.getElementById('endTime').value = formatDateTimeLocal(trip.endTime);
+    document.getElementById('endLocationName').value = trip.to || '';
   }
-}
-
-// Delete trip
-async function deleteTrip(id) {
-  const response = await fetch(`/api/trips/${id}`, {
-    method: 'DELETE'
+  
+  // Tags
+  selectedTags = trip.tags || [];
+  document.querySelectorAll('.tag-btn').forEach(btn => {
+    btn.classList.toggle('active', selectedTags.includes(btn.dataset.tag));
   });
+  renderSelectedTags();
   
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to delete trip');
-  }
+  // Crew and notes
+  document.getElementById('crew').value = trip.crew ? trip.crew.join(', ') : '';
+  document.getElementById('notes').value = trip.notes || '';
 }
 
-// Render trip detail view
-function renderTripDetail(trip) {
-  const detailEl = document.getElementById('tripDetail');
+// Render trip detail
+function renderTripDetail() {
+  if (!currentTrip) return;
   
-  // Handle both old and new formats
+  const trip = currentTrip;
   const startTime = trip.start?.time || trip.startTime;
   const endTime = trip.end?.time || trip.endTime;
+  const fromLocation = trip.start?.locationName || trip.from || 'Unknown';
+  const toLocation = trip.end?.locationName || trip.to || 'Unknown';
   
-  detailEl.innerHTML = `
+  document.getElementById('viewTitle').textContent = `${fromLocation} → ${toLocation}`;
+  
+  const detailEl = document.getElementById('tripDetail');
+  
+  let html = `
     <div class="detail-section">
-      <h3>${formatRoute(trip)}</h3>
-      <p>${formatDate(startTime)} • ${trip.calculated?.duration?.formatted || trip.analysis?.duration?.formatted || 'Duration unknown'}</p>
+      <h3>📅 ${formatDate(startTime)} → ${formatDate(endTime)}</h3>
       ${trip.crew && trip.crew.length > 0 ? `<p><strong>Crew:</strong> ${trip.crew.join(', ')}</p>` : ''}
+      ${trip.notes ? `<p style="margin-top: 1rem;">${trip.notes}</p>` : ''}
       ${trip.tags && trip.tags.length > 0 ? `
-        <div class="trip-tags" style="margin-top: 1rem;">
-          ${trip.tags.map(tag => `<span class="trip-tag">${formatTagLabel(tag)}</span>`).join('')}
+        <div class="detail-tags">
+          ${trip.tags.map(tag => `<span class="detail-tag">${tag}</span>`).join('')}
         </div>
       ` : ''}
-      ${trip.notes ? `<p style="margin-top: 1rem; color: var(--text-light);">${trip.notes}</p>` : ''}
     </div>
-    
-    ${trip.calculated ? `
+  `;
+  
+  if (trip.calculated) {
+    html += `
       <div class="detail-section">
-        <h3>Trip Summary</h3>
+        <h3>📊 Trip Summary</h3>
         <div class="detail-grid">
+          ${trip.calculated.duration ? `
+            <div class="detail-item">
+              <span class="detail-label">Duration</span>
+              <span class="detail-value">${trip.calculated.duration.formatted || 'N/A'}</span>
+            </div>
+          ` : ''}
+          
           ${trip.calculated.distance ? `
             <div class="detail-item">
               <span class="detail-label">Distance</span>
               <span class="detail-value">${trip.calculated.distance.nauticalMiles} <span style="font-size: 1rem;">NM</span></span>
             </div>
           ` : ''}
-          
-          <div class="detail-item">
-            <span class="detail-label">Duration</span>
-            <span class="detail-value">${trip.calculated?.duration?.formatted || 'N/A'}</span>
-          </div>
           
           ${trip.calculated.averageSpeed ? `
             <div class="detail-item">
@@ -523,74 +406,113 @@ function renderTripDetail(trip) {
           ` : ''}
         </div>
       </div>
-      
-      ${(trip.start?.locationName || trip.from || trip.end?.locationName || trip.to) ? `
-        <div class="detail-section">
-          <h3>Locations</h3>
-          <p><strong>Start:</strong> ${trip.start?.locationName || trip.from || 'Unknown'} 
-            ${trip.start?.position ? `(${trip.start.position.latitude.toFixed(6)}, ${trip.start.position.longitude.toFixed(6)})` : ''}</p>
-          <p><strong>End:</strong> ${trip.end?.locationName || trip.to || 'Unknown'}
-            ${trip.end?.position ? `(${trip.end.position.latitude.toFixed(6)}, ${trip.end.position.longitude.toFixed(6)})` : ''}</p>
-        </div>
-      ` : ''}
-      
-      ${trip.analysis ? `
-        <div class="detail-section">
-          <p style="color: var(--text-light); font-size: 0.875rem;">
-            <em>This trip uses the old format. Edit it to migrate to the new structure.</em>
-          </p>
-        </div>
-      ` : ''}
-    ` : ''}
-  `;
+    `;
+  }
+  
+  detailEl.innerHTML = html;
+}
+
+// Capture current conditions
+async function captureConditions(type) {
+  try {
+    const response = await fetch('/api/trips/current-conditions');
+    if (!response.ok) throw new Error('Failed to fetch conditions');
+    
+    const data = await response.json();
+    
+    const prefix = type === 'start' ? 'start' : 'end';
+    
+    // Position
+    if (data.position) {
+      document.getElementById(`${prefix}Lat`).value = data.position.latitude || '';
+      document.getElementById(`${prefix}Lon`).value = data.position.longitude || '';
+    }
+    
+    // Engine hours
+    if (data.engineHours) {
+      document.getElementById(`${prefix}EnginePort`).value = data.engineHours.port || '';
+      document.getElementById(`${prefix}EngineStbd`).value = data.engineHours.starboard || '';
+    }
+    
+    // Fuel levels (convert from ratio to percentage)
+    // Note: API returns fuel as percentages already if tank levels are in ratio
+    // This needs to match what SignalK provides
+    
+    alert(`✓ Current conditions captured for ${type === 'start' ? 'departure' : 'arrival'}`);
+  } catch (err) {
+    console.error('Error capturing conditions:', err);
+    alert(`Error capturing conditions: ${err.message}`);
+  }
+}
+
+// Tag management
+function toggleTag(tag, btn) {
+  const index = selectedTags.indexOf(tag);
+  if (index > -1) {
+    selectedTags.splice(index, 1);
+    btn.classList.remove('active');
+  } else {
+    selectedTags.push(tag);
+    btn.classList.add('active');
+  }
+  renderSelectedTags();
+}
+
+function addCustomTag() {
+  const input = document.getElementById('customTag');
+  const tag = input.value.trim();
+  
+  if (tag && !selectedTags.includes(tag)) {
+    selectedTags.push(tag);
+    input.value = '';
+    renderSelectedTags();
+  }
+}
+
+function removeTag(tag) {
+  selectedTags = selectedTags.filter(t => t !== tag);
+  
+  // Update predefined tag buttons
+  document.querySelectorAll('.tag-btn').forEach(btn => {
+    if (btn.dataset.tag === tag) {
+      btn.classList.remove('active');
+    }
+  });
+  
+  renderSelectedTags();
+}
+
+function renderSelectedTags() {
+  const container = document.getElementById('selectedTags');
+  container.innerHTML = selectedTags.map(tag => `
+    <span class="selected-tag">
+      ${tag}
+      <span class="tag-remove" onclick="removeTag('${tag}')">×</span>
+    </span>
+  `).join('');
 }
 
 // Utility functions
-function formatRoute(trip) {
-  // Handle both new format (start.locationName) and old format (from/to)
-  const startName = trip.start?.locationName || trip.from;
-  const endName = trip.end?.locationName || trip.to;
-  
-  if (startName && endName) {
-    return `${startName} → ${endName}`;
-  }
-  
-  const tripDate = trip.start?.time || trip.startTime;
-  return `Trip on ${new Date(tripDate).toLocaleDateString()}`;
-}
-
-function formatDate(dateStr) {
-  const date = new Date(dateStr);
+function formatDate(dateString) {
+  if (!dateString) return 'Unknown';
+  const date = new Date(dateString);
   return date.toLocaleString('en-US', {
     weekday: 'short',
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
   });
 }
 
-function formatDateTimeLocal(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+function formatDateTimeLocal(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 16);
 }
 
-function formatTagLabel(tag) {
-  const labels = {
-    'marina': '🏖️ Marina',
-    'anchorage': '⚓ Anchorage',
-    'mooring': '🎯 Mooring Ball',
-    'fuel': '⛽ Fuel Stop',
-    'first_time': '🎉 First Time',
-    'dolphins': '🐬 Dolphins',
-    'fishing': '🎣 Fishing',
-    'rough_seas': '🌊 Rough Seas'
-  };
-  return labels[tag] || tag;
-}
+// Make removeTag globally accessible
+window.removeTag = removeTag;
