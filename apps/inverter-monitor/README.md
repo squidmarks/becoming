@@ -42,7 +42,7 @@ nano .env
 Edit `.env` with your settings:
 
 ```env
-INVERTER_HOST=192.168.1.194          # IP address of RS-485 to WiFi bridge
+INVERTER_HOST=192.168.1.10           # IP address of RS-485 to WiFi bridge (Waveshare)
 INVERTER_PORT=8899                   # Modbus TCP port
 SLAVE_ID=1                           # Modbus slave ID
 MQTT_HOST=localhost                  # MQTT broker host (SignalK)

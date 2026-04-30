@@ -188,21 +188,43 @@ export class WebServer {
         }
         
         // Acquire lock with longer timeout for write operations
-        if (this.modbusLock) {
-          await this.modbusLock.acquire(15000);
-        }
-        
+        let lockAcquired = false;
         try {
+          if (this.modbusLock) {
+            await this.modbusLock.acquire(15000);
+            lockAcquired = true;
+          }
+          
           const result = await this.modbusClient.writeSingleRegister(address, value);
           // Give inverter time to process the write before releasing lock
           await new Promise(resolve => setTimeout(resolve, 200));
           res.json({ success: true, ...result });
+        } catch (error) {
+          console.error(`Write register 0x${address.toString(16).toUpperCase()} failed:`, error.message);
+          
+          // Check for MODBUS-specific errors
+          if (error.message && error.message.includes('Modbus exception')) {
+            return res.status(400).json({ 
+              error: 'Inverter rejected the value',
+              details: error.message,
+              suggestion: 'Value may be out of range or parameter is read-only'
+            });
+          } else if (error.message && error.message.includes('Timed out')) {
+            return res.status(504).json({ 
+              error: 'Inverter did not respond',
+              details: error.message,
+              suggestion: 'Try again or check inverter connection'
+            });
+          } else {
+            return res.status(500).json({ error: error.message });
+          }
         } finally {
-          if (this.modbusLock) {
+          if (lockAcquired && this.modbusLock) {
             this.modbusLock.release();
           }
         }
       } catch (error) {
+        console.error('Unexpected error in settings write:', error);
         res.status(500).json({ error: error.message });
       }
     });

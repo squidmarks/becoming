@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export function loadConfig() {
   const envPath = path.join(__dirname, '.env');
   const config = {
-    INVERTER_HOST: '192.168.1.194',
+    INVERTER_HOST: '192.168.1.10',
     INVERTER_PORT: 8899,
     SLAVE_ID: 1,
     MQTT_HOST: 'becoming-hub',

@@ -305,6 +305,12 @@ export const CONFIG_REGISTERS = {
         { value: 1, label: 'Enabled' }
       ]
     },
+    { id: '63', address: 0xE207, name: 'Auto N-PE Connection Switch', key: 'npeGroundEnable', scale: 1, unit: '', min: 0, max: 1, description: 'Auto bond neutral to ground in inverter mode',
+      options: [
+        { value: 0, label: 'Disabled' },
+        { value: 1, label: 'Enabled' }
+      ]
+    },
     { id: '—', address: 0x020C, name: 'Inverter Clock', key: 'systemClock', scale: 1, unit: '', type: 'clock', description: 'RTC date/time', readOnly: false, special: true },
   ],
   
