@@ -3718,17 +3718,28 @@
         
         const result = await response.json();
         
-        if (result.success) {
+        // Check for success (both 200 status AND success flag)
+        if (response.ok && result.success) {
           statusDiv.textContent = 'Setting updated successfully';
           statusDiv.style.color = 'var(--green)';
           setTimeout(() => { statusDiv.textContent = ''; }, 5000);
         } else {
-          throw new Error(result.error || 'Write failed');
+          // Display detailed error message from backend
+          let errorMsg = result.error || 'Write failed';
+          if (result.suggestion) {
+            errorMsg += ` (${result.suggestion})`;
+          }
+          statusDiv.textContent = errorMsg;
+          statusDiv.style.color = 'var(--red)';
+          setTimeout(() => { statusDiv.textContent = ''; }, 8000);
+          console.error('Setting rejected:', result);
         }
       } catch (error) {
-        statusDiv.textContent = `Error: ${error.message}`;
+        // Network or parsing error
+        console.error('Settings write error:', error);
+        statusDiv.textContent = `Connection error: ${error.message}`;
         statusDiv.style.color = 'var(--red)';
-        setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+        setTimeout(() => { statusDiv.textContent = ''; }, 8000);
       }
     }
 
