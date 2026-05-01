@@ -210,11 +210,16 @@ export class InverterModbusClient {
         request.writeUInt16BE(values[i], 13 + i * 2);
       }
 
+      // Disable socket timeout during write operation
+      this.socket.setTimeout(0);
+      
       let responseBuffer = Buffer.alloc(0);
       
       const timeout = setTimeout(() => {
         this.socket.removeListener('data', dataHandler);
+        this.socket.setTimeout(10000); // Restore socket timeout
         console.error(`Modbus write multiple timed out at address 0x${startAddress.toString(16)}`);
+        this.connected = false;
         reject(new Error('Timed out waiting for write multiple response'));
       }, 10000);
 
@@ -225,6 +230,7 @@ export class InverterModbusClient {
         if (responseBuffer.length >= 12) {
           clearTimeout(timeout);
           this.socket.removeListener('data', dataHandler);
+          this.socket.setTimeout(10000); // Restore socket timeout
           
           try {
             const responseSlaveId = responseBuffer[6];
@@ -233,6 +239,7 @@ export class InverterModbusClient {
             // Check for exception response (function code + 0x80)
             if (responseFunctionCode === 0x90) {
               const exceptionCode = responseBuffer[8];
+              this.connected = false;
               reject(new Error(`Modbus exception ${exceptionCode} writing multiple to address 0x${startAddress.toString(16)}`));
               return;
             }
