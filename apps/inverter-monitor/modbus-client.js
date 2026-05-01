@@ -270,6 +270,10 @@ export class InverterModbusClient {
     return new Promise((resolve, reject) => {
       const transId = this.transactionId++;
       
+      // Disable socket timeout during write operation
+      // (we have our own timeout below)
+      this.socket.setTimeout(0);
+      
       // Modbus TCP frame for function code 06 (Write Single Register)
       const request = Buffer.alloc(12);
       request.writeUInt16BE(transId, 0);      // Transaction ID
@@ -284,7 +288,9 @@ export class InverterModbusClient {
       
       const timeout = setTimeout(() => {
         this.socket.removeListener('data', dataHandler);
+        this.socket.setTimeout(10000); // Restore socket timeout
         console.error(`Modbus write timed out at address 0x${address.toString(16)}`);
+        this.connected = false; // Mark as disconnected on timeout
         reject(new Error('Timed out waiting for write response'));
       }, 15000);
 
@@ -295,6 +301,7 @@ export class InverterModbusClient {
         if (responseBuffer.length >= 12) {
           clearTimeout(timeout);
           this.socket.removeListener('data', dataHandler);
+          this.socket.setTimeout(10000); // Restore socket timeout
           
           try {
             const responseSlaveId = responseBuffer[6];
@@ -303,6 +310,7 @@ export class InverterModbusClient {
             // Check for exception response (function code + 0x80)
             if (responseFunctionCode === 0x86) {
               const exceptionCode = responseBuffer[8];
+              this.connected = false; // Mark as disconnected on exception
               reject(new Error(`Modbus exception ${exceptionCode} writing to address 0x${address.toString(16)}`));
               return;
             }
@@ -332,6 +340,8 @@ export class InverterModbusClient {
       this.socket.write(request, (err) => {
         if (err) {
           clearTimeout(timeout);
+          this.socket.setTimeout(10000); // Restore socket timeout on error
+          this.connected = false;
           reject(err);
         }
       });
