@@ -178,6 +178,23 @@ void setup() {
 
     // Hardware
     Wire.begin(15, 7);
+
+    // SW6106 battery/power-management IC (I2C 0x3C).
+    // Two writes are needed for stable standalone (non-USB) boot:
+    //  1. Reg 0x38 = 0x0A — disable light-load shutdown so the IC doesn't cut
+    //     power during the quiet early-boot phase before the display draws current.
+    //  2. Reg 0x03 = 0x01 — assert the "system keep-alive" bit so the IC knows
+    //     the MCU is running and should stay powered.
+    // These are no-ops if the IC isn't present (e.g. V1 boards without battery).
+    for (uint8_t reg_val[][2] = {{0x38, 0x0A}, {0x03, 0x01}};
+         auto& rv : reg_val) {
+        Wire.beginTransmission(0x3C);
+        Wire.write(rv[0]);
+        Wire.write(rv[1]);
+        Wire.endTransmission();
+    }
+    Serial.println("[PWR] SW6106 keepalive written");
+
     io_expander_init();
 
     // Touch
