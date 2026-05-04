@@ -28,7 +28,7 @@ This guide walks through setting up the Raspberry Pi from scratch for M/Y Becomi
 sudo apt update
 sudo apt upgrade -y
 
-# Set static IP (192.168.1.7)
+# Set static IP (192.168.1.5)
 # Edit /etc/dhcpcd.conf or use NetworkManager
 
 # Install essential tools

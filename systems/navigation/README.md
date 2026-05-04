@@ -4,12 +4,21 @@
 
 Navigation and electronic systems including GPS, chart plotters, instruments, radar, AIS, VHF radio, and data networks.
 
-**Last Updated:** March 2026
+**Last Updated:** May 2026
 
 ## Systems
 
 ### Chart Plotters & Displays
-[To be documented]
+
+#### ESP32 Helm Display (In Development)
+- **Hardware:** Waveshare ESP32-S3-Touch-LCD-4 (4" 480×480 IPS touchscreen)
+- **Status:** In development
+- **Power:** 12 V DC from helm panel (7–36 V range supported)
+- **Data:**
+  - NMEA2000 via onboard CAN bus (engine, nav, depth, wind)
+  - SignalK WebSocket over vessel WiFi (electrical/inverter data fallback)
+- **Screens:** Navigation | Engine | Electrical
+- **Documentation:** `apps/esp32-helm-display/README.md`
 
 ### GPS
 [To be documented]
@@ -47,7 +56,7 @@ Navigation and electronic systems including GPS, chart plotters, instruments, ra
 
 ### SignalK Server
 - **Platform:** Raspberry Pi 5
-- **IP:** 192.168.1.7 (becoming-hub)
+- **IP:** 192.168.1.5 (becoming-hub)
 - **Web Interface:** http://becoming-hub/
 - **Data Sources:**
   - NMEA2000 (CAN bus)

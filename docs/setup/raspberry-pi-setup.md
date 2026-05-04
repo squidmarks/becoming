@@ -8,7 +8,7 @@ This document describes how to set up the primary Raspberry Pi 5 that runs all b
 - **Storage:** [SD card size/type to be added]
 - **Network:** Ethernet connection to boat network
 - **Hostname:** `becoming-hub`
-- **IP Address:** 192.168.1.7 (static)
+- **IP Address:** 192.168.1.5 (static)
 - **USB Devices:**
   - RTL-SDR Blog V4 (for AIS reception)
   - [Other devices to be documented]

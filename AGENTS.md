@@ -35,7 +35,7 @@ Essential information for AI agents working with the M/Y Becoming repository.
 
 **SSH Connection:**
 ```bash
-ssh geoff@becoming-hub  # or 192.168.1.7
+ssh geoff@becoming-hub  # or 192.168.1.5
 ```
 
 ⚠️ **Key-based auth only** - No passwords. If SSH fails, your device needs its public key added to `~/.ssh/authorized_keys` on the Pi.

@@ -66,7 +66,7 @@ becoming/
 - **Raspberry Pi 5** (8GB RAM)
 - **OS:** Debian Trixie (ARM64)
 - **Network:** Connected to boat's network
-- **IP:** 192.168.1.7 (hostname: `becoming-hub`)
+- **IP:** 192.168.1.5 (hostname: `becoming-hub`)
 - **Web Access:** http://becoming-hub (unified interface via nginx)
 
 ### Monitoring & Control Systems

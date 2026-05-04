@@ -121,7 +121,7 @@ sudo systemctl restart signalk
 ### Web Interface
 
 Access the AIS-catcher web interface at:
-- **http://becoming-hub:8100** or **http://192.168.1.7:8100**
+- **http://becoming-hub:8100** or **http://192.168.1.5:8100**
 
 Features:
 - Real-time vessel map
