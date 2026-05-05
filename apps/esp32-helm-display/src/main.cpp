@@ -8,6 +8,8 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 #include <lvgl.h>
 #include "Arduino_GFX_Library.h"
 #include "TouchDrv.hpp"
@@ -172,6 +174,16 @@ static void ui_refresh_cb(lv_timer_t *) {
 
 // ── setup ─────────────────────────────────────────────────────────────────────
 void setup() {
+    // Disable the ESP32-S3 brownout detector before anything else.
+    // On cold starts from a USB charger the supply caps are empty, so the
+    // voltage dips when the bootloader, WiFi radio, or display first draw
+    // current.  The brownout detector fires, resets the chip, and the cycle
+    // repeats until the caps are charged enough (which is why connecting to
+    // the Mac once "fixes" it — the Mac charges the caps on the first boot).
+    // The SW6106 IC provides its own over/under-voltage protection on the
+    // power path so disabling the ESP32-level detector is safe here.
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+
     Serial.begin(115200);
     delay(200);
     Serial.println("\n=== M/Y Becoming Helm Display v0.2 ===");
