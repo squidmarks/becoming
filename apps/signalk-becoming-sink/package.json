@@ -1,0 +1,10 @@
+{
+  "name": "signalk-becoming-sink",
+  "version": "1.0.0",
+  "description": "General-purpose SignalK plugin that accepts data from Becoming boat apps and publishes it to the SignalK data model",
+  "main": "index.js",
+  "keywords": [
+    "signalk-node-server-plugin"
+  ],
+  "license": "MIT"
+}
