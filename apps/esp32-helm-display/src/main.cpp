@@ -8,13 +8,13 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include "soc/soc.h"
-#include "soc/rtc_cntl_reg.h"
 #include <lvgl.h>
 #include "Arduino_GFX_Library.h"
 #include "TouchDrv.hpp"
 
 #include "signalk_client.h"
+#include "alarm.h"
+#include "vessel_data.h"
 #include "ui_startup.h"
 #include "ui_dashboard.h"
 #include "ui_nav_detail.h"
@@ -22,38 +22,190 @@
 #include "ui_elec_detail.h"
 #include <WiFi.h>
 
-// ── IO Expander (TCA9554PWR at 0x20) ─────────────────────────────────────────
-#define TCA_ADDR    0x20
-#define TCA_REG_OUT 0x01
-#define TCA_REG_CFG 0x03
-#define BIT_TP_RST  0
-#define BIT_BL_EN   1
-#define BIT_LCD_RST 2
-#define BIT_BEE_EN  5
+// ── Board revision detection ──────────────────────────────────────────────────
+// Rev 3 uses TCA9554PWR I/O expander at 0x20.
+// Rev 4 uses CH32V003F4U6 smart I/O expander at 0x24 — completely different
+// register map and pin assignments.
+enum BoardRev { BOARD_UNKNOWN, BOARD_REV3, BOARD_REV4 };
+static BoardRev s_board_rev = BOARD_UNKNOWN;
 
+// ── Rev 3 — TCA9554 at 0x20 ──────────────────────────────────────────────────
+// Register map: OUT=0x01, CFG=0x03  (1=input, 0=output in CFG)
+// EXIO0=TP_RST  EXIO1=BL_EN  EXIO2=LCD_RST  EXIO4=BLC  EXIO5=BEE_EN
+#define TCA_ADDR        0x20
+#define TCA_REG_OUT     0x01
+#define TCA_REG_CFG     0x03
+#define TCA_BIT_TP_RST  0
+#define TCA_BIT_BL_EN   1
+#define TCA_BIT_LCD_RST 2
+#define TCA_BIT_BEE_EN  5
+
+// ── Rev 4 — CH32V003 at 0x24 ─────────────────────────────────────────────────
+// Register map: OUT=0x02, DIR=0x03, PWM=0x05  (DIR: 1=output, 0=input — INVERTED)
+// EXIO1=TP_RST  EXIO3=LCD_RST  EXIO5=SYS_EN  EXIO6=BEE_EN
+// Backlight via PWM register 0x05 (0=bright, 247=off — inverted polarity)
+#define CH32_ADDR        0x24
+#define CH32_REG_OUT     0x02
+#define CH32_REG_DIR     0x03
+#define CH32_REG_PWM     0x05
+#define CH32_BIT_TP_RST  1
+#define CH32_BIT_LCD_RST 3
+#define CH32_BIT_SYS_EN  5
+#define CH32_BIT_BEE_EN  6
+
+// Live output register state (shared by both board paths)
+static uint8_t s_io_out = 0;
+
+// ── Low-level I2C write helpers ───────────────────────────────────────────────
 static void tca_write(uint8_t reg, uint8_t val) {
     Wire.beginTransmission(TCA_ADDR);
-    Wire.write(reg);
-    Wire.write(val);
+    Wire.write(reg); Wire.write(val);
+    Wire.endTransmission();
+}
+static void ch32_write(uint8_t reg, uint8_t val) {
+    Wire.beginTransmission(CH32_ADDR);
+    Wire.write(reg); Wire.write(val);
     Wire.endTransmission();
 }
 
+// ── Buzzer ────────────────────────────────────────────────────────────────────
+// Rev 3: active buzzer on TCA9554 EXIO5 (HIGH = on)
+// Rev 4: active buzzer on CH32V003 EXIO6 (HIGH = on)
+// No buzzer = beep() is a silent delay (safe to call on any board)
+static void beep(int ms) {
+    if (s_board_rev == BOARD_REV3) {
+        tca_write(TCA_REG_OUT, s_io_out | (1u << TCA_BIT_BEE_EN));
+        delay(ms);
+        tca_write(TCA_REG_OUT, s_io_out);
+    } else if (s_board_rev == BOARD_REV4) {
+        // Buzzer must be an output: DIR bit 6 must be set.
+        // We enabled it during init, so just toggle the output.
+        ch32_write(CH32_REG_OUT, s_io_out | (1u << CH32_BIT_BEE_EN));
+        delay(ms);
+        ch32_write(CH32_REG_OUT, s_io_out);
+    } else {
+        delay(ms);   // unknown board — don't crash
+    }
+    delay(60);   // silence gap between consecutive beeps
+}
+
+// ── IO expander init (auto-detects Rev 3 vs Rev 4) ───────────────────────────
 static void io_expander_init() {
-    uint8_t out = 0xFF & ~(1u << BIT_BEE_EN);
-    tca_write(TCA_REG_OUT, out);
-    tca_write(TCA_REG_CFG, 0xC0);
-    delay(5);
-    out &= ~(1u << BIT_LCD_RST);
-    tca_write(TCA_REG_OUT, out); delay(20);
-    out |= (1u << BIT_LCD_RST);
-    tca_write(TCA_REG_OUT, out); delay(50);
-    out &= ~(1u << BIT_TP_RST);
-    tca_write(TCA_REG_OUT, out); delay(20);
-    out |= (1u << BIT_TP_RST);
-    tca_write(TCA_REG_OUT, out); delay(100);
-    out |= (1u << BIT_BL_EN);
-    tca_write(TCA_REG_OUT, out);
+    // Probe both addresses. Wait up to 1 s for the I2C bus to be ready
+    // (XL1509 buck converter on 12 V NMEA power takes time to regulate).
+    for (int attempt = 0; attempt < 50 && s_board_rev == BOARD_UNKNOWN; attempt++) {
+        Wire.beginTransmission(TCA_ADDR);   // Rev 3
+        if (Wire.endTransmission() == 0) { s_board_rev = BOARD_REV3; break; }
+        Wire.beginTransmission(CH32_ADDR);  // Rev 4
+        if (Wire.endTransmission() == 0) { s_board_rev = BOARD_REV4; break; }
+        delay(20);
+    }
+    Serial.printf("[IO] Board: %s\n",
+        s_board_rev == BOARD_REV3 ? "Rev 3 (TCA9554 @ 0x20)" :
+        s_board_rev == BOARD_REV4 ? "Rev 4 (CH32V003 @ 0x24)" : "UNKNOWN");
+
+    if (s_board_rev == BOARD_REV3) {
+        // ── TCA9554 init ──────────────────────────────────────────────────────
+        // Backlight OFF initially; enable only after LCD reset sequence.
+        // BEE_EN LOW (buzzer off). TP_RST and LCD_RST HIGH (released).
+        s_io_out = (1u << TCA_BIT_LCD_RST) | (1u << TCA_BIT_TP_RST);
+        tca_write(TCA_REG_OUT, s_io_out);
+        tca_write(TCA_REG_CFG, 0xC0);   // bits 7-6=input, bits 5-0=output
+
+        // LCD reset: low 20 ms, then ≥ 120 ms before first SPI command.
+        // 500 ms gives plenty of margin for the 12 V/XL1509 power path.
+        s_io_out &= ~(1u << TCA_BIT_LCD_RST);
+        tca_write(TCA_REG_OUT, s_io_out); delay(20);
+        s_io_out |=  (1u << TCA_BIT_LCD_RST);
+        tca_write(TCA_REG_OUT, s_io_out); delay(500);
+
+        // Touch reset
+        s_io_out &= ~(1u << TCA_BIT_TP_RST);
+        tca_write(TCA_REG_OUT, s_io_out); delay(20);
+        s_io_out |=  (1u << TCA_BIT_TP_RST);
+        tca_write(TCA_REG_OUT, s_io_out); delay(100);
+
+        // Backlight ON
+        s_io_out |= (1u << TCA_BIT_BL_EN);
+        tca_write(TCA_REG_OUT, s_io_out);
+
+    } else if (s_board_rev == BOARD_REV4) {
+        // ── CH32V003 init ─────────────────────────────────────────────────────
+        s_io_out = 0xFF & ~(1u << CH32_BIT_BEE_EN);   // all high except buzzer
+        ch32_write(CH32_REG_OUT, s_io_out);
+        ch32_write(CH32_REG_DIR, 0x3A);  // 00111010 — factory safe mask
+
+        // LCD reset (same extended delay for 12 V path)
+        s_io_out &= ~(1u << CH32_BIT_LCD_RST);
+        ch32_write(CH32_REG_OUT, s_io_out); delay(20);
+        s_io_out |=  (1u << CH32_BIT_LCD_RST);
+        ch32_write(CH32_REG_OUT, s_io_out); delay(500);
+
+        // Touch reset
+        s_io_out &= ~(1u << CH32_BIT_TP_RST);
+        ch32_write(CH32_REG_OUT, s_io_out); delay(20);
+        s_io_out |=  (1u << CH32_BIT_TP_RST);
+        ch32_write(CH32_REG_OUT, s_io_out); delay(100);
+
+        // Backlight ON via PWM register (lower value = brighter; 30 ≈ 100%)
+        ch32_write(CH32_REG_PWM, 30);
+
+        // Now enable BEE_EN as output (safe — output register already has it LOW)
+        ch32_write(CH32_REG_DIR, 0x7A);  // 01111010 — full output mask with BEE_EN
+
+        // Keep SYS_EN high so SW6106 (battery) doesn't cut power
+        s_io_out |= (1u << CH32_BIT_SYS_EN);
+        ch32_write(CH32_REG_OUT, s_io_out);
+
+    } else {
+        Serial.println("[IO] WARNING: no IO expander found — display may not work");
+    }
     Serial.println("[IO] expander OK");
+}
+
+// Thin compatibility shim so existing code that references the old names
+// (BIT_LCD_RST etc.) still compiles after this refactor.
+#define BIT_TP_RST  TCA_BIT_TP_RST
+#define BIT_BL_EN   TCA_BIT_BL_EN
+#define BIT_LCD_RST TCA_BIT_LCD_RST
+#define BIT_BEE_EN  TCA_BIT_BEE_EN
+
+// ── Alarm state machine ───────────────────────────────────────────────────────
+// alarm_tick() is called every 200 ms from the UI timer.
+// Patterns (each tick = 200 ms):
+//   ALARM_ANCHOR : ♪♪ ···· (2 beeps, ~2 s silence) — moderate urgency
+//   ALARM_DEPTH  : ♪♪♪ ···· (3 rapid beeps, ~3 s silence) — higher urgency
+
+float g_depth_alarm_ft = 10.0f;   // 0 = disabled
+
+static AlarmType s_alarm      = ALARM_NONE;
+static int       s_alarm_tick = 0;
+
+void alarm_raise(AlarmType type) {
+    // Higher-priority alarm wins; resetting tick lets the new pattern start
+    if ((int)type > (int)s_alarm) { s_alarm = type; s_alarm_tick = 0; }
+}
+void alarm_clear(AlarmType type) {
+    if (s_alarm == type) { s_alarm = ALARM_NONE; s_alarm_tick = 0; }
+}
+
+void alarm_tick() {
+    if (s_alarm == ALARM_NONE) { s_alarm_tick = 0; return; }
+    s_alarm_tick++;
+
+    if (s_alarm == ALARM_ANCHOR) {
+        // Double-beep every 2.5 s (12 ticks × 200 ms)
+        // tick 1: first beep, tick 2: second beep, ticks 3-12: silence
+        if (s_alarm_tick == 1) beep(120);
+        else if (s_alarm_tick == 2) beep(120);
+        if (s_alarm_tick >= 12) s_alarm_tick = 0;
+
+    } else if (s_alarm == ALARM_DEPTH) {
+        // Triple rapid-beep every 4 s (20 ticks × 200 ms)
+        // tick 1,2,3: short beeps; ticks 4-20: silence
+        if (s_alarm_tick <= 3) beep(80);
+        if (s_alarm_tick >= 20) s_alarm_tick = 0;
+    }
 }
 
 // ── Display ───────────────────────────────────────────────────────────────────
@@ -150,6 +302,26 @@ static void ui_refresh_cb(lv_timer_t *) {
     bool slow = (++s_slow_tick >= 5);
     if (slow) s_slow_tick = 0;
 
+    // ── Alarm evaluation (runs every 200 ms regardless of active screen) ──────
+    // Anchor dragging
+    if (gAnchor.active && gAnchor.alarm)
+        alarm_raise(ALARM_ANCHOR);
+    else
+        alarm_clear(ALARM_ANCHOR);
+
+    // Shallow-water depth alarm
+    if (g_depth_alarm_ft > 0.0f && !gNav.stale() && !isnan(gNav.depth_m)) {
+        float depth_ft = gNav.depth_m * 3.28084f;
+        if (depth_ft < g_depth_alarm_ft)
+            alarm_raise(ALARM_DEPTH);
+        else
+            alarm_clear(ALARM_DEPTH);
+    } else {
+        alarm_clear(ALARM_DEPTH);
+    }
+
+    alarm_tick();
+
     switch (ui_screen) {
         case SCR_STARTUP:
             // Startup checks only need 1 Hz — connection state changes slowly.
@@ -158,7 +330,7 @@ static void ui_refresh_cb(lv_timer_t *) {
                 ui_screen = SCR_DASH;
                 lv_scr_load_anim(dash_screen, LV_SCR_LOAD_ANIM_FADE_ON, 400, 0, true);
             } else if (WiFi.status() == WL_CONNECTED) {
-                startup_set_status("WiFi connected\nWaiting for SignalK\xe2\x80\xa6");
+                startup_set_status("WiFi connected\nWaiting for SignalK...");
             } else if ((millis() - startup_ms) > 30000) {
                 ui_screen = SCR_DASH;
                 startup_set_status("Connection timed out");
@@ -174,40 +346,43 @@ static void ui_refresh_cb(lv_timer_t *) {
 
 // ── setup ─────────────────────────────────────────────────────────────────────
 void setup() {
-    // Disable the ESP32-S3 brownout detector before anything else.
-    // On cold starts from a USB charger the supply caps are empty, so the
-    // voltage dips when the bootloader, WiFi radio, or display first draw
-    // current.  The brownout detector fires, resets the chip, and the cycle
-    // repeats until the caps are charged enough (which is why connecting to
-    // the Mac once "fixes" it — the Mac charges the caps on the first boot).
-    // The SW6106 IC provides its own over/under-voltage protection on the
-    // power path so disabling the ESP32-level detector is safe here.
-    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+    // Allow 3.3 V rail to stabilise.  On a 12 V NMEA2000 supply the XL1509
+    // buck needs more time than USB 5 V.  1500 ms is generous but harmless on
+    // a warm reset (rails already up) and prevents the black-screen cold-boot.
+    delay(1500);
 
     Serial.begin(115200);
-    delay(200);
     Serial.println("\n=== M/Y Becoming Helm Display v0.2 ===");
 
     // Hardware
     Wire.begin(15, 7);
 
-    // SW6106 battery/power-management IC (I2C 0x3C).
-    // Two writes are needed for stable standalone (non-USB) boot:
-    //  1. Reg 0x38 = 0x0A — disable light-load shutdown so the IC doesn't cut
-    //     power during the quiet early-boot phase before the display draws current.
-    //  2. Reg 0x03 = 0x01 — assert the "system keep-alive" bit so the IC knows
-    //     the MCU is running and should stay powered.
-    // These are no-ops if the IC isn't present (e.g. V1 boards without battery).
-    for (uint8_t reg_val[][2] = {{0x38, 0x0A}, {0x03, 0x01}};
-         auto& rv : reg_val) {
+    // SW6106 keepalive — only relevant when running on USB-C / LiPo battery.
+    // On wide-voltage (12 V NMEA2000 → XL1509), the SW6106 can interfere with
+    // I2C when unpowered; skip it if the device doesn't ACK.  The Waveshare
+    // wiki confirms this: "When using wide voltage power supply, I2C devices
+    // cannot be identified, caused by the low SW6106 I2C."
+    {
         Wire.beginTransmission(0x3C);
-        Wire.write(rv[0]);
-        Wire.write(rv[1]);
-        Wire.endTransmission();
+        bool sw6106_present = (Wire.endTransmission() == 0);
+        if (sw6106_present) {
+            for (uint8_t rv[][2] = {{0x38, 0x0A}, {0x03, 0x01}}; auto& r : rv) {
+                Wire.beginTransmission(0x3C);
+                Wire.write(r[0]); Wire.write(r[1]);
+                Wire.endTransmission();
+            }
+            Serial.println("[PWR] SW6106 keepalive written");
+        } else {
+            Serial.println("[PWR] SW6106 not detected (wide-voltage mode)");
+        }
     }
-    Serial.println("[PWR] SW6106 keepalive written");
 
     io_expander_init();
+
+    // ── Startup beep: one short beep = hardware init OK ──────────────────────
+    // If the display is still black after this beep, the problem is in the
+    // LCD SPI init (gfx->begin), not in the IO expander or power supply.
+    beep(120);
 
     // Touch
     uint8_t gt911_addr = 0;
@@ -223,9 +398,38 @@ void setup() {
         Serial.printf("[TOUCH] GT911 OK at 0x%02X\n", gt911_addr);
     }
 
-    // Display
-    gfx->begin();
-    Serial.println("[DISP] OK");
+    // Display — retry up to 5 times with increasing delays between attempts.
+    // On 12 V power the 3.3 V rail settles slowly; gfx->begin() can return
+    // false on first call but succeed once the rail is stable.
+    bool disp_ok = false;
+    for (int attempt = 1; attempt <= 5; attempt++) {
+        if (gfx->begin()) {
+            Serial.printf("[DISP] OK (attempt %d)\n", attempt);
+            disp_ok = true;
+            break;
+        }
+        Serial.printf("[DISP] begin() failed, attempt %d/5\n", attempt);
+        // Re-pulse LCD_RST and wait longer on each retry
+        int rst_wait = 500 + attempt * 200;   // 700, 900, 1100, 1300 ms
+        if (s_board_rev == BOARD_REV3) {
+            s_io_out &= ~(1u << TCA_BIT_LCD_RST);
+            tca_write(TCA_REG_OUT, s_io_out); delay(20);
+            s_io_out |=  (1u << TCA_BIT_LCD_RST);
+            tca_write(TCA_REG_OUT, s_io_out); delay(rst_wait);
+        } else if (s_board_rev == BOARD_REV4) {
+            s_io_out &= ~(1u << CH32_BIT_LCD_RST);
+            ch32_write(CH32_REG_OUT, s_io_out); delay(20);
+            s_io_out |=  (1u << CH32_BIT_LCD_RST);
+            ch32_write(CH32_REG_OUT, s_io_out); delay(rst_wait);
+        }
+        // Single pip beep per retry so we can count attempts
+        beep(60);
+    }
+    if (!disp_ok) {
+        // Three long beeps = all retries exhausted, display dead
+        Serial.println("[DISP] FAILED all attempts");
+        beep(400); beep(400); beep(400);
+    }
 
     // LVGL
     lv_init();
@@ -277,6 +481,10 @@ void setup() {
 
     lv_scr_load(startup_screen);
     Serial.println("[UI] Startup screen");
+
+    // Two short beeps = app is fully loaded and running.
+    // Diagnostic: 1 beep = hardware OK, app failed; 2 beeps = all good.
+    beep(80); beep(80);
 
     startup_ms = millis();
     // 200 ms = 5 Hz — fast enough for smooth RPM and nav updates.

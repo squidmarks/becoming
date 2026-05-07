@@ -35,8 +35,8 @@ static lv_obj_t* detail_header(lv_obj_t* scr, uint32_t accent,
 
     lv_obj_t* btn = lv_btn_create(hdr);
     lv_obj_set_size(btn, 88, 30);  lv_obj_set_pos(btn, 8, 5);
-    lv_obj_set_style_bg_color(btn, lv_color_hex(0x1A1A30), 0);
-    lv_obj_set_style_bg_color(btn, lv_color_hex(0x2A2A44), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0xE0E8F4), 0);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0xC8D8F0), LV_STATE_PRESSED);
     lv_obj_set_style_border_color(btn, lv_color_hex(accent), 0);
     lv_obj_set_style_border_width(btn, 1, 0);
     lv_obj_set_style_radius(btn, 6, 0);
@@ -85,7 +85,8 @@ static lv_obj_t* make_chart(lv_obj_t* scr, int16_t y, int16_t h) {
     lv_obj_set_pos(c, 10, y);  lv_obj_set_size(c, SCR_W - 20, h);
     lv_chart_set_type(c, LV_CHART_TYPE_LINE);
     lv_chart_set_point_count(c, HISTORY_LEN);
-    lv_obj_set_style_bg_color(c, lv_color_hex(COL_BG), 0);
+    lv_obj_set_style_bg_color(c, lv_color_hex(COL_SEC), 0);
+    lv_obj_set_style_text_color(c, lv_color_hex(COL_LABEL), LV_PART_TICKS);
     lv_obj_set_style_bg_opa(c, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(c, lv_color_hex(COL_DIV), 0);
     lv_obj_set_style_border_width(c, 1, 0);

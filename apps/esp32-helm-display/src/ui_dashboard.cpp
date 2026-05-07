@@ -3,19 +3,19 @@
 #include "signalk_client.h"
 #include <Arduino.h>
 
-// ── Colour palette ────────────────────────────────────────────────────────────
-#define COL_BG    0x0A0A18
-#define COL_SEC   0x10101E
-#define COL_LABEL 0x556688
-#define COL_VALUE 0xEEEEFF
-#define COL_GOOD  0x22CC44
-#define COL_WARN  0xFFAA00
-#define COL_ALARM 0xFF4422
-#define COL_MUTED 0x334455
-#define COL_NAV   0x2266CC
-#define COL_ENG   0x22AA44
-#define COL_ELEC  0xCC7722
-#define COL_DIV   0x3C3C58
+// ── Colour palette (must match ui_theme.h) ────────────────────────────────────
+#define COL_BG    0xEEF1F5
+#define COL_SEC   0xFFFFFF
+#define COL_LABEL 0x44577A
+#define COL_VALUE 0x0D1B2A
+#define COL_GOOD  0x18A030
+#define COL_WARN  0xD98000
+#define COL_ALARM 0xCC2200
+#define COL_MUTED 0x9AAFBE
+#define COL_NAV   0x1A5FCC
+#define COL_ENG   0x198A35
+#define COL_ELEC  0xB86818
+#define COL_DIV   0xC0CCDA
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 #define SCR_W       480
@@ -33,13 +33,13 @@
 #define ENG_PS_W    30
 #define ENG_TILE_W  ((SCR_W - ENG_PS_W) / 3)   // 150 px
 
-// Dual-tile vertical layout (no P/S tags inside tiles):
-//   top_pad(20) | PORT(30) | gap(10) | STBD(30) | gap(6) | UNIT(14) | bot_pad
-#define DT_PORT_Y   (CONT_Y + 20)
-#define DT_STBD_Y   (CONT_Y + 60)
-#define DT_UNIT_Y   (CONT_Y + 100)
-#define DT_PORT_CY  (DT_PORT_Y + 15)
-#define DT_STBD_CY  (DT_STBD_Y + 15)
+// Dual-tile vertical layout (montserrat_40 values, h=44 each):
+//   top_pad(4) | PORT(44) | gap(4) | STBD(44) | gap(4) | UNIT(18) | bot_pad(12)
+#define DT_PORT_Y   (CONT_Y + 4)
+#define DT_STBD_Y   (CONT_Y + 56)
+#define DT_UNIT_Y   (CONT_Y + 106)
+#define DT_PORT_CY  (DT_PORT_Y + 22)
+#define DT_STBD_CY  (DT_STBD_Y + 22)
 
 // ── Widget references ─────────────────────────────────────────────────────────
 static lv_obj_t *nav_dot,   *nav_status;
@@ -108,9 +108,12 @@ static lv_color_t soc_color(float p) {
 
 static const char* nav_status_str() {
     if (gNav.stale() || isnan(gNav.sog_kts)) return "";
-    if (gNav.sog_kts > 2.0f)  return "UNDERWAY";
-    if (gNav.sog_kts > 0.3f)  return "DRIFTING";
-    return "ANCHORED";
+    if (gNav.sog_kts > 1.5f)  return "UNDERWAY";
+    if (gAnchor.active) {
+        return gAnchor.alarm ? "DRAGGING" : "ANCHORED";
+    }
+    if (gNav.sog_kts > 0.3f)  return "AT REST";
+    return "AT ANCHOR";
 }
 
 static const char* eng_status_str() {
@@ -164,9 +167,9 @@ static lv_obj_t* make_section(lv_obj_t* parent, int16_t y,
     // Section title (left)
     lv_obj_t* lbl = lv_label_create(sec);
     lv_label_set_text(lbl, title);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl, lv_color_hex(accent), 0);
-    lv_obj_set_pos(lbl, 12, 6);
+    lv_obj_set_pos(lbl, 12, 4);
     lv_obj_clear_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
 
     // Status text (right-justified in header, before dot+chevron area)
@@ -222,14 +225,14 @@ static lv_obj_t* clabel(lv_obj_t* parent,
 // ── Single-value tile ─────────────────────────────────────────────────────────
 static lv_obj_t* make_tile(lv_obj_t* parent, int16_t x, int16_t w,
                              const char* unit_str, const char* name_str,
-                             const lv_font_t* vfont = &lv_font_montserrat_36,
+                             const lv_font_t* vfont = &lv_font_montserrat_48,
                              int16_t tile_h = CONT_H) {
-    int16_t val_h = 40, sub_h = 16;
+    int16_t val_h = 54, sub_h = 20;
     int16_t top   = (tile_h - val_h - 6 - sub_h) / 2;
     lv_obj_t* val = clabel(parent, x, CONT_Y + top, w, val_h, vfont, COL_MUTED, "---");
     char combo[32]; snprintf(combo, sizeof(combo), "%s  %s", unit_str, name_str);
     clabel(parent, x, CONT_Y + top + val_h + 6, w, sub_h,
-           &lv_font_montserrat_12, COL_LABEL, combo);
+           &lv_font_montserrat_16, COL_LABEL, combo);
     return val;
 }
 
@@ -238,12 +241,12 @@ struct DualTile { lv_obj_t* p; lv_obj_t* s; };
 
 static DualTile make_dual_tile(lv_obj_t* parent, int16_t x, int16_t w,
                                 const char* unit_str) {
-    lv_obj_t* pv = clabel(parent, x, DT_PORT_Y, w, 30,
-                            &lv_font_montserrat_28, COL_MUTED, "---");
-    lv_obj_t* sv = clabel(parent, x, DT_STBD_Y, w, 30,
-                            &lv_font_montserrat_28, COL_MUTED, "---");
-    clabel(parent, x, DT_UNIT_Y, w, 14,
-           &lv_font_montserrat_12, COL_LABEL, unit_str);
+    lv_obj_t* pv = clabel(parent, x, DT_PORT_Y, w, 44,
+                            &lv_font_montserrat_40, COL_MUTED, "---");
+    lv_obj_t* sv = clabel(parent, x, DT_STBD_Y, w, 44,
+                            &lv_font_montserrat_40, COL_MUTED, "---");
+    clabel(parent, x, DT_UNIT_Y, w, 18,
+           &lv_font_montserrat_16, COL_LABEL, unit_str);
     return {pv, sv};
 }
 
@@ -283,10 +286,10 @@ lv_obj_t* dashboard_create() {
     s_eng_sec = eng_sec;
 
     // "P" and "S" row labels on the far left, vertically aligned with value rows
-    clabel(eng_sec, 0, DT_PORT_CY - 9, ENG_PS_W, 18,
-           &lv_font_montserrat_16, COL_LABEL, "P");
-    clabel(eng_sec, 0, DT_STBD_CY - 9, ENG_PS_W, 18,
-           &lv_font_montserrat_16, COL_LABEL, "S");
+    clabel(eng_sec, 0, DT_PORT_CY - 11, ENG_PS_W, 22,
+           &lv_font_montserrat_20, COL_LABEL, "P");
+    clabel(eng_sec, 0, DT_STBD_CY - 11, ENG_PS_W, 22,
+           &lv_font_montserrat_20, COL_LABEL, "S");
 
     { DualTile t = make_dual_tile(eng_sec, ENG_PS_W,               ENG_TILE_W, "RPM");
       eng_rpm_p = t.p; eng_rpm_s = t.s; }
