@@ -22,6 +22,11 @@
 #define SIGNALK_PORT    3100
 #define SIGNALK_WS_PATH "/signalk/v1/stream?subscribe=self"
 
+// becoming-sink plugin — unauthenticated internal HTTP bridge on the Pi.
+// Any app POSTs { path, value } here to publish into the SignalK data model.
+// Port 3101 — exposed by the signalk-becoming-sink SignalK plugin.
+#define BECOMING_SINK_PORT 3101
+
 // OTA hostname (accessible as becoming-helm.local)
 #define OTA_HOSTNAME    "becoming-helm"
 

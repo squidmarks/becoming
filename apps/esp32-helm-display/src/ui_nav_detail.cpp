@@ -3,6 +3,7 @@
 #include "ui_theme.h"
 #include "geo.h"
 #include "alarm.h"
+#include "signalk_client.h"
 #include <Arduino.h>
 #include <math.h>
 
@@ -540,7 +541,8 @@ static void on_show_adj(lv_event_t* e) {
             return;
         }
     }
-    // Show or keep visible — (re)start the hide timer
+    // Show or keep visible — sync labels to current gAnchor state, (re)start hide timer
+    aw_update_ui();
     lv_obj_clear_flag(s_aw_adj_panel, LV_OBJ_FLAG_HIDDEN);
     if (s_aw_adj_timer) {
         lv_timer_reset(s_aw_adj_timer);
@@ -566,6 +568,7 @@ static void on_set_anchor(lv_event_t*) {
     s_alarm_pending_ms = 0;
     gAnchor.track.clear();
     aw_update_ui();
+    signalk_queue_save_anchor();   // publish to SignalK → syncs all devices
 }
 
 static void on_release(lv_event_t*) {
@@ -574,6 +577,7 @@ static void on_release(lv_event_t*) {
     s_alarm_pending_ms = 0;
     gAnchor.track.clear();
     aw_update_ui();
+    signalk_queue_save_anchor();   // publish released state to SignalK
 }
 // ── Depth alarm threshold controls ───────────────────────────────────────────
 static void update_ff_alarm_label() {
@@ -602,6 +606,7 @@ static void aw_clear_alarm() {
     gAnchor.alarm      = false;
     s_alarm_pending_ms = 0;
     aw_update_ui();
+    signalk_queue_save_anchor();  // publish alarm=false to SignalK
 }
 
 // Re-evaluate alarm after a radius/buffer change: auto-clear if boat is now safe.
@@ -617,6 +622,7 @@ static void on_radius_minus(lv_event_t*) {
     if (gAnchor.active) {
         gAnchor.radius_m = fmaxf(5.0f, gAnchor.radius_m - 3.048f);  // -10 ft
         aw_maybe_clear_alarm_after_adjustment();
+        signalk_queue_save_anchor();
     } else {
         s_edit_chain_ft = fmaxf(10.0f, s_edit_chain_ft - 10.0f);
     }
@@ -627,6 +633,7 @@ static void on_radius_plus(lv_event_t*) {
     if (gAnchor.active) {
         gAnchor.radius_m = fminf(457.2f, gAnchor.radius_m + 3.048f);
         aw_maybe_clear_alarm_after_adjustment();
+        signalk_queue_save_anchor();
     } else {
         s_edit_chain_ft = fminf(600.0f, s_edit_chain_ft + 10.0f);
     }
@@ -635,12 +642,14 @@ static void on_radius_plus(lv_event_t*) {
 }
 static void on_buffer_minus(lv_event_t*) {
     gAnchor.alarm_buffer_pct = fmaxf(0.0f, gAnchor.alarm_buffer_pct - 5.0f);
+    if (gAnchor.active) signalk_queue_save_anchor();
     aw_update_ui();
     if (s_aw_adj_timer) lv_timer_reset(s_aw_adj_timer);
 }
 static void on_buffer_plus(lv_event_t*) {
     gAnchor.alarm_buffer_pct = fminf(50.0f, gAnchor.alarm_buffer_pct + 5.0f);
     aw_maybe_clear_alarm_after_adjustment();
+    if (gAnchor.active) signalk_queue_save_anchor();
     aw_update_ui();
     if (s_aw_adj_timer) lv_timer_reset(s_aw_adj_timer);
 }
@@ -998,6 +1007,59 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ANCHOR EVALUATION — runs every 200 ms regardless of active screen
+// ══════════════════════════════════════════════════════════════════════════════
+// Recalculates distance/bearing from the current GPS fix to the anchor and
+// runs the deadband + latch alarm logic.  Returns true the moment the alarm
+// latches so the caller (main.cpp) can auto-navigate to the NAV screen.
+bool nav_anchor_eval() {
+    if (!gAnchor.active) {
+        gAnchor.dist_m  = NAN;
+        gAnchor.brg_deg = NAN;
+        s_alarm_pending_ms = 0;
+        return false;
+    }
+
+    bool st = gNav.stale();
+    if (st || isnan(gNav.lat) || isnan(gNav.lon)) {
+        gAnchor.dist_m  = NAN;
+        gAnchor.brg_deg = NAN;
+        return false;
+    }
+
+    gAnchor.dist_m  = haversine_m(gNav.lat, gNav.lon,
+                                   gAnchor.anchor_lat, gAnchor.anchor_lon);
+    gAnchor.brg_deg = bearing_deg_to(gNav.lat, gNav.lon,
+                                      gAnchor.anchor_lat, gAnchor.anchor_lon);
+
+    // Deadband + latch:
+    //  • Alarm fires only after boat is continuously outside alarm_r for
+    //    ALARM_DEADBAND_MS (8 s) — prevents false trips from GPS jitter.
+    //  • Once latched, alarm stays until user taps ACK / adjusts radius.
+    float alarm_r = gAnchor.radius_m * (1.0f + gAnchor.alarm_buffer_pct / 100.0f);
+
+    if (!gAnchor.alarm) {
+        if (gAnchor.dist_m > alarm_r) {
+            if (s_alarm_pending_ms == 0)
+                s_alarm_pending_ms = millis();
+            else if (millis() - s_alarm_pending_ms >= ALARM_DEADBAND_MS) {
+                gAnchor.alarm      = true;
+                s_alarm_pending_ms = 0;
+                aw_update_ui();
+                signalk_queue_save_anchor();
+                return true;   // just latched — caller should switch to NAV screen
+            }
+        } else {
+            if (s_alarm_pending_ms != 0) {
+                s_alarm_pending_ms = 0;
+                aw_update_ui();
+            }
+        }
+    }
+    return false;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // NAV DETAIL REFRESH
 // ══════════════════════════════════════════════════════════════════════════════
 static void slbl(lv_obj_t* o, bool bad, float v, const char* fmt, uint32_t c) {
@@ -1012,9 +1074,18 @@ static void slbl(lv_obj_t* o, bool bad, float v, const char* fmt, uint32_t c) {
 
 void nav_detail_refresh(bool update_chart) {
     // ── Auto-switch between fish-finder and anchor watch ──────────────────────
+    // If anchor is active (set locally or restored from network), always show
+    // anchor watch — don't let the SOG-based auto-switch override it.
+    if (gAnchor.active && !s_anchor_mode) {
+        s_anchor_mode = true;
+        lv_obj_add_flag  (s_ff_cont, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_aw_cont, LV_OBJ_FLAG_HIDDEN);
+    }
+
     if (!s_anchor_mode_manual && !gNav.stale() && !isnan(gNav.sog_kts)) {
         bool want_anchor = gNav.sog_kts < 1.0f;
-        bool want_ff     = gNav.sog_kts > 1.5f;
+        // Only auto-switch to fishfinder if no active anchor watch
+        bool want_ff     = gNav.sog_kts > 1.5f && !gAnchor.active;
         if (want_anchor && !s_anchor_mode) {
             s_anchor_mode = true;
             lv_obj_add_flag  (s_ff_cont, LV_OBJ_FLAG_HIDDEN);
@@ -1030,49 +1101,9 @@ void nav_detail_refresh(bool update_chart) {
 
     // ── Anchor watch mode ─────────────────────────────────────────────────────
     if (s_anchor_mode) {
+        // Distance/alarm state is maintained by nav_anchor_eval() called from
+        // the main timer — no need to recalculate here.
         bool st = gNav.stale();
-
-        // Recalculate distance/bearing to anchor and update alarm (with hysteresis)
-        if (gAnchor.active && !st && !isnan(gNav.lat) && !isnan(gNav.lon)) {
-            gAnchor.dist_m  = haversine_m(gNav.lat, gNav.lon,
-                                           gAnchor.anchor_lat, gAnchor.anchor_lon);
-            gAnchor.brg_deg = bearing_deg_to(gNav.lat, gNav.lon,
-                                              gAnchor.anchor_lat, gAnchor.anchor_lon);
-
-            // Deadband + latch alarm logic:
-            //  • Alarm does NOT fire until boat is continuously outside
-            //    alarm_r for ALARM_DEADBAND_MS (8 s).  This prevents beeping
-            //    from brief GPS jitter or tiny drift.
-            //  • Once fired, alarm LATCHES — it does not auto-clear when the
-            //    boat drifts back.  User must press ACK ALARM to clear it.
-            //  • Expanding the radius/buffer while alarm (or pending) is active
-            //    auto-clears if the boat is now inside the new zone.
-            float alarm_r = gAnchor.radius_m * (1.0f + gAnchor.alarm_buffer_pct / 100.0f);
-
-            if (!gAnchor.alarm) {
-                if (gAnchor.dist_m > alarm_r) {
-                    // Outside alarm zone — start or continue deadband timer
-                    if (s_alarm_pending_ms == 0)
-                        s_alarm_pending_ms = millis();
-                    else if (millis() - s_alarm_pending_ms >= ALARM_DEADBAND_MS) {
-                        gAnchor.alarm      = true;   // latch!
-                        s_alarm_pending_ms = 0;
-                        aw_update_ui();
-                    }
-                } else {
-                    // Back inside zone — reset deadband timer
-                    if (s_alarm_pending_ms != 0) {
-                        s_alarm_pending_ms = 0;
-                        aw_update_ui();
-                    }
-                }
-            }
-            // When alarm IS latched: no auto-clear on position change.
-            // Use on_ack_alarm() or on_radius/buffer changes to clear.
-        } else {
-            gAnchor.dist_m  = NAN;
-            gAnchor.brg_deg = NAN;
-        }
 
         // Update data overlay
         char buf[18];
@@ -1097,6 +1128,7 @@ void nav_detail_refresh(bool update_chart) {
             lv_obj_add_flag(s_aw_dist_lbl, LV_OBJ_FLAG_HIDDEN);
         }
 
+        aw_update_ui();
         lv_obj_invalidate(s_anchor_watch);
         return;
     }

@@ -302,8 +302,15 @@ static void ui_refresh_cb(lv_timer_t *) {
     bool slow = (++s_slow_tick >= 5);
     if (slow) s_slow_tick = 0;
 
-    // ── Alarm evaluation (runs every 200 ms regardless of active screen) ──────
-    // Anchor dragging
+    // ── Anchor evaluation (runs every 200 ms regardless of active screen) ──────
+    // Recalculates distance to anchor and latches gAnchor.alarm.
+    // Returns true the moment the alarm fires — auto-navigate to NAV screen.
+    if (nav_anchor_eval() && ui_screen != SCR_NAV) {
+        ui_screen = SCR_NAV;
+        lv_scr_load_anim(nav_detail_screen, LV_SCR_LOAD_ANIM_FADE_ON, 300, 0, false);
+    }
+
+    // Raise/clear beeper based on gAnchor.alarm (set by nav_anchor_eval above)
     if (gAnchor.active && gAnchor.alarm)
         alarm_raise(ALARM_ANCHOR);
     else
@@ -341,6 +348,18 @@ static void ui_refresh_cb(lv_timer_t *) {
         case SCR_NAV:   nav_detail_refresh(slow);     break;
         case SCR_ENG:   eng_detail_refresh(slow);     break;
         case SCR_ELEC:  elec_detail_refresh(slow);    break;
+    }
+
+    // Anchor state arrived from the network (another MFD or on-reconnect restore).
+    if (g_anchor_net_updated) {
+        g_anchor_net_updated = false;
+        // If the restored state has an active alarm, jump straight to NAV screen.
+        if (gAnchor.active && gAnchor.alarm && ui_screen != SCR_NAV) {
+            ui_screen = SCR_NAV;
+            lv_scr_load_anim(nav_detail_screen, LV_SCR_LOAD_ANIM_FADE_ON, 300, 0, false);
+        } else if (ui_screen == SCR_NAV) {
+            nav_detail_refresh();
+        }
     }
 }
 
