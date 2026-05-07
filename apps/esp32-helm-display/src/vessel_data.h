@@ -9,16 +9,18 @@
 #define STALE_ELEC_MS   45000   // Victron Cerbo publishes ~10-15 s; 45 s = 3× headroom
 
 // ── Historical ring buffer (for detail screen charts) ─────────────────────────
-// 120 samples; with the sample rates below this gives:
-//   depth  :  5 s × 120 =  10 min
-//   coolant: 60 s × 120 = 120 min
-//   soc/amp: 15 s × 120 =  30 min
-#define HISTORY_LEN 120
+// 300 samples; with the sample rates below this gives:
+//   depth  :  2 s × 300 =  10 min
+//   coolant: 60 s × 300 = 300 min (~5 h)
+//   soc/amp: 15 s × 300 =  75 min
+// uint16_t head/count supports up to 65535 — well beyond current needs.
+#define HISTORY_LEN      300
+#define ANCHOR_TRACK_LEN 360   // 5 s × 360 = 30 min of position history
 
 struct RingBuf {
-    float   data[HISTORY_LEN] = {};
-    uint8_t head  = 0;
-    uint8_t count = 0;
+    float    data[HISTORY_LEN] = {};
+    uint16_t head  = 0;
+    uint16_t count = 0;
 
     void push(float v) {
         data[head] = v;
@@ -26,17 +28,38 @@ struct RingBuf {
         if (count < HISTORY_LEN) count++;
     }
     // Oldest-first: get(0) = oldest, get(count-1) = newest
-    float get(uint8_t i) const {
-        return data[(uint8_t)(head - count + i) % HISTORY_LEN];
+    float get(uint16_t i) const {
+        return data[(uint16_t)(head - count + i) % HISTORY_LEN];
     }
+};
+
+// ── Anchor position ring buffer ───────────────────────────────────────────────
+struct PosPoint { double lat = 0.0; double lon = 0.0; };
+
+struct PosRingBuf {
+    PosPoint data[ANCHOR_TRACK_LEN] = {};
+    uint16_t head  = 0;
+    uint16_t count = 0;
+
+    void push(double lat, double lon) {
+        data[head] = {lat, lon};
+        head = (head + 1) % ANCHOR_TRACK_LEN;
+        if (count < ANCHOR_TRACK_LEN) count++;
+    }
+    PosPoint get(uint16_t i) const {
+        return data[(uint16_t)(head - count + i) % ANCHOR_TRACK_LEN];
+    }
+    void clear() { head = 0; count = 0; }
 };
 
 // ── Navigation data ───────────────────────────────────────────────────────────
 struct NavData {
-    float sog_kts   = NAN;  // speed over ground, knots
-    float hdg_deg   = NAN;  // heading magnetic, degrees (0–360)
-    float cog_deg   = NAN;  // course over ground true, degrees
-    float depth_m   = NAN;  // depth below transducer, meters
+    float  sog_kts  = NAN;   // speed over ground, knots
+    float  hdg_deg  = NAN;   // heading magnetic, degrees (0–360)
+    float  cog_deg  = NAN;   // course over ground true, degrees
+    float  depth_m  = NAN;   // depth below transducer, meters
+    double lat      = NAN;   // GPS latitude, degrees
+    double lon      = NAN;   // GPS longitude, degrees
     uint32_t updated_ms = 0;
 
     bool stale() const { return (millis() - updated_ms) > STALE_NAV_MS; }
@@ -70,11 +93,25 @@ struct ElecData {
 
 // ── Historical buffers ────────────────────────────────────────────────────────
 struct HistoryBufs {
-    RingBuf depth_m;      // sampled every 10s
+    RingBuf depth_m;      // sampled every 2s
     RingBuf port_temp_f;  // sampled every 30s (coolant temp, °F)
     RingBuf stbd_temp_f;  // sampled every 30s (coolant temp, °F)
-    RingBuf soc_pct;      // sampled every 30s
-    RingBuf amps;         // sampled every 30s
+    RingBuf soc_pct;      // sampled every 15s
+    RingBuf amps;         // sampled every 15s
+    RingBuf inv_load_w;   // sampled every 15s (AC inverter load, W)
+};
+
+// ── Anchor watch state ────────────────────────────────────────────────────────
+struct AnchorState {
+    bool   active            = false;   // anchor position is set and alarm is armed
+    double anchor_lat        = 0.0;
+    double anchor_lon        = 0.0;
+    float  radius_m          = 30.48f;  // anchor circle radius (30.48 m = 100 ft default)
+    float  alarm_buffer_pct  = 10.0f;   // % overshoot before alarm fires (with hysteresis)
+    bool   alarm             = false;   // currently outside alarm radius
+    float  dist_m            = NAN;     // current distance from anchor
+    float  brg_deg           = NAN;     // bearing from current position to anchor (°T)
+    PosRingBuf track;                   // drift position history
 };
 
 // ── Global vessel state ───────────────────────────────────────────────────────
@@ -82,3 +119,4 @@ extern NavData     gNav;
 extern EngineData  gEng;
 extern ElecData    gElec;
 extern HistoryBufs gHistory;
+extern AnchorState gAnchor;

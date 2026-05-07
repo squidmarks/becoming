@@ -4,3 +4,4 @@ NavData     gNav;
 EngineData  gEng;
 ElecData    gElec;
 HistoryBufs gHistory;
+AnchorState gAnchor;
