@@ -1,5 +1,6 @@
 #include "signalk_client.h"
 #include "vessel_data.h"
+#include "geo.h"
 #include "config.h"
 #include <WiFi.h>
 #include <WebSocketsClient.h>
@@ -87,14 +88,37 @@ static void handle_value(const char* path, JsonVariant val) {
     } else if (strcmp(path, "electrical.inverters.0.acout.loadPowerTotal") == 0) {
         gElec.inv_load_w = val.as<float>();
         gElec.updated_ms = millis();
+
+    // ── GPS position (object value: {latitude, longitude}) ────────────────────
+    } else if (strcmp(path, "navigation.position") == 0 && val.is<JsonObject>()) {
+        double lat = val["latitude"]  | (double)NAN;
+        double lon = val["longitude"] | (double)NAN;
+        if (!isnan(lat) && !isnan(lon)) {
+            gNav.lat = lat;
+            gNav.lon = lon;
+            gNav.updated_ms = millis();
+        }
     }
 }
 
 // ── History sampling ──────────────────────────────────────────────────────────
+static uint32_t hist_anchor_ms = 0;
+
 static void sample_history() {
     uint32_t now = millis();
 
-    if (now - hist_nav_ms >= 5000) {           // depth every 5 s  → 120 pts = 10 min
+    // Anchor position track: 5-second samples when boat is slow (<3 kt).
+    // Track is cleared when the user sets an anchor position, so it always shows
+    // drift history relative to the current anchor watch session.
+    if (now - hist_anchor_ms >= 5000) {
+        hist_anchor_ms = now;
+        if (!gNav.stale() && !isnan(gNav.lat) && !isnan(gNav.lon)
+            && !isnan(gNav.sog_kts) && gNav.sog_kts < 3.0f) {
+            gAnchor.track.push(gNav.lat, gNav.lon);
+        }
+    }
+
+    if (now - hist_nav_ms >= 2000) {           // depth every 2 s  → 300 pts = 10 min
         hist_nav_ms = now;
         if (!gNav.stale() && !isnan(gNav.depth_m))
             gHistory.depth_m.push(gNav.depth_m);
@@ -112,8 +136,9 @@ static void sample_history() {
     if (now - hist_elec_ms >= 15000) {         // SoC/amps every 15 s → 120 pts = 30 min
         hist_elec_ms = now;
         if (!gElec.stale()) {
-            if (!isnan(gElec.soc_pct)) gHistory.soc_pct.push(gElec.soc_pct);
-            if (!isnan(gElec.amps))    gHistory.amps.push(gElec.amps);
+            if (!isnan(gElec.soc_pct))    gHistory.soc_pct.push(gElec.soc_pct);
+            if (!isnan(gElec.amps))       gHistory.amps.push(gElec.amps);
+            if (!isnan(gElec.inv_load_w)) gHistory.inv_load_w.push(gElec.inv_load_w);
         }
     }
 }

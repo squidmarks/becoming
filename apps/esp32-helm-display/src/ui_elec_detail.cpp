@@ -6,14 +6,30 @@
 #define HDR_H  40
 #define SCR_W  480
 
+// Arc left edge / top — 170×170 sits on the left of the top section
+#define ARC_X    6
+#define ARC_Y    48
+#define ARC_W   170
+#define ARC_H   170
+
+// Right-column stats start just past the arc + a divider gap
+#define STAT_X  188
+#define STAT_W  (SCR_W - STAT_X - 6)   // 286 px
+
+// Top section ends below the arc; chart follows immediately after a small gap
+#define TOP_END  222   // y of the horizontal divider under the top section
+#define CHART_Y  236   // chart top (14 px gap after divider, label is inside chart)
+
 static lv_obj_t *s_scr;
 static lv_obj_t *s_arc;
 static lv_obj_t *s_soc_lbl;   // % text inside arc
-static lv_obj_t *s_amps, *s_volts, *s_acw;
+static lv_obj_t *s_amps, *s_acw;
 static lv_obj_t *s_state_lbl;
 static lv_obj_t *s_chart;
-static lv_chart_series_t *s_soc_ser;
-static lv_coord_t s_soc_pts[HISTORY_LEN];
+static lv_chart_series_t *s_amps_ser;   // DC amps (left axis, blue)
+static lv_chart_series_t *s_acw_ser;    // AC load watts (right axis, amber)
+static lv_coord_t s_amps_pts[HISTORY_LEN];
+static lv_coord_t s_acw_pts[HISTORY_LEN];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 static lv_obj_t* detail_header(lv_obj_t* scr, uint32_t accent,
@@ -34,8 +50,8 @@ static lv_obj_t* detail_header(lv_obj_t* scr, uint32_t accent,
 
     lv_obj_t* btn = lv_btn_create(hdr);
     lv_obj_set_size(btn, 88, 30);  lv_obj_set_pos(btn, 8, 5);
-    lv_obj_set_style_bg_color(btn, lv_color_hex(0x1A1A30), 0);
-    lv_obj_set_style_bg_color(btn, lv_color_hex(0x2A2A44), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0xE0E8F4), 0);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0xC8D8F0), LV_STATE_PRESSED);
     lv_obj_set_style_border_color(btn, lv_color_hex(accent), 0);
     lv_obj_set_style_border_width(btn, 1, 0);
     lv_obj_set_style_radius(btn, 6, 0);
@@ -65,6 +81,7 @@ static lv_obj_t* hdiv(lv_obj_t* scr, int16_t y) {
     return d;
 }
 
+// Larger stat block: font_12 caption + font_36 value (total ~62 px tall)
 static lv_obj_t* stat_block(lv_obj_t* scr,
                               int16_t x, int16_t y, int16_t w,
                               const char* cap) {
@@ -77,8 +94,8 @@ static lv_obj_t* stat_block(lv_obj_t* scr,
     lv_obj_clear_flag(cl, LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_t* vl = lv_label_create(scr);
-    lv_obj_set_pos(vl, x, y + 18);  lv_obj_set_size(vl, w, 34);
-    lv_obj_set_style_text_font(vl, &lv_font_montserrat_28, 0);
+    lv_obj_set_pos(vl, x, y + 18);  lv_obj_set_size(vl, w, 44);
+    lv_obj_set_style_text_font(vl, &lv_font_montserrat_36, 0);
     lv_obj_set_style_text_color(vl, lv_color_hex(COL_MUTED), 0);
     lv_obj_set_style_text_align(vl, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(vl, "---");
@@ -95,20 +112,24 @@ static lv_color_t soc_color(float p) {
 
 static lv_obj_t* make_chart(lv_obj_t* scr, int16_t y, int16_t h) {
     lv_obj_t* c = lv_chart_create(scr);
-    lv_obj_set_pos(c, 10, y);  lv_obj_set_size(c, SCR_W - 20, h);
+    // Both axes' labels are drawn OUTSIDE the chart widget boundary.
+    // Left gap (48 px) gives the primary-Y labels room on screen (x ≥ 6).
+    // Right gap (52 px) gives the secondary-Y labels room on screen (x ≤ 474).
+    lv_obj_set_pos(c, 48, y);  lv_obj_set_size(c, SCR_W - 100, h);
     lv_chart_set_type(c, LV_CHART_TYPE_LINE);
     lv_chart_set_point_count(c, HISTORY_LEN);
-    lv_obj_set_style_bg_color(c, lv_color_hex(COL_BG), 0);
+    lv_obj_set_style_bg_color(c, lv_color_hex(COL_SEC), 0);
+    lv_obj_set_style_text_color(c, lv_color_hex(COL_LABEL), LV_PART_TICKS);
     lv_obj_set_style_bg_opa(c, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(c, lv_color_hex(COL_DIV), 0);
     lv_obj_set_style_border_width(c, 1, 0);
     lv_obj_set_style_line_color(c, lv_color_hex(COL_DIV), LV_PART_MAIN);
     lv_obj_set_style_size(c, 0, LV_PART_INDICATOR);
     lv_obj_set_style_line_width(c, 2, LV_PART_ITEMS);
-    lv_obj_set_style_pad_left(c, 42, 0);
-    lv_obj_set_style_pad_right(c, 6, 0);
-    lv_obj_set_style_pad_top(c, 4, 0);
-    lv_obj_set_style_pad_bottom(c, 4, 0);
+    lv_obj_set_style_pad_left  (c, 42, 0);
+    lv_obj_set_style_pad_right (c,  4, 0);
+    lv_obj_set_style_pad_top   (c, 20, 0);   // headroom for the in-chart title
+    lv_obj_set_style_pad_bottom(c,  4, 0);
     return c;
 }
 
@@ -119,104 +140,119 @@ lv_obj_t* elec_detail_create(lv_event_cb_t back_cb) {
     lv_obj_set_style_bg_color(s_scr, lv_color_hex(COL_BG), 0);
     lv_obj_clear_flag(s_scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    detail_header(s_scr, COL_ELEC, "ELECTRICAL", back_cb);
+    // Header with state label right-justified inside it
+    lv_obj_t* hdr = detail_header(s_scr, COL_ELEC, "ELECTRICAL", back_cb);
 
-    // State text at top of primary area
-    s_state_lbl = lv_label_create(s_scr);
-    lv_obj_set_pos(s_state_lbl, 0, HDR_H + 4);
-    lv_obj_set_size(s_state_lbl, SCR_W, 18);
-    lv_obj_set_style_text_font(s_state_lbl, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(s_state_lbl, lv_color_hex(COL_LABEL), 0);
-    lv_obj_set_style_text_align(s_state_lbl, LV_TEXT_ALIGN_CENTER, 0);
+    s_state_lbl = lv_label_create(hdr);
+    lv_obj_set_pos (s_state_lbl, SCR_W - 118, 0);
+    lv_obj_set_size(s_state_lbl, 110, HDR_H);
+    lv_obj_set_style_text_font (s_state_lbl, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(s_state_lbl, lv_color_hex(COL_ELEC), 0);
+    lv_obj_set_style_text_align(s_state_lbl, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_style_pad_top   (s_state_lbl, 13, 0);
+    lv_obj_set_style_pad_right (s_state_lbl,  6, 0);
     lv_label_set_text(s_state_lbl, "");
     lv_obj_clear_flag(s_state_lbl, LV_OBJ_FLAG_CLICKABLE);
 
-    // SOC arc gauge — centred, 170×170 px
+    // ── SOC arc — left side ───────────────────────────────────────────────────
     s_arc = lv_arc_create(s_scr);
-    lv_obj_set_size(s_arc, 170, 170);
-    lv_obj_align(s_arc, LV_ALIGN_TOP_MID, 0, HDR_H + 24);
+    lv_obj_set_pos (s_arc, ARC_X, ARC_Y);
+    lv_obj_set_size(s_arc, ARC_W, ARC_H);
 
-    // Background arc track
-    lv_obj_set_style_arc_color(s_arc, lv_color_hex(COL_DIV), LV_PART_MAIN);
+    lv_obj_set_style_arc_color(s_arc, lv_color_hex(COL_DIV),  LV_PART_MAIN);
     lv_obj_set_style_arc_width(s_arc, 20, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(s_arc, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa   (s_arc, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(s_arc, 0, LV_PART_MAIN);
 
-    // Indicator arc
     lv_obj_set_style_arc_color(s_arc, lv_color_hex(COL_GOOD), LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(s_arc, 20, LV_PART_INDICATOR);
 
-    // Hide knob
     lv_obj_set_style_bg_opa(s_arc, LV_OPA_TRANSP, LV_PART_KNOB);
     lv_obj_set_style_pad_all(s_arc, 0, LV_PART_KNOB);
-    lv_obj_set_style_size(s_arc, 0, LV_PART_KNOB);
+    lv_obj_set_style_size   (s_arc, 0, LV_PART_KNOB);
 
-    // Arc geometry: 270° sweep from lower-left to lower-right (via top)
-    lv_arc_set_rotation(s_arc, 135);
+    lv_arc_set_rotation     (s_arc, 135);
     lv_arc_set_bg_start_angle(s_arc, 0);
-    lv_arc_set_bg_end_angle(s_arc, 270);
+    lv_arc_set_bg_end_angle  (s_arc, 270);
     lv_arc_set_range(s_arc, 0, 100);
     lv_arc_set_value(s_arc, 0);
     lv_obj_clear_flag(s_arc, LV_OBJ_FLAG_CLICKABLE);
 
-    // SoC % text centered inside arc
+    // SoC % text centered in arc
     s_soc_lbl = lv_label_create(s_scr);
     lv_obj_set_size(s_soc_lbl, 120, 44);
-    lv_obj_align_to(s_soc_lbl, s_arc, LV_ALIGN_CENTER, 0, -4);
-    lv_obj_set_style_text_font(s_soc_lbl, &lv_font_montserrat_36, 0);
+    lv_obj_align_to(s_soc_lbl, s_arc, LV_ALIGN_CENTER, 0, -6);
+    lv_obj_set_style_text_font (s_soc_lbl, &lv_font_montserrat_36, 0);
     lv_obj_set_style_text_color(s_soc_lbl, lv_color_hex(COL_MUTED), 0);
     lv_obj_set_style_text_align(s_soc_lbl, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(s_soc_lbl, "---%");
     lv_obj_clear_flag(s_soc_lbl, LV_OBJ_FLAG_CLICKABLE);
 
-    // "SOC" sub-label
+    // "STATE OF CHARGE" sub-label inside arc
     lv_obj_t* sl = lv_label_create(s_scr);
-    lv_obj_set_size(sl, 120, 18);
-    lv_obj_align_to(sl, s_arc, LV_ALIGN_CENTER, 0, 28);
-    lv_obj_set_style_text_font(sl, &lv_font_montserrat_12, 0);
+    lv_obj_set_size(sl, 140, 16);
+    lv_obj_align_to(sl, s_arc, LV_ALIGN_CENTER, 0, 30);
+    lv_obj_set_style_text_font (sl, &lv_font_montserrat_10, 0);
     lv_obj_set_style_text_color(sl, lv_color_hex(COL_LABEL), 0);
     lv_obj_set_style_text_align(sl, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(sl, "STATE OF CHARGE");
     lv_obj_clear_flag(sl, LV_OBJ_FLAG_CLICKABLE);
 
-    // Stats row below arc: Amps | Volts | AC Watts
-    // Arc bottom is at HDR_H + 24 + 170 = HDR_H + 194
-    int16_t row_y = HDR_H + 200;
+    // ── Vertical divider between arc and stats ─────────────────────────────
+    lv_obj_t* vdiv = lv_obj_create(s_scr);
+    lv_obj_set_pos (vdiv, STAT_X - 6, ARC_Y);
+    lv_obj_set_size(vdiv, 1, TOP_END - ARC_Y);
+    lv_obj_set_style_bg_color(vdiv, lv_color_hex(COL_DIV), 0);
+    lv_obj_set_style_border_width(vdiv, 0, 0);
+    lv_obj_clear_flag(vdiv, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
 
-    // Vertical dividers in stats row
-    lv_obj_t* vd1 = lv_obj_create(s_scr);
-    lv_obj_set_pos(vd1, 159, row_y);  lv_obj_set_size(vd1, 1, 56);
-    lv_obj_set_style_bg_color(vd1, lv_color_hex(COL_DIV), 0);
-    lv_obj_set_style_border_width(vd1, 0, 0);
-    lv_obj_clear_flag(vd1, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    // ── Right-column: DC Amps and AC Load (two large blocks) ──────────────
+    // Two blocks × 62 px each, 24 px gap, centred within the 174 px arc height.
+    // Block layout: caption (16 px) + value (44 px, font_36) + 2 px slack = 62 px
+    // Total span: 62 + 24 + 62 = 148 px.  Starting y = ARC_Y + (174-148)/2 ≈ ARC_Y + 13
+    int16_t sy = ARC_Y + 13;
 
-    lv_obj_t* vd2 = lv_obj_create(s_scr);
-    lv_obj_set_pos(vd2, 319, row_y);  lv_obj_set_size(vd2, 1, 56);
-    lv_obj_set_style_bg_color(vd2, lv_color_hex(COL_DIV), 0);
-    lv_obj_set_style_border_width(vd2, 0, 0);
-    lv_obj_clear_flag(vd2, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    s_amps = stat_block(s_scr, STAT_X, sy,       STAT_W, "DC  (A)");
+    s_acw  = stat_block(s_scr, STAT_X, sy + 86,  STAT_W, "AC LOAD  (W)");
 
-    s_amps  = stat_block(s_scr,   0, row_y, 160, "DC  (A)");
-    s_volts = stat_block(s_scr, 160, row_y, 160, "VOLTAGE  (V)");
-    s_acw   = stat_block(s_scr, 320, row_y, 160, "AC LOAD  (W)");
+    // ── Horizontal divider ─────────────────────────────────────────────────
+    hdiv(s_scr, TOP_END);
 
-    hdiv(s_scr, row_y + 62);
+    // ── Dual-series history chart ──────────────────────────────────────────
+    s_chart = make_chart(s_scr, CHART_Y, 480 - CHART_Y - 4);
 
+    // Title label centred over the chart's inner plot area.
+    // Chart: x=48, w=380. Plot area: x=48+42=90, w=380-42-4=334.
     lv_obj_t* cl = lv_label_create(s_scr);
-    lv_obj_set_pos(cl, 0, row_y + 67);  lv_obj_set_size(cl, SCR_W, 18);
-    lv_obj_set_style_text_font(cl, &lv_font_montserrat_12, 0);
+    lv_obj_set_pos (cl, 90, CHART_Y + 5);
+    lv_obj_set_size(cl, 334, 14);
+    lv_obj_set_style_text_font (cl, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(cl, lv_color_hex(COL_LABEL), 0);
     lv_obj_set_style_text_align(cl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(cl, "STATE OF CHARGE  |  last 30 min");
+    lv_label_set_text(cl, "DC Amps (A)  and  AC Load (W)  |  last 75 min");
     lv_obj_clear_flag(cl, LV_OBJ_FLAG_CLICKABLE);
 
-    s_chart = make_chart(s_scr, row_y + 90, 480 - (row_y + 95));
-    lv_chart_set_range(s_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100);
-    lv_chart_set_axis_tick(s_chart, LV_CHART_AXIS_PRIMARY_Y, 6, 3, 5, 1, true, 42);
-    s_soc_ser = lv_chart_add_series(s_chart, lv_color_hex(COL_GOOD), LV_CHART_AXIS_PRIMARY_Y);
+    // Primary Y axis — DC Amps (left, blue); initial ±10 A, autoscales
+    lv_chart_set_range(s_chart, LV_CHART_AXIS_PRIMARY_Y, -10, 10);
+    lv_chart_set_axis_tick(s_chart, LV_CHART_AXIS_PRIMARY_Y,
+                            6, 3, 5, 1, true, 42);
 
-    for (int i = 0; i < HISTORY_LEN; i++) s_soc_pts[i] = LV_CHART_POINT_NONE;
-    lv_chart_set_ext_y_array(s_chart, s_soc_ser, s_soc_pts);
+    // Secondary Y axis — AC Load W (right, amber); initial 0-100 W, autoscales
+    lv_chart_set_range(s_chart, LV_CHART_AXIS_SECONDARY_Y, 0, 100);
+    lv_chart_set_axis_tick(s_chart, LV_CHART_AXIS_SECONDARY_Y,
+                            6, 3, 5, 1, true, 42);
+
+    s_amps_ser = lv_chart_add_series(s_chart,
+                    lv_color_hex(COL_NAV), LV_CHART_AXIS_PRIMARY_Y);
+    s_acw_ser  = lv_chart_add_series(s_chart,
+                    lv_color_hex(COL_ELEC), LV_CHART_AXIS_SECONDARY_Y);
+
+    for (int i = 0; i < HISTORY_LEN; i++) {
+        s_amps_pts[i] = LV_CHART_POINT_NONE;
+        s_acw_pts[i]  = LV_CHART_POINT_NONE;
+    }
+    lv_chart_set_ext_y_array(s_chart, s_amps_ser, s_amps_pts);
+    lv_chart_set_ext_y_array(s_chart, s_acw_ser,  s_acw_pts);
 
     elec_detail_refresh();
     return s_scr;
@@ -233,7 +269,7 @@ void elec_detail_refresh(bool update_chart) {
     bool st = gElec.stale();
     char b[16];
 
-    // State text
+    // State text (now lives in the header)
     const char* state_str = "";
     if (!st && gElec.state[0]) {
         const char* s = gElec.state;
@@ -249,7 +285,7 @@ void elec_detail_refresh(bool update_chart) {
     if (strcmp(lv_label_get_text(s_state_lbl), state_str) != 0)
         lv_label_set_text(s_state_lbl, state_str);
 
-    // Arc + SoC label — use roundf() so display matches the dashboard's "%.0f"
+    // Arc + SoC label
     if (!st && !isnan(gElec.soc_pct)) {
         int soc = (int)roundf(gElec.soc_pct);
         lv_arc_set_value(s_arc, soc);
@@ -271,14 +307,6 @@ void elec_detail_refresh(bool update_chart) {
         slbl(s_amps, "---", lv_color_hex(COL_MUTED));
     }
 
-    // Voltage
-    if (!st && !isnan(gElec.volts)) {
-        snprintf(b, sizeof(b), "%.1f", gElec.volts);
-        slbl(s_volts, b, lv_color_hex(COL_VALUE));
-    } else {
-        slbl(s_volts, "---", lv_color_hex(COL_MUTED));
-    }
-
     // AC watts
     if (!st && !isnan(gElec.inv_load_w)) {
         snprintf(b, sizeof(b), "%.0f", gElec.inv_load_w);
@@ -289,27 +317,48 @@ void elec_detail_refresh(bool update_chart) {
 
     if (!update_chart) return;
 
-    // SoC history chart with auto-ranging so small changes are visible
-    uint8_t n = gHistory.soc_pct.count;
-    lv_coord_t mn = 100, mx = 0;
+    // ── DC Amps history (primary Y, left axis) ────────────────────────────────
+    // Sign-flipped so positive = charging (consistent with the stat block).
+    // Stored as integer amps (rounded) for the integer lv_coord_t.
+    uint16_t n_amps = gHistory.amps.count;
+    lv_coord_t amps_mn = 0, amps_mx = 0;
     for (int i = 0; i < HISTORY_LEN; i++) {
-        if (i < n) {
-            lv_coord_t v = (lv_coord_t)gHistory.soc_pct.get(i);
-            s_soc_pts[i] = v;
-            if (v < mn) mn = v;
-            if (v > mx) mx = v;
+        if (i < n_amps) {
+            lv_coord_t v = (lv_coord_t)roundf(-gHistory.amps.get(i));
+            s_amps_pts[i] = v;
+            if (v < amps_mn) amps_mn = v;
+            if (v > amps_mx) amps_mx = v;
         } else {
-            s_soc_pts[i] = LV_CHART_POINT_NONE;
+            s_amps_pts[i] = LV_CHART_POINT_NONE;
         }
     }
-    if (n > 0) {
-        // Zoom into the range of observed values with a comfortable margin
-        lv_coord_t pad = (lv_coord_t)((mx - mn) / 4);
-        if (pad < 5) pad = 5;
-        lv_coord_t lo = (mn - pad < 0)   ? 0   : mn - pad;
-        lv_coord_t hi = (mx + pad > 100) ? 100 : mx + pad;
-        lv_chart_set_range(s_chart, LV_CHART_AXIS_PRIMARY_Y, lo, hi);
+    {
+        // Symmetric range around 0; minimum ±10 A; add ~20 % headroom
+        lv_coord_t extreme = (lv_coord_t)max(abs(amps_mn), abs(amps_mx));
+        if (extreme < 10) extreme = 10;
+        lv_coord_t margin = max((lv_coord_t)2, (lv_coord_t)(extreme / 5));
+        lv_coord_t lim = extreme + margin;
+        lv_chart_set_range(s_chart, LV_CHART_AXIS_PRIMARY_Y, -lim, lim);
     }
-    lv_chart_set_ext_y_array(s_chart, s_soc_ser, s_soc_pts);
+    lv_chart_set_ext_y_array(s_chart, s_amps_ser, s_amps_pts);
+
+    // ── AC Load history (secondary Y, right axis) ─────────────────────────────
+    // Always ≥ 0; minimum ceiling 100 W; rounds up to next 100 W boundary.
+    uint16_t n_acw = gHistory.inv_load_w.count;
+    lv_coord_t acw_mx = 0;
+    for (int i = 0; i < HISTORY_LEN; i++) {
+        if (i < n_acw) {
+            lv_coord_t v = (lv_coord_t)roundf(gHistory.inv_load_w.get(i));
+            s_acw_pts[i] = v;
+            if (v > acw_mx) acw_mx = v;
+        } else {
+            s_acw_pts[i] = LV_CHART_POINT_NONE;
+        }
+    }
+    lv_coord_t acw_ceil = ((acw_mx / 100) + 1) * 100;
+    if (acw_ceil < 100) acw_ceil = 100;
+    lv_chart_set_range(s_chart, LV_CHART_AXIS_SECONDARY_Y, 0, acw_ceil);
+    lv_chart_set_ext_y_array(s_chart, s_acw_ser, s_acw_pts);
+
     lv_chart_refresh(s_chart);
 }
