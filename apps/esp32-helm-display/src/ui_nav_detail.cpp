@@ -24,7 +24,7 @@ static lv_obj_t *s_aw_cont;   // anchor watch mode container
 static lv_obj_t *s_depth, *s_sog, *s_hdg, *s_cog;
 static lv_obj_t *s_fishfinder;
 static lv_obj_t  *s_ff_alarm_lbl   = nullptr;  // depth alarm status right of "DEPTH HISTORY"
-static lv_obj_t  *s_tide_lbl       = nullptr;  // tide strip between stats and depth history
+static lv_obj_t  *s_tide_gauge     = nullptr;  // arc gauge in right half of depth area
 static lv_obj_t  *s_ff_adj_panel   = nullptr;  // tap-to-show depth alarm overlay
 static lv_obj_t  *s_ff_warn_lbl    = nullptr;  // "10 ft" inside panel
 static lv_obj_t  *s_ff_alert_lbl   = nullptr;  // "5 ft" inside panel
@@ -221,6 +221,151 @@ static void fishfinder_draw_cb(lv_event_t* e) {
     draw_alarm_line(g_depth_alert_ft,
                     lv_color_make(0xCC, 0x40, 0x00),
                     lv_color_make(0xFF, 0x20, 0x20));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TIDE GAUGE DRAW CALLBACK
+// Right half of the depth area (x=244, y=48, w=232, h=84).
+// Draws a semicircular arc from LOW (left) to HIGH (right).
+// A white dot marks the current height. Arc is blue when rising, amber when
+// falling. Current height in feet is shown in the centre; next event below.
+// ══════════════════════════════════════════════════════════════════════════════
+static void tide_gauge_draw_cb(lv_event_t* e) {
+    lv_obj_t*      obj      = lv_event_get_target(e);
+    lv_draw_ctx_t* draw_ctx = lv_event_get_draw_ctx(e);
+    lv_area_t a;
+    lv_obj_get_coords(obj, &a);
+    lv_coord_t w  = lv_area_get_width(&a);
+    lv_coord_t h  = lv_area_get_height(&a);
+    lv_coord_t cx = a.x1 + w / 2;
+    // Centre of arc at bottom of area with a small margin
+    lv_coord_t cy = a.y2 - 6;
+    lv_coord_t R  = (lv_coord_t)(h * 0.85f);
+    if (R > w / 2 - 10) R = w / 2 - 10;
+
+    // ── No data ───────────────────────────────────────────────────────────────
+    if (!gTides.valid()) {
+        lv_draw_label_dsc_t ld;
+        lv_draw_label_dsc_init(&ld);
+        ld.color = lv_color_make(0x50, 0x50, 0x60);
+        ld.font  = &lv_font_montserrat_16;
+        ld.align = LV_TEXT_ALIGN_CENTER;
+        lv_area_t la = { a.x1, (lv_coord_t)(a.y1 + h / 2 - 10),
+                         a.x2, (lv_coord_t)(a.y1 + h / 2 + 10) };
+        lv_draw_label(draw_ctx, &ld, &la, "TIDE ---", nullptr);
+        return;
+    }
+
+    // ── Tide fraction: 0.0 = low, 1.0 = high ─────────────────────────────────
+    float lo    = fminf(gTides.next_low_m,  gTides.next_high_m);
+    float hi    = fmaxf(gTides.next_low_m,  gTides.next_high_m);
+    float range = hi - lo;
+    float frac  = (range > 0.05f) ? (gTides.height_m - lo) / range : 0.5f;
+    frac = fmaxf(0.0f, fminf(1.0f, frac));
+
+    // ── Background arc (full semicircle, dim) ─────────────────────────────────
+    const int STEPS = 48;
+    lv_draw_line_dsc_t ld;
+    lv_draw_line_dsc_init(&ld);
+    ld.opa   = LV_OPA_COVER;
+    ld.width = 6;
+    ld.color = lv_color_make(0x25, 0x25, 0x45);
+    for (int i = 0; i < STEPS; i++) {
+        float ang1 = (float)M_PI * (1.0f - (float)i       / STEPS);
+        float ang2 = (float)M_PI * (1.0f - (float)(i + 1) / STEPS);
+        lv_point_t p1 = { (lv_coord_t)(cx + R * cosf(ang1)),
+                          (lv_coord_t)(cy - R * sinf(ang1)) };
+        lv_point_t p2 = { (lv_coord_t)(cx + R * cosf(ang2)),
+                          (lv_coord_t)(cy - R * sinf(ang2)) };
+        lv_draw_line(draw_ctx, &ld, &p1, &p2);
+    }
+
+    // ── Coloured arc from LOW up to current height ────────────────────────────
+    ld.color = gTides.rising ? lv_color_make(0x20, 0xA0, 0xFF)
+                             : lv_color_make(0xFF, 0x90, 0x20);
+    int fill = (int)(frac * STEPS + 0.5f);
+    for (int i = 0; i < fill; i++) {
+        float ang1 = (float)M_PI * (1.0f - (float)i       / STEPS);
+        float ang2 = (float)M_PI * (1.0f - (float)(i + 1) / STEPS);
+        lv_point_t p1 = { (lv_coord_t)(cx + R * cosf(ang1)),
+                          (lv_coord_t)(cy - R * sinf(ang1)) };
+        lv_point_t p2 = { (lv_coord_t)(cx + R * cosf(ang2)),
+                          (lv_coord_t)(cy - R * sinf(ang2)) };
+        lv_draw_line(draw_ctx, &ld, &p1, &p2);
+    }
+
+    // ── White indicator dot at current position ───────────────────────────────
+    float ind_ang = (float)M_PI * (1.0f - frac);
+    lv_coord_t dx = (lv_coord_t)(cx + R * cosf(ind_ang));
+    lv_coord_t dy = (lv_coord_t)(cy - R * sinf(ind_ang));
+    lv_draw_rect_dsc_t rd;
+    lv_draw_rect_dsc_init(&rd);
+    rd.bg_color    = lv_color_make(0xFF, 0xFF, 0xFF);
+    rd.border_opa  = LV_OPA_TRANSP;
+    rd.radius      = LV_RADIUS_CIRCLE;
+    lv_area_t dot = { (lv_coord_t)(dx - 5), (lv_coord_t)(dy - 5),
+                      (lv_coord_t)(dx + 5), (lv_coord_t)(dy + 5) };
+    lv_draw_rect(draw_ctx, &rd, &dot);
+
+    // ── "LO" and "HI" end labels ─────────────────────────────────────────────
+    lv_draw_label_dsc_t sl;
+    lv_draw_label_dsc_init(&sl);
+    sl.font  = &lv_font_montserrat_12;
+    sl.color = lv_color_make(0x70, 0x70, 0x90);
+    sl.align = LV_TEXT_ALIGN_CENTER;
+    {
+        // LO: left end of arc — angle = M_PI → (cx-R, cy)
+        lv_coord_t lx = (lv_coord_t)(cx - R);
+        lv_area_t la = { (lv_coord_t)(lx - 16), (lv_coord_t)(cy - 16),
+                         (lv_coord_t)(lx + 16), cy };
+        lv_draw_label(draw_ctx, &sl, &la, "LO", nullptr);
+    }
+    {
+        // HI: right end of arc — angle = 0 → (cx+R, cy)
+        lv_coord_t hx = (lv_coord_t)(cx + R);
+        lv_area_t la = { (lv_coord_t)(hx - 16), (lv_coord_t)(cy - 16),
+                         (lv_coord_t)(hx + 16), cy };
+        lv_draw_label(draw_ctx, &sl, &la, "HI", nullptr);
+    }
+
+    // ── Current height in the centre of the arc ───────────────────────────────
+    char hbuf[10];
+    snprintf(hbuf, sizeof(hbuf), "%.1fft", gTides.height_ft());
+    lv_draw_label_dsc_t hl;
+    lv_draw_label_dsc_init(&hl);
+    hl.font  = &lv_font_montserrat_18;
+    hl.color = lv_color_make(0xFF, 0xFF, 0xFF);
+    hl.align = LV_TEXT_ALIGN_CENTER;
+    lv_coord_t arc_mid_y = (lv_coord_t)(cy - R * 0.55f);  // visually centred inside arc
+    lv_area_t hla = { (lv_coord_t)(cx - 44), (lv_coord_t)(arc_mid_y - 12),
+                      (lv_coord_t)(cx + 44), (lv_coord_t)(arc_mid_y + 6) };
+    lv_draw_label(draw_ctx, &hl, &hla, hbuf, nullptr);
+
+    // ── Rising / falling indicator (^ or v) below height ─────────────────────
+    lv_draw_label_dsc_t al;
+    lv_draw_label_dsc_init(&al);
+    al.font  = &lv_font_montserrat_12;
+    al.color = gTides.rising ? lv_color_make(0x40, 0xE0, 0x90)
+                             : lv_color_make(0xFF, 0xC0, 0x40);
+    al.align = LV_TEXT_ALIGN_CENTER;
+    lv_area_t ala = { (lv_coord_t)(cx - 40), (lv_coord_t)(arc_mid_y + 7),
+                      (lv_coord_t)(cx + 40), (lv_coord_t)(arc_mid_y + 20) };
+    lv_draw_label(draw_ctx, &al, &ala, gTides.rising ? "^ RISING" : "v FALLING", nullptr);
+
+    // ── Next event: "HI 3.5ft 2:55a" or "LO 0.5ft 9:08p" ───────────────────
+    char nbuf[20];
+    bool nxt_is_high = gTides.rising;
+    snprintf(nbuf, sizeof(nbuf), "%s %.1fft %s",
+             nxt_is_high ? "HI" : "LO",
+             nxt_is_high ? gTides.next_high_ft() : gTides.next_low_ft(),
+             nxt_is_high ? gTides.next_high_time : gTides.next_low_time);
+    lv_draw_label_dsc_t nl;
+    lv_draw_label_dsc_init(&nl);
+    nl.font  = &lv_font_montserrat_12;
+    nl.color = lv_color_make(0x80, 0xB0, 0xD0);
+    nl.align = LV_TEXT_ALIGN_CENTER;
+    lv_area_t nla = { a.x1, (lv_coord_t)(a.y2 - 16), a.x2, a.y2 };
+    lv_draw_label(draw_ctx, &nl, &nla, nbuf, nullptr);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -630,23 +775,6 @@ static void ff_adj_timer_kick() {
     lv_timer_resume(s_ff_adj_timer);
 }
 
-// ── Tide strip label update ───────────────────────────────────────────────────
-static void update_tide_label() {
-    if (!s_tide_lbl) return;
-    if (!gTides.valid()) {
-        lv_label_set_text(s_tide_lbl, "TIDE: ---");
-        return;
-    }
-    char buf[72];
-    const char* arrow = gTides.rising ? "^" : "v";
-    snprintf(buf, sizeof(buf), "TIDE %s %.1fft  |  HI %.1fft %s  |  LO %.1fft %s",
-             arrow,
-             gTides.height_ft(),
-             gTides.next_high_ft(), gTides.next_high_time,
-             gTides.next_low_ft(),  gTides.next_low_time);
-    lv_label_set_text(s_tide_lbl, buf);
-}
-
 // ── Mode switch helpers ───────────────────────────────────────────────────────
 // These are forward-declared as callbacks; s_aw_cont is defined later in the
 // file but both containers are file-scope statics so all callbacks can use them.
@@ -1024,8 +1152,9 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
         lv_obj_add_event_cb(aw_mode_btn, switch_to_anchor_watch, LV_EVENT_CLICKED, nullptr);
     }
 
+    // ── Depth (left half) ─────────────────────────────────────────────────────
     lv_obj_t* dep_cap = lv_label_create(s_ff_cont);
-    lv_obj_set_pos(dep_cap, 0, 48);  lv_obj_set_size(dep_cap, SCR_W, 20);
+    lv_obj_set_pos(dep_cap, 0, 48);  lv_obj_set_size(dep_cap, SCR_W / 2, 20);
     lv_obj_set_style_text_font(dep_cap, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(dep_cap, lv_color_hex(COL_LABEL), 0);
     lv_obj_set_style_text_align(dep_cap, LV_TEXT_ALIGN_CENTER, 0);
@@ -1033,12 +1162,32 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
     lv_obj_clear_flag(dep_cap, LV_OBJ_FLAG_CLICKABLE);
 
     s_depth = lv_label_create(s_ff_cont);
-    lv_obj_set_pos(s_depth, 0, 70);  lv_obj_set_size(s_depth, SCR_W, 56);
+    lv_obj_set_pos(s_depth, 0, 70);  lv_obj_set_size(s_depth, SCR_W / 2, 56);
     lv_obj_set_style_text_font(s_depth, &lv_font_montserrat_44, 0);
     lv_obj_set_style_text_color(s_depth, lv_color_hex(COL_MUTED), 0);
     lv_obj_set_style_text_align(s_depth, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(s_depth, "---");
     lv_obj_clear_flag(s_depth, LV_OBJ_FLAG_CLICKABLE);
+
+    // Vertical divider between depth and tide gauge
+    {
+        lv_obj_t* vd = lv_obj_create(s_ff_cont);
+        lv_obj_set_pos(vd, SCR_W / 2, 48);  lv_obj_set_size(vd, 1, 80);
+        lv_obj_set_style_bg_color(vd, lv_color_hex(COL_DIV), 0);
+        lv_obj_set_style_border_width(vd, 0, 0);
+        lv_obj_clear_flag(vd, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    }
+
+    // ── Tide gauge (right half, custom draw) ──────────────────────────────────
+    s_tide_gauge = lv_obj_create(s_ff_cont);
+    lv_obj_set_pos(s_tide_gauge, SCR_W / 2 + 2, 46);
+    lv_obj_set_size(s_tide_gauge, SCR_W / 2 - 6, 84);
+    lv_obj_set_style_bg_opa(s_tide_gauge, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(s_tide_gauge, 0, 0);
+    lv_obj_set_style_pad_all(s_tide_gauge, 0, 0);
+    lv_obj_set_style_radius(s_tide_gauge, 0, 0);
+    lv_obj_clear_flag(s_tide_gauge, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_tide_gauge, tide_gauge_draw_cb, LV_EVENT_DRAW_MAIN, nullptr);
 
     hdiv(s_ff_cont, 132);
 
@@ -1059,29 +1208,17 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
 
     hdiv(s_ff_cont, 216);
 
-    // ── Tide strip ────────────────────────────────────────────────────────────
-    // One line: "TIDE ^ 3.2ft  |  HI 5.8ft 2:30p  |  LO 0.2ft 8:45p"
-    s_tide_lbl = lv_label_create(s_ff_cont);
-    lv_obj_set_pos(s_tide_lbl, 0, 219);
-    lv_obj_set_size(s_tide_lbl, SCR_W, 16);
-    lv_obj_set_style_text_font(s_tide_lbl, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(s_tide_lbl, lv_color_make(0x60, 0xC8, 0xFF), 0);
-    lv_obj_set_style_text_align(s_tide_lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_clear_flag(s_tide_lbl, LV_OBJ_FLAG_CLICKABLE);
-    update_tide_label();
-
     // ── "DEPTH HISTORY" row — title left, depth alarm status right ─────────
     lv_obj_t* ff_lbl = lv_label_create(s_ff_cont);
-    lv_obj_set_pos(ff_lbl, 0, 237);  lv_obj_set_size(ff_lbl, SCR_W / 2, 16);
+    lv_obj_set_pos(ff_lbl, 0, 220);  lv_obj_set_size(ff_lbl, SCR_W / 2, 16);
     lv_obj_set_style_text_font(ff_lbl, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(ff_lbl, lv_color_hex(COL_LABEL), 0);
     lv_obj_set_style_text_align(ff_lbl, LV_TEXT_ALIGN_LEFT, 0);
     lv_label_set_text(ff_lbl, "  DEPTH HISTORY | 10 min");
     lv_obj_clear_flag(ff_lbl, LV_OBJ_FLAG_CLICKABLE);
 
-    // Depth alarm status right side of the same row
     s_ff_alarm_lbl = lv_label_create(s_ff_cont);
-    lv_obj_set_pos(s_ff_alarm_lbl, SCR_W / 2, 237);
+    lv_obj_set_pos(s_ff_alarm_lbl, SCR_W / 2, 220);
     lv_obj_set_size(s_ff_alarm_lbl, SCR_W / 2, 16);
     lv_obj_set_style_text_font(s_ff_alarm_lbl, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(s_ff_alarm_lbl, lv_color_make(0xC8, 0xA0, 0x00), 0);
@@ -1089,8 +1226,8 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
     lv_obj_clear_flag(s_ff_alarm_lbl, LV_OBJ_FLAG_CLICKABLE);
 
     s_fishfinder = lv_obj_create(s_ff_cont);
-    lv_obj_set_pos(s_fishfinder, 4, 256);
-    lv_obj_set_size(s_fishfinder, SCR_W - 8, 220);
+    lv_obj_set_pos(s_fishfinder, 4, 240);
+    lv_obj_set_size(s_fishfinder, SCR_W - 8, 236);
     lv_obj_set_style_bg_opa(s_fishfinder, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_color(s_fishfinder, lv_color_hex(COL_DIV), 0);
     lv_obj_set_style_border_width(s_fishfinder, 1, 0);
@@ -1119,7 +1256,7 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
         const lv_coord_t PW = 300;
         const lv_coord_t PH = 110;
         const lv_coord_t PX = (SCR_W - PW) / 2;
-        const lv_coord_t PY = 362;   // inside fishfinder area (256+220=476, panel bottom=472)
+        const lv_coord_t PY = 360;   // inside fishfinder area (240+236=476, panel bottom=470)
 
         s_ff_adj_panel = lv_obj_create(s_ff_cont);
         lv_obj_set_pos(s_ff_adj_panel, PX, PY);
@@ -1351,7 +1488,7 @@ void nav_detail_refresh(bool update_chart) {
     slbl(s_sog,   st, gNav.sog_kts,             "%.1f", COL_VALUE);
     slbl(s_hdg,   st, gNav.hdg_deg,             "%.0f", COL_VALUE);
     slbl(s_cog,   st, gNav.cog_deg,             "%.0f", COL_VALUE);
-    update_tide_label();
+    if (s_tide_gauge) lv_obj_invalidate(s_tide_gauge);
 
     s_ff_cur_ft = (st || isnan(gNav.depth_m)) ? 0.0f : gNav.depth_m * 3.28084f;
 
