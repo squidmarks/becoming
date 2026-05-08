@@ -223,13 +223,20 @@ module.exports = function (app) {
   // ── Main poll ─────────────────────────────────────────────────────────────
 
   async function poll() {
-    const posPath = app.getSelfPath('navigation.position');
-    if (!posPath || !posPath.value) {
+    // getSelfPath() may return the value directly or wrapped in {value: ...}
+    // depending on SignalK version and path type — handle both.
+    const posRaw = app.getSelfPath('navigation.position');
+    if (!posRaw) {
       app.debug('No position fix — skipping tide fetch');
       return;
     }
-    const { latitude: lat, longitude: lon } = posPath.value;
-    if (typeof lat !== 'number' || typeof lon !== 'number') return;
+    const posVal = (posRaw && posRaw.value !== undefined) ? posRaw.value : posRaw;
+    const lat = posVal && posVal.latitude;
+    const lon = posVal && posVal.longitude;
+    if (typeof lat !== 'number' || typeof lon !== 'number') {
+      app.debug(`Position not valid: ${JSON.stringify(posRaw)}`);
+      return;
+    }
 
     const restationDist = pluginOpts.restationDistNm || 20;
     const moved = lastLat !== null && distNm(lat, lon, lastLat, lastLon) > restationDist;
@@ -237,12 +244,17 @@ module.exports = function (app) {
     if (!stationId || moved) {
       app.debug(`Finding nearest tide station (${lat.toFixed(4)}, ${lon.toFixed(4)})…`);
       const { station, distNm: d } = await findNearest(lat, lon);
-      if (!station) { app.setProviderError('No NOAA tide station found'); return; }
+      if (!station) {
+        if (app.setPluginError) app.setPluginError('No NOAA tide station found');
+        else app.setProviderError('No NOAA tide station found');
+        return;
+      }
       stationId   = station.id;
       stationName = station.name;
       lastLat     = lat;
       lastLon     = lon;
-      app.setProviderStatus(`${station.name} (${d.toFixed(1)} nm away)`);
+      if (app.setPluginStatus) app.setPluginStatus(`${station.name} (${d.toFixed(1)} nm away)`);
+      else app.setProviderStatus(`${station.name} (${d.toFixed(1)} nm away)`);
       app.debug(`Tide station: ${station.name} id=${station.id} dist=${d.toFixed(1)}nm`);
     }
 
@@ -256,11 +268,21 @@ module.exports = function (app) {
     pluginOpts = options || {};
     const intervalMs = ((options && options.pollIntervalMin) || 15) * 60 * 1000;
 
-    app.setProviderStatus('Starting…');
-    poll().catch(e => { app.setProviderError(e.message); app.debug(e.stack || e); });
+    if (app.setPluginStatus) app.setPluginStatus('Starting…');
+    else     if (app.setPluginStatus) app.setPluginStatus('Starting…');
+    else app.setProviderStatus('Starting…');
+    poll().catch(e => {
+      const setErr = app.setPluginError || app.setProviderError;
+      setErr(e.message);
+      app.debug(e.stack || e);
+    });
 
     pollTimer = setInterval(() => {
-      poll().catch(e => { app.setProviderError(e.message); app.debug(e.stack || e); });
+      poll().catch(e => {
+        const setErr = app.setPluginError || app.setProviderError;
+        setErr(e.message);
+        app.debug(e.stack || e);
+      });
     }, intervalMs);
   };
 
