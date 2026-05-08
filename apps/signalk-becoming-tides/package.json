@@ -1,0 +1,8 @@
+{
+  "name": "signalk-becoming-tides",
+  "version": "1.0.0",
+  "description": "NOAA tide predictions for M/Y Becoming — publishes nearest-station data to SignalK every 15 min",
+  "keywords": ["signalk-node-server-plugin"],
+  "main": "index.js",
+  "license": "MIT"
+}

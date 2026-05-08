@@ -23,7 +23,12 @@ static lv_obj_t *s_aw_cont;   // anchor watch mode container
 // ── Fish-finder statics ───────────────────────────────────────────────────────
 static lv_obj_t *s_depth, *s_sog, *s_hdg, *s_cog;
 static lv_obj_t *s_fishfinder;
-static lv_obj_t *s_ff_alarm_lbl;   // shows "⚠ ALARM: XX ft" on fish-finder
+static lv_obj_t  *s_ff_alarm_lbl   = nullptr;  // depth alarm status right of "DEPTH HISTORY"
+static lv_obj_t  *s_tide_lbl       = nullptr;  // tide strip between stats and depth history
+static lv_obj_t  *s_ff_adj_panel   = nullptr;  // tap-to-show depth alarm overlay
+static lv_obj_t  *s_ff_warn_lbl    = nullptr;  // "10 ft" inside panel
+static lv_obj_t  *s_ff_alert_lbl   = nullptr;  // "5 ft" inside panel
+static lv_timer_t*s_ff_adj_timer   = nullptr;
 static float     s_ff_depths[HISTORY_LEN];
 static uint16_t  s_ff_count  = 0;
 static float     s_ff_cur_ft = 0.0f;
@@ -49,6 +54,9 @@ static lv_obj_t  *s_aw_radius_cap = nullptr;   // "CHAIN" or "RADIUS" label
 static lv_obj_t  *s_aw_radius_lbl = nullptr;
 static lv_obj_t  *s_aw_buf_lbl    = nullptr;
 static lv_timer_t *s_aw_adj_timer = nullptr;
+
+// Mode-switch button in the AW top bar (hidden when anchor is active)
+static lv_obj_t  *s_aw_ff_btn     = nullptr;
 
 // Pre-anchor configuration (shown in overlay before SET ANCHOR is pressed)
 static float s_edit_chain_ft = 100.0f;   // default chain length (ft)
@@ -187,29 +195,32 @@ static void fishfinder_draw_cb(lv_event_t* e) {
         lv_draw_rect(draw_ctx, &br, &wls);
     }
 
-    // ── Depth alarm line ──────────────────────────────────────────────────────
-    // Red horizontal dashed line at the alarm threshold depth.
-    if (g_depth_alarm_ft > 0.0f) {
-        float alarm_frac = (float)g_depth_alarm_ft / max_d;
-        if (alarm_frac <= 1.0f) {
-            lv_coord_t alarm_y = (lv_coord_t)(wl_y + alarm_frac * depth_h);
-            lv_draw_line_dsc_t ald;
-            lv_draw_line_dsc_init(&ald);
-            // Colour: red if currently below threshold, amber if close (within 20%)
-            bool below = (!isnan(s_ff_cur_ft) && s_ff_cur_ft < g_depth_alarm_ft);
-            bool close = (!isnan(s_ff_cur_ft) && s_ff_cur_ft < g_depth_alarm_ft * 1.2f);
-            ald.color = below ? lv_color_make(0xFF, 0x20, 0x20)
-                              : (close ? lv_color_make(0xFF, 0xA0, 0x00)
-                                       : lv_color_make(0xFF, 0x60, 0x60));
-            ald.width = 2; ald.opa = LV_OPA_90;
-            // Dashed line: draw segments across the full width
-            for (lv_coord_t sx = a.x1; sx < a.x2; sx += 12) {
-                lv_point_t lp1 = { sx,                              alarm_y };
-                lv_point_t lp2 = { (lv_coord_t)LV_MIN(sx + 8, a.x2), alarm_y };
-                lv_draw_line(draw_ctx, &ald, &lp1, &lp2);
-            }
+    // ── Depth alarm lines ─────────────────────────────────────────────────────
+    // Yellow dashed line at WARN threshold; red dashed line at ALERT threshold.
+    auto draw_alarm_line = [&](float thresh_ft, lv_color_t col_normal, lv_color_t col_active) {
+        if (thresh_ft <= 0.0f) return;
+        float frac = thresh_ft / max_d;
+        if (frac > 1.0f) return;
+        lv_coord_t ly = (lv_coord_t)(wl_y + frac * depth_h);
+        lv_draw_line_dsc_t ld;
+        lv_draw_line_dsc_init(&ld);
+        bool active = (!isnan(s_ff_cur_ft) && s_ff_cur_ft < thresh_ft);
+        ld.color = active ? col_active : col_normal;
+        ld.width = 2; ld.opa = LV_OPA_90;
+        for (lv_coord_t sx = a.x1; sx < a.x2; sx += 12) {
+            lv_point_t lp1 = { sx,                                     ly };
+            lv_point_t lp2 = { (lv_coord_t)LV_MIN(sx + 8, a.x2), ly };
+            lv_draw_line(draw_ctx, &ld, &lp1, &lp2);
         }
-    }
+    };
+    // WARN line: yellow → bright yellow when active
+    draw_alarm_line(g_depth_warn_ft,
+                    lv_color_make(0xC8, 0xA0, 0x00),
+                    lv_color_make(0xFF, 0xE0, 0x00));
+    // ALERT line: orange-red → bright red when active
+    draw_alarm_line(g_depth_alert_ft,
+                    lv_color_make(0xCC, 0x40, 0x00),
+                    lv_color_make(0xFF, 0x20, 0x20));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -509,12 +520,18 @@ static void aw_update_ui() {
     // Overlay values
     if (s_aw_radius_lbl && s_aw_buf_lbl) {
         char buf[20];
-        // Show chain length (pre-set) or anchor radius (post-set)
         float r = gAnchor.active ? gAnchor.radius_m : (s_edit_chain_ft * 0.3048f);
         snprintf(buf, sizeof(buf), "%d ft", (int)roundf(r * 3.28084f));
         lv_label_set_text(s_aw_radius_lbl, buf);
         snprintf(buf, sizeof(buf), "%.0f%%", gAnchor.alarm_buffer_pct);
         lv_label_set_text(s_aw_buf_lbl, buf);
+    }
+
+    // Mode-switch "FF" button: hide while anchor is active (don't let user
+    // accidentally switch away while monitoring), show otherwise.
+    if (s_aw_ff_btn) {
+        if (gAnchor.active) lv_obj_add_flag  (s_aw_ff_btn, LV_OBJ_FLAG_HIDDEN);
+        else                lv_obj_clear_flag(s_aw_ff_btn, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
@@ -580,24 +597,103 @@ static void on_release(lv_event_t*) {
     signalk_queue_save_anchor();   // publish released state to SignalK
 }
 // ── Depth alarm threshold controls ───────────────────────────────────────────
-static void update_ff_alarm_label() {
-    if (!s_ff_alarm_lbl) return;
-    if (g_depth_alarm_ft <= 0.0f) {
-        lv_label_set_text(s_ff_alarm_lbl, "ALM: OFF");
-    } else {
-        char buf[24];
-        snprintf(buf, sizeof(buf), "ALM: %d ft", (int)g_depth_alarm_ft);
-        lv_label_set_text(s_ff_alarm_lbl, buf);
+static void update_ff_alarm_ui() {
+    // Header status label
+    if (s_ff_alarm_lbl) {
+        if (g_depth_warn_ft <= 0.0f) {
+            lv_label_set_text(s_ff_alarm_lbl, "DEPTH ALM: OFF");
+        } else {
+            char buf[40];
+            snprintf(buf, sizeof(buf), "WARN %dft  ALRT %dft",
+                     (int)g_depth_warn_ft, (int)g_depth_alert_ft);
+            lv_label_set_text(s_ff_alarm_lbl, buf);
+        }
     }
-    lv_obj_invalidate(s_fishfinder);   // redraw alarm line
+    // Overlay panel value labels
+    if (s_ff_warn_lbl) {
+        char buf[12];
+        if (g_depth_warn_ft <= 0.0f) snprintf(buf, sizeof(buf), "OFF");
+        else                          snprintf(buf, sizeof(buf), "%d ft", (int)g_depth_warn_ft);
+        lv_label_set_text(s_ff_warn_lbl, buf);
+    }
+    if (s_ff_alert_lbl) {
+        char buf[12];
+        snprintf(buf, sizeof(buf), "%d ft", (int)g_depth_alert_ft);
+        lv_label_set_text(s_ff_alert_lbl, buf);
+    }
+    if (s_fishfinder) lv_obj_invalidate(s_fishfinder);
 }
-static void on_alarm_depth_minus(lv_event_t*) {
-    g_depth_alarm_ft = fmaxf(0.0f, g_depth_alarm_ft - 5.0f);
-    update_ff_alarm_label();
+
+static void ff_adj_timer_kick() {
+    if (!s_ff_adj_timer) return;
+    lv_timer_reset(s_ff_adj_timer);
+    lv_timer_resume(s_ff_adj_timer);
 }
-static void on_alarm_depth_plus(lv_event_t*) {
-    g_depth_alarm_ft = fminf(200.0f, g_depth_alarm_ft + 5.0f);
-    update_ff_alarm_label();
+
+// ── Tide strip label update ───────────────────────────────────────────────────
+static void update_tide_label() {
+    if (!s_tide_lbl) return;
+    if (!gTides.valid()) {
+        lv_label_set_text(s_tide_lbl, "TIDE: ---");
+        return;
+    }
+    char buf[72];
+    const char* arrow = gTides.rising ? "^" : "v";
+    snprintf(buf, sizeof(buf), "TIDE %s %.1fft  |  HI %.1fft %s  |  LO %.1fft %s",
+             arrow,
+             gTides.height_ft(),
+             gTides.next_high_ft(), gTides.next_high_time,
+             gTides.next_low_ft(),  gTides.next_low_time);
+    lv_label_set_text(s_tide_lbl, buf);
+}
+
+// ── Mode switch helpers ───────────────────────────────────────────────────────
+// These are forward-declared as callbacks; s_aw_cont is defined later in the
+// file but both containers are file-scope statics so all callbacks can use them.
+static void switch_to_anchor_watch(lv_event_t*) {
+    s_anchor_mode        = true;
+    s_anchor_mode_manual = true;
+    lv_obj_add_flag  (s_ff_cont, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_aw_cont, LV_OBJ_FLAG_HIDDEN);
+    aw_update_ui();
+}
+static void switch_to_fishfinder(lv_event_t*) {
+    s_anchor_mode        = false;
+    s_anchor_mode_manual = true;
+    lv_obj_clear_flag(s_ff_cont, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag  (s_aw_cont, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void on_warn_minus(lv_event_t*) {
+    float next = g_depth_warn_ft - 1.0f;
+    if (next <= g_depth_alert_ft) next = 0.0f;   // decrement to off
+    g_depth_warn_ft = fmaxf(0.0f, next);
+    if (g_depth_warn_ft == 0.0f) g_depth_alert_ft = 0.0f;
+    update_ff_alarm_ui();
+    ff_adj_timer_kick();
+}
+static void on_warn_plus(lv_event_t*) {
+    if (g_depth_warn_ft == 0.0f) {
+        g_depth_warn_ft  = 10.0f;
+        g_depth_alert_ft =  5.0f;
+    } else {
+        g_depth_warn_ft = fminf(200.0f, g_depth_warn_ft + 1.0f);
+    }
+    update_ff_alarm_ui();
+    ff_adj_timer_kick();
+}
+static void on_alert_minus(lv_event_t*) {
+    if (g_depth_warn_ft == 0.0f) return;
+    g_depth_alert_ft = fmaxf(1.0f, g_depth_alert_ft - 1.0f);
+    if (g_depth_alert_ft >= g_depth_warn_ft) g_depth_alert_ft = g_depth_warn_ft - 1.0f;
+    update_ff_alarm_ui();
+    ff_adj_timer_kick();
+}
+static void on_alert_plus(lv_event_t*) {
+    if (g_depth_warn_ft == 0.0f) return;
+    g_depth_alert_ft = fminf(g_depth_warn_ft - 1.0f, g_depth_alert_ft + 1.0f);
+    update_ff_alarm_ui();
+    ff_adj_timer_kick();
 }
 
 // Clear alarm latch + pending timer; call after user acknowledgement or when
@@ -825,10 +921,14 @@ static void build_anchor_watch(lv_obj_t* par) {
     aw_lbl(top, 224, 5,  "HDG",  &lv_font_montserrat_12, 0x8899AA);
     s_aw_live_hdg_lbl = aw_lbl(top, 224, 19, "---", &lv_font_montserrat_18, 0xFFFFFF);
 
-    s_aw_dist_cap = aw_lbl(top, 348, 5,  "DIST", &lv_font_montserrat_12, 0x8899AA);
-    s_aw_dist_lbl = aw_lbl(top, 348, 19, "---",  &lv_font_montserrat_18, 0xFFFFFF);
+    s_aw_dist_cap = aw_lbl(top, 308, 5,  "DIST", &lv_font_montserrat_12, 0x8899AA);
+    s_aw_dist_lbl = aw_lbl(top, 308, 19, "---",  &lv_font_montserrat_18, 0xFFFFFF);
     lv_obj_add_flag(s_aw_dist_cap, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_aw_dist_lbl, LV_OBJ_FLAG_HIDDEN);
+
+    // "FISHFINDER" mode-switch button — right side of top bar.
+    // Hidden while anchor is active (managed by aw_update_ui).
+    s_aw_ff_btn = aw_btn(top, 394, 4, 80, 44, "FF", switch_to_fishfinder);
 
     // ── Adjustment overlay (tap chart to show; auto-hides after 3 s) ─────────
     // Positioned low on the chart above the footer; clear of the anchor circles.
@@ -904,7 +1004,25 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
     // ── Fish-finder container ─────────────────────────────────────────────────
     s_ff_cont = transparent_cont(scr, 0, 0, SCR_W, SCR_H);
 
-    detail_header(s_ff_cont, COL_NAV, "NAVIGATION", back_cb);
+    {
+        lv_obj_t* hdr = detail_header(s_ff_cont, COL_NAV, "NAVIGATION", back_cb);
+        // "ANCHOR" mode-switch button — right side of the header bar
+        lv_obj_t* aw_mode_btn = lv_btn_create(hdr);
+        lv_obj_set_pos(aw_mode_btn, 384, 5);
+        lv_obj_set_size(aw_mode_btn, 88, 30);
+        lv_obj_set_style_bg_color(aw_mode_btn, lv_color_make(0x18, 0x30, 0x60), 0);
+        lv_obj_set_style_bg_color(aw_mode_btn, lv_color_make(0x28, 0x50, 0x90), LV_STATE_PRESSED);
+        lv_obj_set_style_border_color(aw_mode_btn, lv_color_make(0x44, 0x88, 0xCC), 0);
+        lv_obj_set_style_border_width(aw_mode_btn, 1, 0);
+        lv_obj_set_style_radius(aw_mode_btn, 6, 0);
+        lv_obj_set_style_shadow_width(aw_mode_btn, 0, 0);
+        lv_obj_t* aml = lv_label_create(aw_mode_btn);
+        lv_label_set_text(aml, "ANCHOR");
+        lv_obj_set_style_text_color(aml, lv_color_make(0xFF, 0xFF, 0xFF), 0);
+        lv_obj_set_style_text_font(aml, &lv_font_montserrat_12, 0);
+        lv_obj_center(aml);
+        lv_obj_add_event_cb(aw_mode_btn, switch_to_anchor_watch, LV_EVENT_CLICKED, nullptr);
+    }
 
     lv_obj_t* dep_cap = lv_label_create(s_ff_cont);
     lv_obj_set_pos(dep_cap, 0, 48);  lv_obj_set_size(dep_cap, SCR_W, 20);
@@ -941,59 +1059,153 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
 
     hdiv(s_ff_cont, 216);
 
+    // ── Tide strip ────────────────────────────────────────────────────────────
+    // One line: "TIDE ^ 3.2ft  |  HI 5.8ft 2:30p  |  LO 0.2ft 8:45p"
+    s_tide_lbl = lv_label_create(s_ff_cont);
+    lv_obj_set_pos(s_tide_lbl, 0, 219);
+    lv_obj_set_size(s_tide_lbl, SCR_W, 16);
+    lv_obj_set_style_text_font(s_tide_lbl, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(s_tide_lbl, lv_color_make(0x60, 0xC8, 0xFF), 0);
+    lv_obj_set_style_text_align(s_tide_lbl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_clear_flag(s_tide_lbl, LV_OBJ_FLAG_CLICKABLE);
+    update_tide_label();
+
+    // ── "DEPTH HISTORY" row — title left, depth alarm status right ─────────
     lv_obj_t* ff_lbl = lv_label_create(s_ff_cont);
-    lv_obj_set_pos(ff_lbl, 0, 220);  lv_obj_set_size(ff_lbl, SCR_W, 18);
+    lv_obj_set_pos(ff_lbl, 0, 237);  lv_obj_set_size(ff_lbl, SCR_W / 2, 16);
     lv_obj_set_style_text_font(ff_lbl, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(ff_lbl, lv_color_hex(COL_LABEL), 0);
-    lv_obj_set_style_text_align(ff_lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(ff_lbl, "DEPTH HISTORY  |  last 10 min");
+    lv_obj_set_style_text_align(ff_lbl, LV_TEXT_ALIGN_LEFT, 0);
+    lv_label_set_text(ff_lbl, "  DEPTH HISTORY | 10 min");
     lv_obj_clear_flag(ff_lbl, LV_OBJ_FLAG_CLICKABLE);
 
+    // Depth alarm status right side of the same row
+    s_ff_alarm_lbl = lv_label_create(s_ff_cont);
+    lv_obj_set_pos(s_ff_alarm_lbl, SCR_W / 2, 237);
+    lv_obj_set_size(s_ff_alarm_lbl, SCR_W / 2, 16);
+    lv_obj_set_style_text_font(s_ff_alarm_lbl, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(s_ff_alarm_lbl, lv_color_make(0xC8, 0xA0, 0x00), 0);
+    lv_obj_set_style_text_align(s_ff_alarm_lbl, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_clear_flag(s_ff_alarm_lbl, LV_OBJ_FLAG_CLICKABLE);
+
     s_fishfinder = lv_obj_create(s_ff_cont);
-    lv_obj_set_pos(s_fishfinder, 4, 242);
-    lv_obj_set_size(s_fishfinder, SCR_W - 8, 234);
+    lv_obj_set_pos(s_fishfinder, 4, 256);
+    lv_obj_set_size(s_fishfinder, SCR_W - 8, 220);
     lv_obj_set_style_bg_opa(s_fishfinder, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_color(s_fishfinder, lv_color_hex(COL_DIV), 0);
     lv_obj_set_style_border_width(s_fishfinder, 1, 0);
     lv_obj_set_style_pad_all(s_fishfinder, 0, 0);
     lv_obj_set_style_radius(s_fishfinder, 0, 0);
-    lv_obj_clear_flag(s_fishfinder, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_clear_flag(s_fishfinder, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_fishfinder, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_fishfinder, fishfinder_draw_cb, LV_EVENT_DRAW_MAIN, nullptr);
+    lv_obj_add_event_cb(s_fishfinder, [](lv_event_t*) {
+        if (!s_ff_adj_panel) return;
+        bool hidden = lv_obj_has_flag(s_ff_adj_panel, LV_OBJ_FLAG_HIDDEN);
+        if (hidden) {
+            update_ff_alarm_ui();
+            lv_obj_clear_flag(s_ff_adj_panel, LV_OBJ_FLAG_HIDDEN);
+            ff_adj_timer_kick();
+        } else {
+            lv_obj_add_flag(s_ff_adj_panel, LV_OBJ_FLAG_HIDDEN);
+            if (s_ff_adj_timer) lv_timer_pause(s_ff_adj_timer);
+        }
+    }, LV_EVENT_CLICKED, nullptr);
 
-    // ── Depth alarm overlay (bottom-right of fish-finder) ─────────────────────
-    // [−] ⚠ XX ft [+]  — small semi-transparent controls overlaid on the chart
+    // ── Depth alarm adjustment overlay panel ─────────────────────────────────
+    // Appears on tap of the fishfinder; auto-hides after 4 s.
+    // Layout: two rows — WARN and ALERT — each with [−] value [+]
     {
-        const lv_coord_t AY = 450;  // y within s_ff_cont (near bottom of fish-finder)
-        const lv_coord_t AH = 26;
+        const lv_coord_t PW = 300;
+        const lv_coord_t PH = 110;
+        const lv_coord_t PX = (SCR_W - PW) / 2;
+        const lv_coord_t PY = 362;   // inside fishfinder area (256+220=476, panel bottom=472)
 
-        auto mk_abtn = [&](lv_coord_t x, lv_coord_t w, const char* lbl,
-                           lv_event_cb_t cb) {
-            lv_obj_t* b = lv_btn_create(s_ff_cont);
-            lv_obj_set_pos(b, x, AY);
-            lv_obj_set_size(b, w, AH);
-            lv_obj_set_style_bg_color(b, lv_color_make(0x10, 0x10, 0x30), 0);
-            lv_obj_set_style_bg_opa(b, LV_OPA_70, 0);
-            lv_obj_set_style_border_color(b, lv_color_make(0x60, 0x60, 0xA0), 0);
-            lv_obj_set_style_border_width(b, 1, 0);
-            lv_obj_set_style_radius(b, 4, 0);
-            lv_obj_set_style_pad_all(b, 2, 0);
-            lv_obj_t* lv = lv_label_create(b);
-            lv_obj_center(lv);
-            lv_obj_set_style_text_font(lv, &lv_font_montserrat_14, 0);
-            lv_obj_set_style_text_color(lv, lv_color_make(0xFF, 0xFF, 0xFF), 0);
-            lv_label_set_text(lv, lbl);
-            lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, nullptr);
+        s_ff_adj_panel = lv_obj_create(s_ff_cont);
+        lv_obj_set_pos(s_ff_adj_panel, PX, PY);
+        lv_obj_set_size(s_ff_adj_panel, PW, PH);
+        lv_obj_set_style_bg_color(s_ff_adj_panel, lv_color_make(0x08, 0x10, 0x28), 0);
+        lv_obj_set_style_bg_opa(s_ff_adj_panel, LV_OPA_90, 0);
+        lv_obj_set_style_border_color(s_ff_adj_panel, lv_color_make(0x40, 0x60, 0xA0), 0);
+        lv_obj_set_style_border_width(s_ff_adj_panel, 1, 0);
+        lv_obj_set_style_radius(s_ff_adj_panel, 8, 0);
+        lv_obj_set_style_pad_all(s_ff_adj_panel, 0, 0);
+        lv_obj_clear_flag(s_ff_adj_panel, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(s_ff_adj_panel, LV_OBJ_FLAG_HIDDEN);
+
+        // Helper: create a row with cap label | [−] | value label | [+]
+        // Returns the value label widget.
+        auto mk_row = [&](lv_coord_t ry, const char* cap,
+                          lv_color_t cap_col,
+                          lv_event_cb_t minus_cb, lv_event_cb_t plus_cb) -> lv_obj_t* {
+            const lv_coord_t BTN_W = 56, BTN_H = 44;
+            const lv_coord_t VAL_W = 80;
+            const lv_coord_t CAP_W = 60;
+
+            // Cap label (WARN / ALRT)
+            lv_obj_t* cap_l = lv_label_create(s_ff_adj_panel);
+            lv_obj_set_pos(cap_l, 8, ry + (BTN_H - 18) / 2);
+            lv_obj_set_size(cap_l, CAP_W, 20);
+            lv_obj_set_style_text_font(cap_l, &lv_font_montserrat_16, 0);
+            lv_obj_set_style_text_color(cap_l, cap_col, 0);
+            lv_label_set_text(cap_l, cap);
+            lv_obj_clear_flag(cap_l, LV_OBJ_FLAG_CLICKABLE);
+
+            // [−] button
+            lv_obj_t* bm = lv_btn_create(s_ff_adj_panel);
+            lv_obj_set_pos(bm, CAP_W + 8, ry);
+            lv_obj_set_size(bm, BTN_W, BTN_H);
+            lv_obj_set_style_bg_color(bm, lv_color_make(0x20, 0x20, 0x50), 0);
+            lv_obj_set_style_border_color(bm, lv_color_make(0x50, 0x70, 0xB0), 0);
+            lv_obj_set_style_border_width(bm, 1, 0);
+            lv_obj_set_style_radius(bm, 6, 0);
+            lv_obj_t* bml = lv_label_create(bm); lv_obj_center(bml);
+            lv_obj_set_style_text_font(bml, &lv_font_montserrat_20, 0);
+            lv_obj_set_style_text_color(bml, lv_color_make(0xFF,0xFF,0xFF), 0);
+            lv_label_set_text(bml, "-");
+            lv_obj_add_event_cb(bm, minus_cb, LV_EVENT_CLICKED, nullptr);
+
+            // Value label
+            lv_obj_t* val = lv_label_create(s_ff_adj_panel);
+            lv_obj_set_pos(val, CAP_W + BTN_W + 12, ry + (BTN_H - 20) / 2);
+            lv_obj_set_size(val, VAL_W, 24);
+            lv_obj_set_style_text_font(val, &lv_font_montserrat_20, 0);
+            lv_obj_set_style_text_color(val, lv_color_make(0xFF,0xFF,0xFF), 0);
+            lv_obj_set_style_text_align(val, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_clear_flag(val, LV_OBJ_FLAG_CLICKABLE);
+
+            // [+] button
+            lv_obj_t* bp = lv_btn_create(s_ff_adj_panel);
+            lv_obj_set_pos(bp, CAP_W + BTN_W + VAL_W + 16, ry);
+            lv_obj_set_size(bp, BTN_W, BTN_H);
+            lv_obj_set_style_bg_color(bp, lv_color_make(0x20, 0x20, 0x50), 0);
+            lv_obj_set_style_border_color(bp, lv_color_make(0x50, 0x70, 0xB0), 0);
+            lv_obj_set_style_border_width(bp, 1, 0);
+            lv_obj_set_style_radius(bp, 6, 0);
+            lv_obj_t* bpl = lv_label_create(bp); lv_obj_center(bpl);
+            lv_obj_set_style_text_font(bpl, &lv_font_montserrat_20, 0);
+            lv_obj_set_style_text_color(bpl, lv_color_make(0xFF,0xFF,0xFF), 0);
+            lv_label_set_text(bpl, "+");
+            lv_obj_add_event_cb(bp, plus_cb, LV_EVENT_CLICKED, nullptr);
+
+            return val;
         };
 
-        mk_abtn(8,   32, "−", on_alarm_depth_minus);
-        mk_abtn(44,  90, "ALM: 10 ft", nullptr);   // placeholder; replaced below
-        mk_abtn(138, 32, "+", on_alarm_depth_plus);
+        s_ff_warn_lbl  = mk_row(8,  "WARN",
+                                lv_color_make(0xFF, 0xD0, 0x00),
+                                on_warn_minus, on_warn_plus);
+        s_ff_alert_lbl = mk_row(58, "ALRT",
+                                lv_color_make(0xFF, 0x60, 0x20),
+                                on_alert_minus, on_alert_plus);
 
-        // Retrieve the label widget from the centre button for live updates
-        lv_obj_t* centre_btn = lv_obj_get_child(s_ff_cont, lv_obj_get_child_cnt(s_ff_cont) - 2);
-        s_ff_alarm_lbl = lv_obj_get_child(centre_btn, 0);
+        // Auto-hide timer — started when panel opens, resets on each button press
+        s_ff_adj_timer = lv_timer_create([](lv_timer_t* t) {
+            if (s_ff_adj_panel) lv_obj_add_flag(s_ff_adj_panel, LV_OBJ_FLAG_HIDDEN);
+            lv_timer_pause(t);
+        }, 4000, nullptr);
+        lv_timer_pause(s_ff_adj_timer);  // start paused; activated on panel open
 
-        update_ff_alarm_label();
+        update_ff_alarm_ui();
     }
 
     // ── Anchor watch container ─────────────────────────────────────────────────
@@ -1139,6 +1351,7 @@ void nav_detail_refresh(bool update_chart) {
     slbl(s_sog,   st, gNav.sog_kts,             "%.1f", COL_VALUE);
     slbl(s_hdg,   st, gNav.hdg_deg,             "%.0f", COL_VALUE);
     slbl(s_cog,   st, gNav.cog_deg,             "%.0f", COL_VALUE);
+    update_tide_label();
 
     s_ff_cur_ft = (st || isnan(gNav.depth_m)) ? 0.0f : gNav.depth_m * 3.28084f;
 

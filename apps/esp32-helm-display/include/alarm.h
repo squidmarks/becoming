@@ -1,19 +1,27 @@
 #pragma once
 
 // ── Alarm system ──────────────────────────────────────────────────────────────
-// Two alarm sources with distinct beep patterns:
-//   ALARM_ANCHOR  — anchor dragging (double-beep every 2.5 s)
-//   ALARM_DEPTH   — shallow water (triple rapid-beep every 4 s)
+// Two alarm sources:
+//   ALARM_ANCHOR — anchor dragging (double-beep every 2.5 s)
+//   ALARM_DEPTH  — shallow water, progressive: period shortens as depth
+//                  decreases from warn threshold toward alert threshold.
+//                  At warn depth: ~2 s between beeps.
+//                  At alert depth: ~200 ms (near-continuous).
 //
-// Call alarm_raise() / alarm_clear() from UI refresh code whenever the
-// condition becomes true/false.  Call alarm_tick() from the 200 ms UI timer.
-// The actual beep is produced by beep() in main.cpp (active buzzer via the
-// IO expander — the same buzzer used for startup diagnostics).
+// Call alarm_raise() / alarm_clear() from the main timer.
+// Call alarm_tick() every 200 ms from the UI timer.
 
 enum AlarmType { ALARM_NONE = 0, ALARM_DEPTH = 1, ALARM_ANCHOR = 2 };
 
-// Depth alarm threshold in feet.  0 = disabled.  Adjustable from the UI.
-extern float g_depth_alarm_ft;
+// Depth alarm thresholds in feet.  warn > alert.  0 = disabled.
+// warn  — outer zone: alarm starts, slow beeping.
+// alert — inner zone: maximum urgency, near-continuous beeping.
+extern float g_depth_warn_ft;
+extern float g_depth_alert_ft;
+
+// Beep period for depth alarm in 200 ms ticks (1 = 200 ms, 10 = 2 s).
+// Set by main.cpp each tick based on current depth vs. thresholds.
+extern int g_depth_alarm_period;
 
 void alarm_raise(AlarmType type);
 void alarm_clear(AlarmType type);

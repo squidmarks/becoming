@@ -16,6 +16,9 @@ static bool s_needs_save      = false;   // set when anchor changes locally
 // main.cpp clears it after triggering a UI refresh.
 bool g_anchor_net_updated = false;
 
+// Global tide data — populated from environment.tide.* WebSocket updates.
+TideData gTides;
+
 // Stringify helper for SIGNALK_PORT (integer macro)
 #define STRINGIFY(x) #x
 #define TOSTRING(x)  STRINGIFY(x)
@@ -218,6 +221,32 @@ static void handle_value(const char* path, JsonVariant val) {
             gAnchor.alarm  = false;
         }
         g_anchor_net_updated = true;
+
+    // ── Tide data — published by signalk-becoming-tides plugin ───────────────
+    } else if (strcmp(path, "environment.tide.heightNow") == 0) {
+        gTides.height_m = val.as<float>();
+
+    } else if (strcmp(path, "environment.tide.state") == 0) {
+        const char* s = val.as<const char*>();
+        if (s) gTides.rising = (strcmp(s, "rising") == 0);
+
+    } else if (strcmp(path, "environment.tide.nextHighTime") == 0) {
+        const char* s = val.as<const char*>();
+        if (s) { strncpy(gTides.next_high_time, s, sizeof(gTides.next_high_time) - 1); }
+
+    } else if (strcmp(path, "environment.tide.nextHighHeight") == 0) {
+        gTides.next_high_m = val.as<float>();
+
+    } else if (strcmp(path, "environment.tide.nextLowTime") == 0) {
+        const char* s = val.as<const char*>();
+        if (s) { strncpy(gTides.next_low_time, s, sizeof(gTides.next_low_time) - 1); }
+
+    } else if (strcmp(path, "environment.tide.nextLowHeight") == 0) {
+        gTides.next_low_m = val.as<float>();
+
+    } else if (strcmp(path, "environment.tide.station") == 0) {
+        const char* s = val.as<const char*>();
+        if (s) { strncpy(gTides.station, s, sizeof(gTides.station) - 1); }
 
     // ── GPS position (object value: {latitude, longitude}) ────────────────────
     } else if (strcmp(path, "navigation.position") == 0 && val.is<JsonObject>()) {

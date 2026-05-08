@@ -114,9 +114,27 @@ struct AnchorState {
     PosRingBuf track;                   // drift position history
 };
 
+// ── Tide data (from NOAA via signalk-becoming-tides plugin) ──────────────────
+// Heights stored in meters (SI); convert to feet at display time.
+struct TideData {
+    float height_m       = NAN;
+    bool  rising         = true;
+    float next_high_m    = NAN;
+    float next_low_m     = NAN;
+    char  next_high_time[8] = {};  // "H:MMa" or "H:MMp" local time
+    char  next_low_time[8]  = {};
+    char  station[40]       = {};
+
+    bool  valid() const { return !isnan(height_m); }
+    float height_ft()    const { return height_m    * 3.28084f; }
+    float next_high_ft() const { return next_high_m * 3.28084f; }
+    float next_low_ft()  const { return next_low_m  * 3.28084f; }
+};
+
 // ── Global vessel state ───────────────────────────────────────────────────────
 extern NavData     gNav;
 extern EngineData  gEng;
 extern ElecData    gElec;
 extern HistoryBufs gHistory;
 extern AnchorState gAnchor;
+extern TideData    gTides;

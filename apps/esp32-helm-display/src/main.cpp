@@ -173,16 +173,18 @@ static void io_expander_init() {
 // ── Alarm state machine ───────────────────────────────────────────────────────
 // alarm_tick() is called every 200 ms from the UI timer.
 // Patterns (each tick = 200 ms):
-//   ALARM_ANCHOR : ♪♪ ···· (2 beeps, ~2 s silence) — moderate urgency
-//   ALARM_DEPTH  : ♪♪♪ ···· (3 rapid beeps, ~3 s silence) — higher urgency
+//   ALARM_ANCHOR : double-beep every 2.5 s
+//   ALARM_DEPTH  : single beep, period set by g_depth_alarm_period (1–10 ticks)
+//                  1 tick = 200 ms (urgent), 10 ticks = 2 s (relaxed warning)
 
-float g_depth_alarm_ft = 10.0f;   // 0 = disabled
+float g_depth_warn_ft    = 10.0f;   // outer warning zone — alarm starts here
+float g_depth_alert_ft   =  5.0f;   // inner alert zone — maximum urgency
+int   g_depth_alarm_period = 10;    // updated every tick by depth evaluation below
 
 static AlarmType s_alarm      = ALARM_NONE;
 static int       s_alarm_tick = 0;
 
 void alarm_raise(AlarmType type) {
-    // Higher-priority alarm wins; resetting tick lets the new pattern start
     if ((int)type > (int)s_alarm) { s_alarm = type; s_alarm_tick = 0; }
 }
 void alarm_clear(AlarmType type) {
@@ -195,16 +197,15 @@ void alarm_tick() {
 
     if (s_alarm == ALARM_ANCHOR) {
         // Double-beep every 2.5 s (12 ticks × 200 ms)
-        // tick 1: first beep, tick 2: second beep, ticks 3-12: silence
         if (s_alarm_tick == 1) beep(120);
         else if (s_alarm_tick == 2) beep(120);
         if (s_alarm_tick >= 12) s_alarm_tick = 0;
 
     } else if (s_alarm == ALARM_DEPTH) {
-        // Triple rapid-beep every 4 s (20 ticks × 200 ms)
-        // tick 1,2,3: short beeps; ticks 4-20: silence
-        if (s_alarm_tick <= 3) beep(80);
-        if (s_alarm_tick >= 20) s_alarm_tick = 0;
+        // Progressive: single beep, interval = g_depth_alarm_period × 200 ms.
+        // period=1 → beep every 200 ms (urgent); period=10 → beep every 2 s.
+        if (s_alarm_tick == 1) beep(80);
+        if (s_alarm_tick >= g_depth_alarm_period) s_alarm_tick = 0;
     }
 }
 
@@ -316,13 +317,22 @@ static void ui_refresh_cb(lv_timer_t *) {
     else
         alarm_clear(ALARM_ANCHOR);
 
-    // Shallow-water depth alarm
-    if (g_depth_alarm_ft > 0.0f && !gNav.stale() && !isnan(gNav.depth_m)) {
+    // Shallow-water depth alarm — progressive frequency between warn and alert zones
+    if (g_depth_warn_ft > 0.0f && !gNav.stale() && !isnan(gNav.depth_m)) {
         float depth_ft = gNav.depth_m * 3.28084f;
-        if (depth_ft < g_depth_alarm_ft)
+        if (depth_ft < g_depth_warn_ft) {
+            // Compute period: slow at warn threshold, fast at/below alert threshold
+            if (depth_ft <= g_depth_alert_ft) {
+                g_depth_alarm_period = 1;   // near-continuous
+            } else {
+                float range = g_depth_warn_ft - g_depth_alert_ft;
+                float ratio = (range > 0.1f) ? (depth_ft - g_depth_alert_ft) / range : 0.0f;
+                g_depth_alarm_period = (int)(1.0f + ratio * 9.0f + 0.5f);  // 1–10
+            }
             alarm_raise(ALARM_DEPTH);
-        else
+        } else {
             alarm_clear(ALARM_DEPTH);
+        }
     } else {
         alarm_clear(ALARM_DEPTH);
     }
