@@ -230,37 +230,21 @@ static void fishfinder_draw_cb(lv_event_t* e) {
 // A white dot marks the current height. Arc is blue when rising, amber when
 // falling. Current height in feet is shown in the centre; next event below.
 // ══════════════════════════════════════════════════════════════════════════════
-// Tide badge inspired by Argo nav: a rounded rect, blue when rising / red when
-// dropping.  Two filled triangles show direction; current height is centred in
-// large text; the next tidal event fills the bottom row.
+// Tide badge: one large coloured arrow to the left, height value to the right.
+// Blue = rising, red = falling.  No background — arrows carry the message.
 static void tide_gauge_draw_cb(lv_event_t* e) {
     lv_obj_t*      obj      = lv_event_get_target(e);
     lv_draw_ctx_t* draw_ctx = lv_event_get_draw_ctx(e);
     lv_area_t a;
     lv_obj_get_coords(obj, &a);
-    lv_coord_t w  = lv_area_get_width(&a);
-    lv_coord_t h  = lv_area_get_height(&a);
-    lv_coord_t cx = a.x1 + w / 2;
+    lv_coord_t w = lv_area_get_width(&a);
+    lv_coord_t h = lv_area_get_height(&a);
 
     bool valid  = gTides.valid();
     bool rising = valid && gTides.rising;
 
-    // Accent colour: blue (rising) or red (falling / unknown)
     lv_color_t accent = rising ? lv_color_make(0x20, 0x80, 0xFF)
                                : lv_color_make(0xE8, 0x20, 0x20);
-
-    // ── Rounded badge background ──────────────────────────────────────────────
-    lv_draw_rect_dsc_t bg;
-    lv_draw_rect_dsc_init(&bg);
-    bg.bg_color     = lv_color_make(0x08, 0x08, 0x18);
-    bg.bg_opa       = LV_OPA_90;
-    bg.border_color = accent;
-    bg.border_width = 2;
-    bg.border_opa   = LV_OPA_COVER;
-    bg.radius       = 8;
-    lv_area_t ba = { (lv_coord_t)(a.x1 + 4), (lv_coord_t)(a.y1 + 2),
-                     (lv_coord_t)(a.x2 - 4), (lv_coord_t)(a.y2 - 2) };
-    lv_draw_rect(draw_ctx, &bg, &ba);
 
     // ── No data ───────────────────────────────────────────────────────────────
     if (!valid) {
@@ -275,7 +259,32 @@ static void tide_gauge_draw_cb(lv_event_t* e) {
         return;
     }
 
-    // ── Current height — large centred text ───────────────────────────────────
+    // ── One large arrow on the left ───────────────────────────────────────────
+    // Vertically centred in the upper ~60px of the area (above the next-event row)
+    lv_coord_t arr_cx = a.x1 + 32;
+    lv_coord_t arr_cy = a.y1 + 32;
+    lv_coord_t arr_hw = 20;   // half-width of triangle base
+    lv_coord_t arr_h  = 30;   // height of triangle
+
+    lv_draw_rect_dsc_t adsc;
+    lv_draw_rect_dsc_init(&adsc);
+    adsc.bg_color     = accent;
+    adsc.bg_opa       = LV_OPA_COVER;
+    adsc.border_width = 0;
+
+    lv_point_t pts[3];
+    if (rising) {
+        pts[0] = { arr_cx,                         (lv_coord_t)(arr_cy - arr_h / 2) };
+        pts[1] = { (lv_coord_t)(arr_cx - arr_hw),  (lv_coord_t)(arr_cy + arr_h / 2) };
+        pts[2] = { (lv_coord_t)(arr_cx + arr_hw),  (lv_coord_t)(arr_cy + arr_h / 2) };
+    } else {
+        pts[0] = { arr_cx,                         (lv_coord_t)(arr_cy + arr_h / 2) };
+        pts[1] = { (lv_coord_t)(arr_cx - arr_hw),  (lv_coord_t)(arr_cy - arr_h / 2) };
+        pts[2] = { (lv_coord_t)(arr_cx + arr_hw),  (lv_coord_t)(arr_cy - arr_h / 2) };
+    }
+    lv_draw_polygon(draw_ctx, &adsc, pts, 3);
+
+    // ── Height value to the right of the arrow ────────────────────────────────
     char hbuf[12];
     snprintf(hbuf, sizeof(hbuf), "%.1f ft", gTides.height_ft());
     lv_draw_label_dsc_t hl;
@@ -283,39 +292,9 @@ static void tide_gauge_draw_cb(lv_event_t* e) {
     hl.font  = &lv_font_montserrat_28;
     hl.color = lv_color_make(0xFF, 0xFF, 0xFF);
     hl.align = LV_TEXT_ALIGN_CENTER;
-    lv_area_t hla = { a.x1, (lv_coord_t)(a.y1 + 6),
-                      a.x2, (lv_coord_t)(a.y1 + 38) };
+    lv_area_t hla = { (lv_coord_t)(a.x1 + 64), (lv_coord_t)(a.y1 + 8),
+                      a.x2,                      (lv_coord_t)(a.y1 + 54) };
     lv_draw_label(draw_ctx, &hl, &hla, hbuf, nullptr);
-
-    // ── Two filled triangles (direction arrows) ───────────────────────────────
-    // Draw at vertical centre between height text and next-event label.
-    lv_coord_t arr_top = a.y1 + 40;   // top of arrow row
-    lv_coord_t arr_h   = 14;           // triangle height
-    lv_coord_t arr_hw  = 9;            // half-width
-
-    lv_draw_rect_dsc_t adsc;
-    lv_draw_rect_dsc_init(&adsc);
-    adsc.bg_color  = accent;
-    adsc.bg_opa    = LV_OPA_COVER;
-    adsc.border_width = 0;
-
-    // Two arrows side by side, centred
-    for (int side = -1; side <= 1; side += 2) {
-        lv_coord_t ax = cx + side * 14;
-        lv_point_t pts[3];
-        if (rising) {
-            // Upward triangle: tip at top
-            pts[0] = { ax,                       arr_top           };
-            pts[1] = { (lv_coord_t)(ax - arr_hw),(lv_coord_t)(arr_top + arr_h) };
-            pts[2] = { (lv_coord_t)(ax + arr_hw),(lv_coord_t)(arr_top + arr_h) };
-        } else {
-            // Downward triangle: tip at bottom
-            pts[0] = { ax,                       (lv_coord_t)(arr_top + arr_h) };
-            pts[1] = { (lv_coord_t)(ax - arr_hw), arr_top           };
-            pts[2] = { (lv_coord_t)(ax + arr_hw), arr_top           };
-        }
-        lv_draw_polygon(draw_ctx, &adsc, pts, 3);
-    }
 
     // ── Next tidal event ──────────────────────────────────────────────────────
     char nbuf[20];
