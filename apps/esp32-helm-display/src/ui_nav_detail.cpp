@@ -230,6 +230,9 @@ static void fishfinder_draw_cb(lv_event_t* e) {
 // A white dot marks the current height. Arc is blue when rising, amber when
 // falling. Current height in feet is shown in the centre; next event below.
 // ══════════════════════════════════════════════════════════════════════════════
+// Tide badge inspired by Argo nav: a rounded rect, blue when rising / red when
+// dropping.  Two filled triangles show direction; current height is centred in
+// large text; the next tidal event fills the bottom row.
 static void tide_gauge_draw_cb(lv_event_t* e) {
     lv_obj_t*      obj      = lv_event_get_target(e);
     lv_draw_ctx_t* draw_ctx = lv_event_get_draw_ctx(e);
@@ -238,17 +241,33 @@ static void tide_gauge_draw_cb(lv_event_t* e) {
     lv_coord_t w  = lv_area_get_width(&a);
     lv_coord_t h  = lv_area_get_height(&a);
     lv_coord_t cx = a.x1 + w / 2;
-    // Centre of arc at bottom of area with a small margin
-    lv_coord_t cy = a.y2 - 6;
-    lv_coord_t R  = (lv_coord_t)(h * 0.85f);
-    if (R > w / 2 - 10) R = w / 2 - 10;
+
+    bool valid  = gTides.valid();
+    bool rising = valid && gTides.rising;
+
+    // Accent colour: blue (rising) or red (falling / unknown)
+    lv_color_t accent = rising ? lv_color_make(0x20, 0x80, 0xFF)
+                               : lv_color_make(0xE8, 0x20, 0x20);
+
+    // ── Rounded badge background ──────────────────────────────────────────────
+    lv_draw_rect_dsc_t bg;
+    lv_draw_rect_dsc_init(&bg);
+    bg.bg_color     = lv_color_make(0x08, 0x08, 0x18);
+    bg.bg_opa       = LV_OPA_90;
+    bg.border_color = accent;
+    bg.border_width = 2;
+    bg.border_opa   = LV_OPA_COVER;
+    bg.radius       = 8;
+    lv_area_t ba = { (lv_coord_t)(a.x1 + 4), (lv_coord_t)(a.y1 + 2),
+                     (lv_coord_t)(a.x2 - 4), (lv_coord_t)(a.y2 - 2) };
+    lv_draw_rect(draw_ctx, &bg, &ba);
 
     // ── No data ───────────────────────────────────────────────────────────────
-    if (!gTides.valid()) {
+    if (!valid) {
         lv_draw_label_dsc_t ld;
         lv_draw_label_dsc_init(&ld);
         ld.color = lv_color_make(0x50, 0x50, 0x60);
-        ld.font  = &lv_font_montserrat_16;
+        ld.font  = &lv_font_montserrat_14;
         ld.align = LV_TEXT_ALIGN_CENTER;
         lv_area_t la = { a.x1, (lv_coord_t)(a.y1 + h / 2 - 10),
                          a.x2, (lv_coord_t)(a.y1 + h / 2 + 10) };
@@ -256,115 +275,60 @@ static void tide_gauge_draw_cb(lv_event_t* e) {
         return;
     }
 
-    // ── Tide fraction: 0.0 = low, 1.0 = high ─────────────────────────────────
-    float lo    = fminf(gTides.next_low_m,  gTides.next_high_m);
-    float hi    = fmaxf(gTides.next_low_m,  gTides.next_high_m);
-    float range = hi - lo;
-    float frac  = (range > 0.05f) ? (gTides.height_m - lo) / range : 0.5f;
-    frac = fmaxf(0.0f, fminf(1.0f, frac));
-
-    // ── Background arc (full semicircle, dim) ─────────────────────────────────
-    const int STEPS = 48;
-    lv_draw_line_dsc_t ld;
-    lv_draw_line_dsc_init(&ld);
-    ld.opa   = LV_OPA_COVER;
-    ld.width = 6;
-    ld.color = lv_color_make(0x25, 0x25, 0x45);
-    for (int i = 0; i < STEPS; i++) {
-        float ang1 = (float)M_PI * (1.0f - (float)i       / STEPS);
-        float ang2 = (float)M_PI * (1.0f - (float)(i + 1) / STEPS);
-        lv_point_t p1 = { (lv_coord_t)(cx + R * cosf(ang1)),
-                          (lv_coord_t)(cy - R * sinf(ang1)) };
-        lv_point_t p2 = { (lv_coord_t)(cx + R * cosf(ang2)),
-                          (lv_coord_t)(cy - R * sinf(ang2)) };
-        lv_draw_line(draw_ctx, &ld, &p1, &p2);
-    }
-
-    // ── Coloured arc from LOW up to current height ────────────────────────────
-    ld.color = gTides.rising ? lv_color_make(0x20, 0xA0, 0xFF)
-                             : lv_color_make(0xFF, 0x90, 0x20);
-    int fill = (int)(frac * STEPS + 0.5f);
-    for (int i = 0; i < fill; i++) {
-        float ang1 = (float)M_PI * (1.0f - (float)i       / STEPS);
-        float ang2 = (float)M_PI * (1.0f - (float)(i + 1) / STEPS);
-        lv_point_t p1 = { (lv_coord_t)(cx + R * cosf(ang1)),
-                          (lv_coord_t)(cy - R * sinf(ang1)) };
-        lv_point_t p2 = { (lv_coord_t)(cx + R * cosf(ang2)),
-                          (lv_coord_t)(cy - R * sinf(ang2)) };
-        lv_draw_line(draw_ctx, &ld, &p1, &p2);
-    }
-
-    // ── White indicator dot at current position ───────────────────────────────
-    float ind_ang = (float)M_PI * (1.0f - frac);
-    lv_coord_t dx = (lv_coord_t)(cx + R * cosf(ind_ang));
-    lv_coord_t dy = (lv_coord_t)(cy - R * sinf(ind_ang));
-    lv_draw_rect_dsc_t rd;
-    lv_draw_rect_dsc_init(&rd);
-    rd.bg_color    = lv_color_make(0xFF, 0xFF, 0xFF);
-    rd.border_opa  = LV_OPA_TRANSP;
-    rd.radius      = LV_RADIUS_CIRCLE;
-    lv_area_t dot = { (lv_coord_t)(dx - 5), (lv_coord_t)(dy - 5),
-                      (lv_coord_t)(dx + 5), (lv_coord_t)(dy + 5) };
-    lv_draw_rect(draw_ctx, &rd, &dot);
-
-    // ── "LO" and "HI" end labels ─────────────────────────────────────────────
-    lv_draw_label_dsc_t sl;
-    lv_draw_label_dsc_init(&sl);
-    sl.font  = &lv_font_montserrat_12;
-    sl.color = lv_color_make(0x70, 0x70, 0x90);
-    sl.align = LV_TEXT_ALIGN_CENTER;
-    {
-        // LO: left end of arc — angle = M_PI → (cx-R, cy)
-        lv_coord_t lx = (lv_coord_t)(cx - R);
-        lv_area_t la = { (lv_coord_t)(lx - 16), (lv_coord_t)(cy - 16),
-                         (lv_coord_t)(lx + 16), cy };
-        lv_draw_label(draw_ctx, &sl, &la, "LO", nullptr);
-    }
-    {
-        // HI: right end of arc — angle = 0 → (cx+R, cy)
-        lv_coord_t hx = (lv_coord_t)(cx + R);
-        lv_area_t la = { (lv_coord_t)(hx - 16), (lv_coord_t)(cy - 16),
-                         (lv_coord_t)(hx + 16), cy };
-        lv_draw_label(draw_ctx, &sl, &la, "HI", nullptr);
-    }
-
-    // ── Current height in the centre of the arc ───────────────────────────────
-    char hbuf[10];
-    snprintf(hbuf, sizeof(hbuf), "%.1fft", gTides.height_ft());
+    // ── Current height — large centred text ───────────────────────────────────
+    char hbuf[12];
+    snprintf(hbuf, sizeof(hbuf), "%.1f ft", gTides.height_ft());
     lv_draw_label_dsc_t hl;
     lv_draw_label_dsc_init(&hl);
-    hl.font  = &lv_font_montserrat_18;
+    hl.font  = &lv_font_montserrat_28;
     hl.color = lv_color_make(0xFF, 0xFF, 0xFF);
     hl.align = LV_TEXT_ALIGN_CENTER;
-    lv_coord_t arc_mid_y = (lv_coord_t)(cy - R * 0.55f);  // visually centred inside arc
-    lv_area_t hla = { (lv_coord_t)(cx - 44), (lv_coord_t)(arc_mid_y - 12),
-                      (lv_coord_t)(cx + 44), (lv_coord_t)(arc_mid_y + 6) };
+    lv_area_t hla = { a.x1, (lv_coord_t)(a.y1 + 6),
+                      a.x2, (lv_coord_t)(a.y1 + 38) };
     lv_draw_label(draw_ctx, &hl, &hla, hbuf, nullptr);
 
-    // ── Rising / falling indicator (^ or v) below height ─────────────────────
-    lv_draw_label_dsc_t al;
-    lv_draw_label_dsc_init(&al);
-    al.font  = &lv_font_montserrat_12;
-    al.color = gTides.rising ? lv_color_make(0x40, 0xE0, 0x90)
-                             : lv_color_make(0xFF, 0xC0, 0x40);
-    al.align = LV_TEXT_ALIGN_CENTER;
-    lv_area_t ala = { (lv_coord_t)(cx - 40), (lv_coord_t)(arc_mid_y + 7),
-                      (lv_coord_t)(cx + 40), (lv_coord_t)(arc_mid_y + 20) };
-    lv_draw_label(draw_ctx, &al, &ala, gTides.rising ? "^ RISING" : "v FALLING", nullptr);
+    // ── Two filled triangles (direction arrows) ───────────────────────────────
+    // Draw at vertical centre between height text and next-event label.
+    lv_coord_t arr_top = a.y1 + 40;   // top of arrow row
+    lv_coord_t arr_h   = 14;           // triangle height
+    lv_coord_t arr_hw  = 9;            // half-width
 
-    // ── Next event: "HI 3.5ft 2:55a" or "LO 0.5ft 9:08p" ───────────────────
+    lv_draw_rect_dsc_t adsc;
+    lv_draw_rect_dsc_init(&adsc);
+    adsc.bg_color  = accent;
+    adsc.bg_opa    = LV_OPA_COVER;
+    adsc.border_width = 0;
+
+    // Two arrows side by side, centred
+    for (int side = -1; side <= 1; side += 2) {
+        lv_coord_t ax = cx + side * 14;
+        lv_point_t pts[3];
+        if (rising) {
+            // Upward triangle: tip at top
+            pts[0] = { ax,                       arr_top           };
+            pts[1] = { (lv_coord_t)(ax - arr_hw),(lv_coord_t)(arr_top + arr_h) };
+            pts[2] = { (lv_coord_t)(ax + arr_hw),(lv_coord_t)(arr_top + arr_h) };
+        } else {
+            // Downward triangle: tip at bottom
+            pts[0] = { ax,                       (lv_coord_t)(arr_top + arr_h) };
+            pts[1] = { (lv_coord_t)(ax - arr_hw), arr_top           };
+            pts[2] = { (lv_coord_t)(ax + arr_hw), arr_top           };
+        }
+        lv_draw_polygon(draw_ctx, &adsc, pts, 3);
+    }
+
+    // ── Next tidal event ──────────────────────────────────────────────────────
     char nbuf[20];
-    bool nxt_is_high = gTides.rising;
     snprintf(nbuf, sizeof(nbuf), "%s %.1fft %s",
-             nxt_is_high ? "HI" : "LO",
-             nxt_is_high ? gTides.next_high_ft() : gTides.next_low_ft(),
-             nxt_is_high ? gTides.next_high_time : gTides.next_low_time);
+             rising ? "HI" : "LO",
+             rising ? gTides.next_high_ft() : gTides.next_low_ft(),
+             rising ? gTides.next_high_time : gTides.next_low_time);
     lv_draw_label_dsc_t nl;
     lv_draw_label_dsc_init(&nl);
     nl.font  = &lv_font_montserrat_12;
-    nl.color = lv_color_make(0x80, 0xB0, 0xD0);
+    nl.color = lv_color_make(0xB0, 0xC8, 0xE0);
     nl.align = LV_TEXT_ALIGN_CENTER;
-    lv_area_t nla = { a.x1, (lv_coord_t)(a.y2 - 16), a.x2, a.y2 };
+    lv_area_t nla = { a.x1, (lv_coord_t)(a.y2 - 18), a.x2, a.y2 };
     lv_draw_label(draw_ctx, &nl, &nla, nbuf, nullptr);
 }
 
