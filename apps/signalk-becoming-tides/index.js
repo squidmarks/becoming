@@ -269,13 +269,17 @@ module.exports = function (app) {
     const intervalMs = ((options && options.pollIntervalMin) || 15) * 60 * 1000;
 
     if (app.setPluginStatus) app.setPluginStatus('Starting…');
-    else     if (app.setPluginStatus) app.setPluginStatus('Starting…');
-    else app.setProviderStatus('Starting…');
-    poll().catch(e => {
-      const setErr = app.setPluginError || app.setProviderError;
-      setErr(e.message);
-      app.debug(e.stack || e);
-    });
+    else     if (app.setPluginStatus) app.setPluginStatus('Starting — waiting for GPS…');
+    else app.setProviderStatus('Starting — waiting for GPS…');
+    // Delay initial poll by 30 s so NMEA2000 data has time to flow in after
+    // SignalK starts; subsequent polls use the regular interval.
+    setTimeout(() => {
+      poll().catch(e => {
+        const setErr = app.setPluginError || app.setProviderError;
+        setErr(e.message);
+        app.debug(e.stack || e);
+      });
+    }, 30000);
 
     pollTimer = setInterval(() => {
       poll().catch(e => {
