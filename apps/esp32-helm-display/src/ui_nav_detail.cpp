@@ -230,8 +230,9 @@ static void fishfinder_draw_cb(lv_event_t* e) {
 // A white dot marks the current height. Arc is blue when rising, amber when
 // falling. Current height in feet is shown in the centre; next event below.
 // ══════════════════════════════════════════════════════════════════════════════
-// Tide badge: one large coloured arrow to the left, height value to the right.
-// Blue = rising, red = falling.  No background — arrows carry the message.
+// Tide badge styled to match the depth display: label on top, then a large
+// coloured arrow beside the value, both centred in the right panel.
+// Blue = rising, red = falling.  Uses theme colours so it reads on the light bg.
 static void tide_gauge_draw_cb(lv_event_t* e) {
     lv_obj_t*      obj      = lv_event_get_target(e);
     lv_draw_ctx_t* draw_ctx = lv_event_get_draw_ctx(e);
@@ -243,29 +244,47 @@ static void tide_gauge_draw_cb(lv_event_t* e) {
     bool valid  = gTides.valid();
     bool rising = valid && gTides.rising;
 
-    lv_color_t accent = rising ? lv_color_make(0x20, 0x80, 0xFF)
-                               : lv_color_make(0xE8, 0x20, 0x20);
+    lv_color_t accent = rising ? lv_color_make(0x10, 0x70, 0xE0)   // blue
+                               : lv_color_make(0xCC, 0x18, 0x18);  // red
+
+    // ── "TIDE  |  ft" caption — same style as "DEPTH  |  ft" ─────────────────
+    {
+        lv_draw_label_dsc_t ld;
+        lv_draw_label_dsc_init(&ld);
+        ld.color = lv_color_hex(COL_LABEL);
+        ld.font  = &lv_font_montserrat_14;
+        ld.align = LV_TEXT_ALIGN_CENTER;
+        lv_area_t la = { a.x1, a.y1, a.x2, (lv_coord_t)(a.y1 + 20) };
+        lv_draw_label(draw_ctx, &ld, &la, "TIDE  |  ft", nullptr);
+    }
 
     // ── No data ───────────────────────────────────────────────────────────────
     if (!valid) {
         lv_draw_label_dsc_t ld;
         lv_draw_label_dsc_init(&ld);
-        ld.color = lv_color_make(0x50, 0x50, 0x60);
-        ld.font  = &lv_font_montserrat_14;
+        ld.color = lv_color_hex(COL_MUTED);
+        ld.font  = &lv_font_montserrat_28;
         ld.align = LV_TEXT_ALIGN_CENTER;
-        lv_area_t la = { a.x1, (lv_coord_t)(a.y1 + h / 2 - 10),
-                         a.x2, (lv_coord_t)(a.y1 + h / 2 + 10) };
-        lv_draw_label(draw_ctx, &ld, &la, "TIDE ---", nullptr);
+        lv_area_t la = { a.x1, (lv_coord_t)(a.y1 + 22), a.x2, (lv_coord_t)(a.y1 + 60) };
+        lv_draw_label(draw_ctx, &ld, &la, "---", nullptr);
         return;
     }
 
-    // ── One large arrow on the left ───────────────────────────────────────────
-    // Vertically centred in the upper ~60px of the area (above the next-event row)
-    lv_coord_t arr_cx = a.x1 + 32;
-    lv_coord_t arr_cy = a.y1 + 32;
-    lv_coord_t arr_hw = 20;   // half-width of triangle base
-    lv_coord_t arr_h  = 30;   // height of triangle
+    // ── Arrow + value block, centred together in the middle zone ──────────────
+    // Block composition: arrow (28px wide) + 8px gap + ~100px text = ~136px total.
+    // Centre the block horizontally within the panel.
+    const lv_coord_t ARROW_W  = 28;   // 2 × half-width
+    const lv_coord_t ARROW_H  = 24;   // triangle height
+    const lv_coord_t GAP      = 8;
+    const lv_coord_t TEXT_W   = 120;
+    const lv_coord_t BLOCK_W  = ARROW_W + GAP + TEXT_W;
+    const lv_coord_t MID_Y    = a.y1 + 22 + (h - 22 - 18) / 2;  // vert centre of middle zone
 
+    lv_coord_t block_x = a.x1 + (w - BLOCK_W) / 2;   // left edge of block
+    lv_coord_t arr_cx  = block_x + ARROW_W / 2;
+    lv_coord_t arr_cy  = MID_Y;
+
+    // Filled triangle
     lv_draw_rect_dsc_t adsc;
     lv_draw_rect_dsc_init(&adsc);
     adsc.bg_color     = accent;
@@ -273,30 +292,33 @@ static void tide_gauge_draw_cb(lv_event_t* e) {
     adsc.border_width = 0;
 
     lv_point_t pts[3];
+    lv_coord_t hw = ARROW_W / 2;
+    lv_coord_t hh = ARROW_H / 2;
     if (rising) {
-        pts[0] = { arr_cx,                         (lv_coord_t)(arr_cy - arr_h / 2) };
-        pts[1] = { (lv_coord_t)(arr_cx - arr_hw),  (lv_coord_t)(arr_cy + arr_h / 2) };
-        pts[2] = { (lv_coord_t)(arr_cx + arr_hw),  (lv_coord_t)(arr_cy + arr_h / 2) };
+        pts[0] = { arr_cx,               (lv_coord_t)(arr_cy - hh) };  // tip top
+        pts[1] = { (lv_coord_t)(arr_cx - hw), (lv_coord_t)(arr_cy + hh) };
+        pts[2] = { (lv_coord_t)(arr_cx + hw), (lv_coord_t)(arr_cy + hh) };
     } else {
-        pts[0] = { arr_cx,                         (lv_coord_t)(arr_cy + arr_h / 2) };
-        pts[1] = { (lv_coord_t)(arr_cx - arr_hw),  (lv_coord_t)(arr_cy - arr_h / 2) };
-        pts[2] = { (lv_coord_t)(arr_cx + arr_hw),  (lv_coord_t)(arr_cy - arr_h / 2) };
+        pts[0] = { arr_cx,               (lv_coord_t)(arr_cy + hh) };  // tip bottom
+        pts[1] = { (lv_coord_t)(arr_cx - hw), (lv_coord_t)(arr_cy - hh) };
+        pts[2] = { (lv_coord_t)(arr_cx + hw), (lv_coord_t)(arr_cy - hh) };
     }
     lv_draw_polygon(draw_ctx, &adsc, pts, 3);
 
-    // ── Height value to the right of the arrow ────────────────────────────────
+    // Height value — near-black (COL_VALUE), same font size as depth
     char hbuf[12];
-    snprintf(hbuf, sizeof(hbuf), "%.1f ft", gTides.height_ft());
+    snprintf(hbuf, sizeof(hbuf), "%.1f", gTides.height_ft());
     lv_draw_label_dsc_t hl;
     lv_draw_label_dsc_init(&hl);
-    hl.font  = &lv_font_montserrat_28;
-    hl.color = lv_color_make(0xFF, 0xFF, 0xFF);
-    hl.align = LV_TEXT_ALIGN_CENTER;
-    lv_area_t hla = { (lv_coord_t)(a.x1 + 64), (lv_coord_t)(a.y1 + 8),
-                      a.x2,                      (lv_coord_t)(a.y1 + 54) };
+    hl.font  = &lv_font_montserrat_44;
+    hl.color = lv_color_hex(COL_VALUE);
+    hl.align = LV_TEXT_ALIGN_LEFT;
+    lv_coord_t text_x = block_x + ARROW_W + GAP;
+    lv_area_t hla = { text_x, (lv_coord_t)(MID_Y - 28),
+                      (lv_coord_t)(text_x + TEXT_W), (lv_coord_t)(MID_Y + 28) };
     lv_draw_label(draw_ctx, &hl, &hla, hbuf, nullptr);
 
-    // ── Next tidal event ──────────────────────────────────────────────────────
+    // ── Next tidal event (bottom row) ─────────────────────────────────────────
     char nbuf[20];
     snprintf(nbuf, sizeof(nbuf), "%s %.1fft %s",
              rising ? "HI" : "LO",
@@ -305,9 +327,9 @@ static void tide_gauge_draw_cb(lv_event_t* e) {
     lv_draw_label_dsc_t nl;
     lv_draw_label_dsc_init(&nl);
     nl.font  = &lv_font_montserrat_12;
-    nl.color = lv_color_make(0xB0, 0xC8, 0xE0);
+    nl.color = lv_color_hex(COL_LABEL);
     nl.align = LV_TEXT_ALIGN_CENTER;
-    lv_area_t nla = { a.x1, (lv_coord_t)(a.y2 - 18), a.x2, a.y2 };
+    lv_area_t nla = { a.x1, (lv_coord_t)(a.y2 - 17), a.x2, a.y2 };
     lv_draw_label(draw_ctx, &nl, &nla, nbuf, nullptr);
 }
 
