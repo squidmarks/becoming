@@ -23,9 +23,11 @@ static lv_obj_t *s_aw_cont;   // anchor watch mode container
 // ── Fish-finder statics ───────────────────────────────────────────────────────
 static lv_obj_t *s_depth, *s_sog, *s_hdg, *s_cog;
 static lv_obj_t *s_fishfinder;
-static lv_obj_t  *s_ff_alarm_lbl   = nullptr;  // depth alarm status right of "DEPTH HISTORY"
-static lv_obj_t  *s_tide_gauge     = nullptr;  // arc gauge in right half of depth area
-static lv_obj_t  *s_ff_adj_panel   = nullptr;  // tap-to-show depth alarm overlay
+static lv_obj_t  *s_ff_alarm_lbl     = nullptr;  // depth alarm status right of "DEPTH HISTORY"
+static lv_obj_t  *s_tide_gauge       = nullptr;  // arc gauge in right half of depth area
+static lv_obj_t  *s_ff_depth_banner  = nullptr;  // full-width alarm banner over fishfinder
+static lv_obj_t  *s_ff_banner_lbl    = nullptr;  // label inside the alarm banner
+static lv_obj_t  *s_ff_adj_panel     = nullptr;  // tap-to-show depth alarm overlay
 static lv_obj_t  *s_ff_warn_lbl    = nullptr;  // "10 ft" inside panel
 static lv_obj_t  *s_ff_alert_lbl   = nullptr;  // "5 ft" inside panel
 static lv_timer_t*s_ff_adj_timer   = nullptr;
@@ -734,6 +736,43 @@ static void update_ff_alarm_ui() {
     if (s_fishfinder) lv_obj_invalidate(s_fishfinder);
 }
 
+// Depth alarm banner — shown across the top of the fishfinder when ALARM_DEPTH
+// is active.  Amber = warning zone, red = alert zone.  Tap to silence the beeper.
+// Automatically hidden when the alarm clears.
+static void on_silence_depth(lv_event_t*) {
+    g_depth_alarm_silenced = true;
+    // Banner stays visible as a reminder — update_ff_depth_banner() will restyle it
+}
+
+static void update_ff_depth_banner() {
+    if (!s_ff_depth_banner || !s_ff_banner_lbl) return;
+
+    bool alarm_on = (alarm_current() == ALARM_DEPTH);
+    if (!alarm_on) {
+        lv_obj_add_flag(s_ff_depth_banner, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+
+    lv_obj_clear_flag(s_ff_depth_banner, LV_OBJ_FLAG_HIDDEN);
+
+    // Determine severity: alert zone if depth < alert threshold
+    float depth_ft = isnan(gNav.depth_m) ? 999.0f : gNav.depth_m * 3.28084f;
+    bool  in_alert = (depth_ft <= g_depth_alert_ft);
+
+    if (g_depth_alarm_silenced) {
+        // Muted — grey banner, no action needed
+        lv_obj_set_style_bg_color(s_ff_depth_banner, lv_color_make(0x50, 0x50, 0x58), 0);
+        lv_label_set_text(s_ff_banner_lbl,
+                          in_alert ? "DEPTH ALERT (silenced)" : "DEPTH WARNING (silenced)");
+    } else if (in_alert) {
+        lv_obj_set_style_bg_color(s_ff_depth_banner, lv_color_hex(COL_ALARM), 0);
+        lv_label_set_text(s_ff_banner_lbl, "DEPTH ALERT  -  tap to silence");
+    } else {
+        lv_obj_set_style_bg_color(s_ff_depth_banner, lv_color_hex(COL_WARN), 0);
+        lv_label_set_text(s_ff_banner_lbl, "DEPTH WARNING  -  tap to silence");
+    }
+}
+
 static void ff_adj_timer_kick() {
     if (!s_ff_adj_timer) return;
     lv_timer_reset(s_ff_adj_timer);
@@ -1214,6 +1253,26 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
         }
     }, LV_EVENT_CLICKED, nullptr);
 
+    // Depth alarm banner — overlaid at the top of the fishfinder, hidden by default.
+    // Amber for warning zone, red for alert zone.  Tap silences the beeper.
+    s_ff_depth_banner = lv_btn_create(s_ff_cont);
+    lv_obj_set_pos(s_ff_depth_banner, 0, 240);
+    lv_obj_set_size(s_ff_depth_banner, SCR_W, 30);
+    lv_obj_set_style_radius(s_ff_depth_banner, 0, 0);
+    lv_obj_set_style_pad_all(s_ff_depth_banner, 4, 0);
+    lv_obj_set_style_bg_color(s_ff_depth_banner, lv_color_hex(COL_WARN), 0);
+    lv_obj_set_style_shadow_width(s_ff_depth_banner, 0, 0);
+    lv_obj_add_flag(s_ff_depth_banner, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_ff_depth_banner, on_silence_depth, LV_EVENT_CLICKED, nullptr);
+
+    s_ff_banner_lbl = lv_label_create(s_ff_depth_banner);
+    lv_obj_set_style_text_font(s_ff_banner_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_ff_banner_lbl, lv_color_make(0xFF, 0xFF, 0xFF), 0);
+    lv_obj_set_style_text_align(s_ff_banner_lbl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_width(s_ff_banner_lbl, SCR_W - 8);
+    lv_obj_align(s_ff_banner_lbl, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(s_ff_banner_lbl, "");
+
     // ── Depth alarm adjustment overlay panel ─────────────────────────────────
     // Appears on tap of the fishfinder; auto-hides after 4 s.
     // Layout: two rows — WARN and ALERT — each with [−] value [+]
@@ -1454,6 +1513,7 @@ void nav_detail_refresh(bool update_chart) {
     slbl(s_hdg,   st, gNav.hdg_deg,             "%.0f", COL_VALUE);
     slbl(s_cog,   st, gNav.cog_deg,             "%.0f", COL_VALUE);
     if (s_tide_gauge) lv_obj_invalidate(s_tide_gauge);
+    update_ff_depth_banner();
 
     s_ff_cur_ft = (st || isnan(gNav.depth_m)) ? 0.0f : gNav.depth_m * 3.28084f;
 

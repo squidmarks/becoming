@@ -177,9 +177,10 @@ static void io_expander_init() {
 //   ALARM_DEPTH  : single beep, period set by g_depth_alarm_period (1–10 ticks)
 //                  1 tick = 200 ms (urgent), 10 ticks = 2 s (relaxed warning)
 
-float g_depth_warn_ft    = 10.0f;   // outer warning zone — alarm starts here
-float g_depth_alert_ft   =  5.0f;   // inner alert zone — maximum urgency
-int   g_depth_alarm_period = 10;    // updated every tick by depth evaluation below
+float g_depth_warn_ft      = 10.0f;  // outer warning zone — alarm starts here
+float g_depth_alert_ft     =  5.0f;  // inner alert zone — maximum urgency
+int   g_depth_alarm_period = 10;     // updated every tick by depth evaluation below
+bool  g_depth_alarm_silenced = false; // mutes beeper; visual indicator stays
 
 static AlarmType s_alarm      = ALARM_NONE;
 static int       s_alarm_tick = 0;
@@ -190,6 +191,7 @@ void alarm_raise(AlarmType type) {
 void alarm_clear(AlarmType type) {
     if (s_alarm == type) { s_alarm = ALARM_NONE; s_alarm_tick = 0; }
 }
+AlarmType alarm_current() { return s_alarm; }
 
 void alarm_tick() {
     if (s_alarm == ALARM_NONE) { s_alarm_tick = 0; return; }
@@ -203,8 +205,10 @@ void alarm_tick() {
 
     } else if (s_alarm == ALARM_DEPTH) {
         // Progressive: single beep, interval = g_depth_alarm_period × 200 ms.
-        // period=1 → beep every 200 ms (urgent); period=10 → beep every 2 s.
-        if (s_alarm_tick == 1) beep(80);
+        // Silenced = visual indicator stays but no beep.
+        if (!g_depth_alarm_silenced) {
+            if (s_alarm_tick == 1) beep(80);
+        }
         if (s_alarm_tick >= g_depth_alarm_period) s_alarm_tick = 0;
     }
 }
@@ -331,7 +335,10 @@ static void ui_refresh_cb(lv_timer_t *) {
             }
             alarm_raise(ALARM_DEPTH);
         } else {
+            // Depth safe — clear alarm and reset silenced flag so next
+            // shallow-water event starts with the beeper active again.
             alarm_clear(ALARM_DEPTH);
+            g_depth_alarm_silenced = false;
         }
     } else {
         alarm_clear(ALARM_DEPTH);

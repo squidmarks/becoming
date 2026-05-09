@@ -23,6 +23,11 @@ extern float g_depth_alert_ft;
 // Set by main.cpp each tick based on current depth vs. thresholds.
 extern int g_depth_alarm_period;
 
+// When true the depth alarm beeper is muted but the visual indicator stays.
+// Automatically cleared when depth rises back above g_depth_warn_ft.
+extern bool g_depth_alarm_silenced;
+
 void alarm_raise(AlarmType type);
 void alarm_clear(AlarmType type);
-void alarm_tick();   // call once per 200 ms UI timer tick
+void alarm_tick();          // call once per 200 ms UI timer tick
+AlarmType alarm_current();  // returns the currently active alarm type
