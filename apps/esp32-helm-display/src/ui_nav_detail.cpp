@@ -21,7 +21,7 @@ static lv_obj_t *s_ff_cont;   // fish-finder mode container
 static lv_obj_t *s_aw_cont;   // anchor watch mode container
 
 // ── Fish-finder statics ───────────────────────────────────────────────────────
-static lv_obj_t *s_depth, *s_sog, *s_hdg, *s_cog;
+static lv_obj_t *s_depth, *s_sog, *s_hdg;
 static lv_obj_t *s_fishfinder;
 static lv_obj_t  *s_ff_alarm_lbl     = nullptr;  // depth alarm status right of "DEPTH HISTORY"
 static lv_obj_t  *s_tide_gauge       = nullptr;  // arc gauge in right half of depth area
@@ -1195,14 +1195,12 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
 
     hdiv(s_ff_cont, 132);
 
-    s_sog = val_block(s_ff_cont,   0, 138, 160, "SOG  (kt)",
+    s_sog = val_block(s_ff_cont,   0, 138, 240, "SOG  (kt)",
                       &lv_font_montserrat_34, COL_VALUE);
-    s_hdg = val_block(s_ff_cont, 160, 138, 160, "HDG  (\xc2\xb0M)",
-                      &lv_font_montserrat_34, COL_VALUE);
-    s_cog = val_block(s_ff_cont, 320, 138, 160, "COG  (\xc2\xb0T)",
+    s_hdg = val_block(s_ff_cont, 240, 138, 240, "HDG  (\xc2\xb0M)",
                       &lv_font_montserrat_34, COL_VALUE);
 
-    for (int vdx : {159, 319}) {
+    for (int vdx : {239}) {  // single divider between SOG and HDG
         lv_obj_t* vd = lv_obj_create(s_ff_cont);
         lv_obj_set_pos(vd, vdx, 138);  lv_obj_set_size(vd, 1, 72);
         lv_obj_set_style_bg_color(vd, lv_color_hex(COL_DIV), 0);
@@ -1511,7 +1509,6 @@ void nav_detail_refresh(bool update_chart) {
     slbl(s_depth, st, gNav.depth_m * 3.28084f, "%.1f", COL_VALUE);
     slbl(s_sog,   st, gNav.sog_kts,             "%.1f", COL_VALUE);
     slbl(s_hdg,   st, gNav.hdg_deg,             "%.0f", COL_VALUE);
-    slbl(s_cog,   st, gNav.cog_deg,             "%.0f", COL_VALUE);
     if (s_tide_gauge) lv_obj_invalidate(s_tide_gauge);
     update_ff_depth_banner();
 
