@@ -11,7 +11,8 @@
  * Paths published (values in SI units — meters):
  *   environment.tide.station        string  — name of the nearest NOAA station
  *   environment.tide.heightNow      number  — interpolated current height (m)
- *   environment.tide.state          string  — "rising" or "falling"
+ *   environment.tide.state          string  — "rising" or "falling" (backward-compat)
+ *   environment.tide.phase          string  — "flood" | "slack_high" | "ebb" | "slack_low"
  *   environment.tide.nextHighTime   string  — local time string "H:MMa/p"
  *   environment.tide.nextHighHeight number  — next high tide height (m)
  *   environment.tide.nextLowTime    string  — local time string "H:MMa/p"
@@ -79,6 +80,22 @@ function dateRange() {
   const fmt = d =>
     `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   return `begin_date=${fmt(today)}&end_date=${fmt(tomorrow)}`;
+}
+
+// Derive a four-phase tide description from height fraction within the cycle.
+//   slack thresholds: top/bottom 10% of range → slack high / slack low
+//   otherwise: flood (rising) or ebb (falling)
+function tidePhase(heightM, nextHighM, nextLowM, rising) {
+  if (heightM == null || nextHighM == null || nextLowM == null) {
+    return rising ? 'flood' : 'ebb';
+  }
+  const lo    = Math.min(nextLowM, nextHighM);
+  const hi    = Math.max(nextLowM, nextHighM);
+  const range = hi - lo;
+  const frac  = range > 0.05 ? (heightM - lo) / range : 0.5;
+  if (frac >= 0.90) return 'slack_high';
+  if (frac <= 0.10) return 'slack_low';
+  return rising ? 'flood' : 'ebb';
 }
 
 // ── Main plugin ───────────────────────────────────────────────────────────────
@@ -202,18 +219,23 @@ module.exports = function (app) {
   // ── Publish to SignalK ────────────────────────────────────────────────────
 
   function publish(tides, name) {
+    const phase = tidePhase(tides.heightM, tides.nextHighM, tides.nextLowM, tides.rising);
+
     const values = [];
-    if (name)                   values.push({ path: 'environment.tide.station',        value: name });
-    if (tides.heightM !== null) values.push({ path: 'environment.tide.heightNow',      value: tides.heightM });
-    values.push(                             { path: 'environment.tide.state',          value: tides.rising ? 'rising' : 'falling' });
-    if (tides.nextHighTimeStr)  values.push({ path: 'environment.tide.nextHighTime',   value: tides.nextHighTimeStr });
+    if (name)                     values.push({ path: 'environment.tide.station',        value: name });
+    if (tides.heightM !== null)   values.push({ path: 'environment.tide.heightNow',      value: tides.heightM });
+    // state: "rising"/"falling" — kept for backward compatibility with existing MFD firmware
+    values.push(                               { path: 'environment.tide.state',          value: tides.rising ? 'rising' : 'falling' });
+    // phase: four-value nautical description
+    values.push(                               { path: 'environment.tide.phase',          value: phase });
+    if (tides.nextHighTimeStr)    values.push({ path: 'environment.tide.nextHighTime',   value: tides.nextHighTimeStr });
     if (tides.nextHighM !== null) values.push({ path: 'environment.tide.nextHighHeight', value: tides.nextHighM });
-    if (tides.nextLowTimeStr)   values.push({ path: 'environment.tide.nextLowTime',    value: tides.nextLowTimeStr });
+    if (tides.nextLowTimeStr)     values.push({ path: 'environment.tide.nextLowTime',    value: tides.nextLowTimeStr });
     if (tides.nextLowM !== null)  values.push({ path: 'environment.tide.nextLowHeight',  value: tides.nextLowM });
 
     if (values.length > 0) {
       app.handleMessage(plugin.id, { updates: [{ values }] });
-      app.debug(`Tide published: ${tides.rising ? 'rising' : 'falling'} ` +
+      app.debug(`Tide published: ${phase} (${tides.rising ? 'rising' : 'falling'}) ` +
                 `${tides.heightM != null ? (tides.heightM * 3.28084).toFixed(1) + 'ft' : '?'} ` +
                 `| next HI ${tides.nextHighTimeStr || '?'} ` +
                 `| next LO ${tides.nextLowTimeStr || '?'}`);
