@@ -1060,7 +1060,7 @@ static void build_anchor_watch(lv_obj_t* par) {
 
     // "FISHFINDER" mode-switch button — right side of top bar.
     // Hidden while anchor is active (managed by aw_update_ui).
-    s_aw_ff_btn = aw_btn(top, 394, 4, 80, 44, "FF", switch_to_fishfinder);
+    s_aw_ff_btn = aw_btn(top, 394, 4, 80, 44, "DEPTH", switch_to_fishfinder);
 
     // ── Adjustment overlay (tap chart to show; auto-hides after 3 s) ─────────
     // Positioned low on the chart above the footer; clear of the anchor circles.
@@ -1196,9 +1196,9 @@ lv_obj_t* nav_detail_create(lv_event_cb_t back_cb) {
     hdiv(s_ff_cont, 132);
 
     s_sog = val_block(s_ff_cont,   0, 138, 240, "SOG  (kt)",
-                      &lv_font_montserrat_34, COL_VALUE);
+                      &lv_font_montserrat_44, COL_VALUE);
     s_hdg = val_block(s_ff_cont, 240, 138, 240, "HDG  (\xc2\xb0M)",
-                      &lv_font_montserrat_34, COL_VALUE);
+                      &lv_font_montserrat_44, COL_VALUE);
 
     for (int vdx : {239}) {  // single divider between SOG and HDG
         lv_obj_t* vd = lv_obj_create(s_ff_cont);
