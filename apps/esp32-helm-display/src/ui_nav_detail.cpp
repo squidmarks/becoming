@@ -84,7 +84,7 @@ static void fishfinder_draw_cb(lv_event_t* e) {
     lv_coord_t w = lv_area_get_width(&a);
     lv_coord_t h = lv_area_get_height(&a);
 
-    const lv_coord_t SKY_H   = 32;
+    const lv_coord_t SKY_H   = 36;   // slightly taller sky to keep mast tip in view
     const lv_coord_t wl_y    = a.y1 + SKY_H;
     const lv_coord_t depth_h = h - SKY_H;
 
@@ -151,7 +151,7 @@ static void fishfinder_draw_cb(lv_event_t* e) {
 
     {
         lv_coord_t bx = boat_x;
-        lv_coord_t by = wl_y;
+        lv_coord_t by = wl_y - 8;  // raise so waterline bisects the hull
 
         lv_draw_rect_dsc_t br;
         lv_draw_rect_dsc_init(&br);
